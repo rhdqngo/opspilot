@@ -71,6 +71,7 @@ updated: 2026-08-10
 | M2 access gate | pass | Redacted permissions and exact candidate-name conflicts 0 |
 | Terraform static | pass | recursive fmt, validate, three mock-provider runs, TFLint 0.64.0 |
 | Dev gate disabled | pass | Remote state read; zero resource/output changes; temp plan removed |
+| Hosted CI | pass | Commit `6213d83`; Python validate, container E2E, bootstrap/dev Terraform jobs |
 | Cloud mutation | pass | API/IAM/Artifact Registry/Cloud Run changes 0 |
 | UI render / input | not-applicable | No end-user UI |
 
