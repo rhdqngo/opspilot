@@ -1,6 +1,6 @@
 # M1 Bootstrap Operations
 
-Status: bootstrap and dev foundation applied and migrated; final hosted zero-drift check pending
+Status: M1 bootstrap and dev foundation complete
 
 ## Approval 1 execution record
 
@@ -22,8 +22,10 @@ Status: bootstrap and dev foundation applied and migrated; final hosted zero-dri
 - Kept the API default ownership scope because `OWNERSHIP_SCOPE_UNSPECIFIED` is equivalent to
   `ALL_USERS`; explicitly setting the equivalent enum caused perpetual provider drift for this
   project-level budget.
-- Set `TF_DEV_STATE_READY=true` and retained `TF_PLAN_ENABLED=true`. Final hosted zero-drift
-  validation follows the push containing the ownership normalization.
+- Set `TF_DEV_STATE_READY=true` and retained `TF_PLAN_ENABLED=true`.
+- Verified final hosted run `31389847460` from the normalized `main`: remote-state WIF succeeded,
+  the redacted artifact reported no changes, identifier leakage was zero, and no binary plan was
+  uploaded.
 
 ## Safety invariants
 

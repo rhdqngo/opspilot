@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M1-dev-applied / hosted-validation-pending
+phase: M1-complete / M2-ready-for-planning
 updated: 2026-08-10
 
 ## Objective
@@ -30,7 +30,7 @@ updated: 2026-08-10
 | M0 Access and decisions | complete | Redacted access gate passed for the `Edu_687` alias and current default project |
 | Private GitHub baseline | complete | Private `opspilot` repository on `main`; no history rewrite |
 | M1 Bootstrap infrastructure | complete | 14 managed resources, protected remote state, zero drift, no service-account key |
-| M1 Dev foundation | verification-pending | Exact 14-create plan applied and migrated; final post-push hosted zero-drift run pending |
+| M1 Dev foundation | complete | Exact 14-create plan applied and migrated; operator and hosted plans have zero drift |
 | UI Foundation | not-applicable | R0/M1 are API, CLI, and infrastructure only |
 
 ## Completed major results
@@ -53,6 +53,8 @@ updated: 2026-08-10
   equivalent to `ALL_USERS`, eliminating a perpetual one-field drift without another cloud write.
 - Migrated dev state to GCS, preserved lineage, obtained operator zero drift, and removed all local
   state, plan, and recovery files from the run directory.
+- Verified final hosted run `31389847460`: WIF remote-state read succeeded, the redacted artifact
+  reported no changes, actual identifier leakage was zero, and no binary plan was uploaded.
 
 ## Verification state
 
@@ -70,21 +72,21 @@ updated: 2026-08-10
 | Dev apply | pass | Exact 14-create plan; update/delete/replacement 0 |
 | Dev resources | pass | API 10/10; repository empty; investigator roles/keys 0; channel and budget contracts pass |
 | Dev remote state | pass | GCS `environments/dev`; 14 managed resources; lineage preserved; operator zero drift |
-| Hosted dev plan | pending | Remote-state WIF path passed; final zero-drift run waits for the normalized config push |
+| Hosted dev plan | pass | Run `31389847460`; remote state, no changes, redaction pass, binary plan absent |
 | GitHub plan gates | pass | `TF_PLAN_ENABLED=true`; `TF_DEV_STATE_READY=true`; workflow_dispatch only |
 | UI render / input | not-applicable | No R0/M1 end-user UI |
 
 ## Blockers and decisions needed
 
-- Approval 1 and the local Approval 2 apply/migration are complete.
-- Final M1 completion is blocked only on the post-push hosted zero-drift artifact and final CI.
+- Approval 1 and Approval 2 are complete; no M1 blocker remains.
+- M2 requires a new plan and explicit approval before adding a demo workload.
 - Do not store actual account, project, billing, state, app, repository numeric, or credential
   identifiers in the repository.
 
 ## Next checkpoint
 
-- Push the normalized configuration, verify the hosted zero-drift artifact and final CI, then mark
-  M1 complete and begin M2 demo-service planning.
+- Plan M2: a scale-to-zero synthetic demo service, image build path, runtime identity boundary,
+  observability defaults, and separate apply approval.
 
 ## Related artifacts
 
