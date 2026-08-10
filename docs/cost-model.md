@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M1 applied; M2 local workload validated and cloud deployment pending
+Status: M2 Cloud Run foundation applied; remote smoke validation blocked
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -10,7 +10,7 @@ contains account and project identifiers.
 | Current-spend thresholds | 50%, 80%, 100% |
 | Recipients | Project-level recipients plus default billing IAM recipients |
 | Budget deletion policy | Prevent |
-| Cloud Run minimum instances | 0 in the pending M2 configuration |
+| Cloud Run minimum instances | 0 per applied service |
 | Cloud Run maximum instances | 2 per service |
 | Synthetic load | Manual, 100 orders and concurrency 10 hard maximum |
 | Data | Synthetic ecommerce only |
@@ -20,28 +20,28 @@ The Google Cloud budget is an alert, not a hard spending cap. Later workloads mu
 scale-to-zero, bounded log and metric queries, short retention, manual demo windows, and explicit
 cleanup to keep the alert from becoming the only cost control.
 
-## Current M1 cost-bearing resources
+## Current cost-bearing resources
 
 - One regional Standard GCS bucket for Terraform state with versioning and 30-day noncurrent
   object cleanup.
-- One empty regional Standard Docker Artifact Registry repository.
+- One regional Standard Docker Artifact Registry repository containing the immutable M2 demo image.
 - One email notification channel and one project-scoped KRW 50,000 budget. Budget APIs and email
   notifications have no configured runtime workload in M1.
 - IAM, service-account, API, and WIF configuration do not directly incur resource runtime costs.
 
-The investigator identity has no roles or user-managed keys. Artifact Registry contains no M2
-image and Terraform contains no applied Cloud Run service, live telemetry workload, or remediation
-resource. The local Docker image does not create Google Cloud cost. A budget is
-an alert rather than a hard spending cap; email delivery remains unverified until a real threshold
-is reached.
+The investigator identity has no roles or user-managed keys. Three private Cloud Run services are
+applied with scale-to-zero and no scheduled traffic. A remote route blocker prevented the bounded
+smoke request from reaching a container, so request-log and request-metric cost remains zero in the
+verification window. A budget is an alert rather than a hard spending cap; email delivery remains
+unverified until a real threshold is reached.
 
-## Pending M2 controls
+## Applied M2 controls
 
 - Three private Cloud Run services share one digest and use request-based CPU, 1 vCPU, 256 MiB,
   min 0, max 2, concurrency 20, and a 10-second request timeout.
 - There is no scheduled load, Firestore, custom metric, alert policy, fault injector, or VPC.
-- Approval 2 must confirm the Artifact Registry digest and stop after bounded smoke/telemetry
-  verification; no background demo window remains active.
+- The three revisions use one immutable Artifact Registry digest. No background demo window is
+  active, and both hosted Terraform plan gates remain disabled until remote smoke succeeds.
 
 ## Cleanup order
 

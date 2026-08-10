@@ -1,8 +1,8 @@
 # Current Project State
 
 status: active
-phase: M2-code-complete / M2-ready-for-deploy-approval
-updated: 2026-08-10
+phase: M2-deployed / remote-smoke-blocked
+updated: 2026-08-11
 
 ## Objective
 
@@ -11,15 +11,14 @@ updated: 2026-08-10
 
 ## Active scope
 
-- R0 local investigation and M0 access verification are complete.
-- M1 bootstrap and dev foundation remain applied in protected GCS state with zero drift.
+- R0 local investigation, M0 access verification, and the M1 foundation are complete.
 - M2 Approval 1 implements order, payment, and inventory as three isolated roles in one non-root
   Linux/amd64 image with in-memory state, structured logs, propagated request/trace IDs, and a
   bounded local load generator.
-- Cloud Run IaC is prepared behind `deploy_demo=false`. With the gate disabled, the remote dev plan
-  has zero resource and output changes.
-- No M2 image, Cloud Run service, runtime identity, invoker grant, Firestore resource, fault
-  injector, custom metric, alert, workload, or remediation resource has been created.
+- M2 Approval 2 pushed one immutable image and applied the reviewed bootstrap update and exact
+  10-create dev plan. Remote state now contains 24 managed resources and is zero drift.
+- Three private Cloud Run services are Ready, but their default URLs and the authenticated Cloud
+  Run proxy return a pre-container 404. Remote E2E, request telemetry, and hosted plan remain gated.
 
 ## Milestones
 
@@ -32,7 +31,7 @@ updated: 2026-08-10
 | M1 Bootstrap infrastructure | complete | Protected remote state, numeric WIF, read-only plan identity |
 | M1 Dev foundation | complete | 14 managed resources; operator and hosted zero drift |
 | M2 Approval 1: local workload | complete | Three healthy containers; 10/10 normal orders; no cloud write |
-| M2 Approval 2: Cloud Run deploy | pending approval | Image push, two reviewed plans, apply, telemetry and hosted drift checks |
+| M2 Approval 2: Cloud Run deploy | blocked after apply | Infrastructure applied; inherited route restriction blocks remote smoke |
 | UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
 
 ## Completed major results
@@ -40,21 +39,16 @@ updated: 2026-08-10
 - Added typed synthetic order, payment authorization, and inventory reservation APIs with strict
   non-PII input contracts and safe partial downstream failures.
 - Propagated bounded `X-Request-ID` and Cloud Trace context across parallel order dependencies.
-- Added fixed-shape structured stdout logs without request bodies, authorization headers, tokens,
-  or user identifiers.
-- Built one digest-pinned-base Linux/amd64 image that runs as `65532:65532`; Compose applies a
-  read-only filesystem, no capabilities, and `no-new-privileges`.
-- Verified all three health/readiness endpoints and a bounded run of 10 attempted, 10 fulfilled,
-  and 10 correlated orders.
-- Added gated Cloud Run v2 IaC for two existing API state entries, three runtime identities, three
-  scale-to-zero services, and two order-to-leaf invoker grants.
-- Kept the M1 investigator identity separate and defined no service-account keys, `allUsers`, broad
-  project role, data store, scheduled load, fault injection, or remediation resource.
-- Extended the redacted access check: M2 permissions pass, candidate-name check pass, conflicts 0.
-- Added Cloud Run get/list/getIamPolicy to the CI custom-role definition only; the update is not
-  applied and requires an exact Approval 2 bootstrap plan.
-- Gated the manual hosted plan on `TF_M2_IMAGE_READY=true`; neither that variable nor the private
-  digest URI has been configured.
+- Built one Linux/amd64 image that runs as `65532:65532`; local Compose completed 10/10 orders.
+- Extended the redacted M2 access gate with Logging and Monitoring read permissions.
+- Applied the exact bootstrap custom-role update with three Cloud Run read permissions and no write
+  permission, then verified zero drift.
+- Pushed one commit-SHA image, applied the exact 10-create dev plan, and verified 24 managed
+  resources with no delete, replacement, public principal, runtime key, or project runtime role.
+- Verified three Ready, private, digest-pinned, scale-to-zero services with distinct identities and
+  order-only invoker access to payment and inventory.
+- Kept `TF_PLAN_ENABLED=false`; neither `TF_M2_IMAGE_READY` nor the private digest variable is
+  configured while remote invocation is blocked.
 
 ## Verification state
 
@@ -66,32 +60,31 @@ updated: 2026-08-10
 | Tests | pass | 43 pytest tests |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
-| Demo image | pass | Linux/amd64; non-root `65532:65532`; pinned Python and uv bases |
-| Demo E2E | pass | Three healthy roles; bounded load 10/10 with 10 request IDs |
-| M2 access gate | pass | Redacted permissions and exact candidate-name conflicts 0 |
+| Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
+| M2 access gate | pass | Redacted deploy and telemetry-read permissions; candidate conflicts 0 |
 | Terraform static | pass | recursive fmt, validate, three mock-provider runs, TFLint 0.64.0 |
-| Dev gate disabled | pass | Remote state read; zero resource/output changes; temp plan removed |
-| Hosted CI | pass | Commit `6213d83`; Python validate, container E2E, bootstrap/dev Terraform jobs |
-| Cloud mutation | pass | API/IAM/Artifact Registry/Cloud Run changes 0 |
+| Hosted static CI | pass | Python/container and bootstrap/dev Terraform jobs on the deployment baseline |
+| Bootstrap apply | pass | Exact `0 create / 1 update / 0 delete`; operator zero drift |
+| Dev apply | pass | Exact `10 create / 0 update / 0 delete`; 24 managed resources; operator zero drift |
+| Runtime security | pass | Three Ready private services; digest match; keys/project roles/public principals 0 |
+| Remote smoke | blocked | Google frontend 404 before container; request logs and metrics absent |
+| Hosted plan | gated | Plan gate false; image-ready and digest variables absent |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Blockers and decisions needed
 
-- M2 Approval 2 is required before any image push, GitHub image variable, CI role update, or Cloud
-  Run apply.
-- Approval 2 must review the bootstrap custom-role plan (`0 create / 1 update / 0 delete`) separately
-  from the dev workload plan (`10 create / 0 update / 0 delete / 0 replacement`).
-- Any collision on the three exact candidate names, destructive action, image tag without digest,
-  project/billing change, or permission loss is a hard stop.
-- An existing non-candidate Cloud Run service is outside Terraform scope and must remain untouched.
+- The organization-level access-policy perimeter cannot be read by the current operator. An
+  administrator must confirm inherited VPC Service Controls or Cloud Run route restrictions.
+- Do not add `allUsers`, broad runtime IAM, or unplanned operator bindings to bypass the blocker.
+- The existing non-candidate Cloud Run service remained outside Terraform scope.
 - Real account, project, billing, state, service URL, image URI, repository numeric, and credential
   identifiers must not enter tracked files or artifacts.
 
 ## Next checkpoint
 
-- Plan and explicitly approve M2 Approval 2: rebuild and local smoke from clean `main`, one operator
-  image push, digest capture, exact bootstrap/dev plans, separate applies, private remote E2E,
-  Logging/Monitoring verification, hosted zero drift, and cleanup confirmation.
+- Resolve the inherited Cloud Run route restriction, then run authenticated 10-order E2E,
+  request/trace and latency metrics checks, configure the private GitHub image variables, and run
+  hosted read-only zero drift before marking M2 complete.
 
 ## Related artifacts
 

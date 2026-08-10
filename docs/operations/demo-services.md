@@ -1,6 +1,6 @@
 # M2 Synthetic Demo Services
 
-Status: Approval 1 complete locally; image push and Cloud Run apply pending Approval 2
+Status: Approval 2 infrastructure applied; remote invocation validation blocked
 
 ## Local workflow
 
@@ -41,21 +41,40 @@ authorization headers, account identifiers, or tokens.
 - M2 read-only access and exact candidate-name gate: pass, conflicts 0
 - Artifact Registry push and Google Cloud writes: 0
 
-## Approval 2 hard gates
+## Approval 2 execution record
 
-1. Revalidate clean `main`, account/billing, exact candidate names, empty target image path, and M2
-   permissions without printing identifiers.
-2. Review bootstrap plan: exactly one in-place update adding only `run.services.get`,
-   `run.services.list`, and `run.services.getIamPolicy` to the CI custom role.
-3. Rebuild `linux/amd64` from clean `main`, locally repeat the smoke test, authenticate Docker, push
-   once to the existing repository, and resolve the registry digest without printing it.
-4. Set private repository variable `GCP_DEMO_IMAGE_URI` to the digest URI and
-   `TF_M2_IMAGE_READY=true`; never store either value in repository files or artifacts.
-5. Review dev plan: exactly 10 creates, zero update/delete/replacement—two existing APIs entering
-   state, three runtime identities, three Cloud Run services, and two order-to-leaf invoker grants.
-6. Apply the two reviewed plans separately. Do not import, update, or change IAM on any existing
-   non-candidate Cloud Run service.
-7. Verify private invocation, request/trace propagation, Logging filters, Monitoring latency and
-   status metrics, revision/image digest, service-account key absence, and hosted zero drift.
+- Access, billing, telemetry-read permission, candidate-name, clean `main`, and image-empty gates
+  passed without printing identifiers.
+- The clean Linux/amd64 image ran as `65532:65532`; local Compose completed 10/10 orders.
+- One commit-SHA image tag was pushed and resolved to an immutable registry digest.
+- Bootstrap applied `0 create / 1 update / 0 delete / 0 replacement`, adding only the three Cloud
+  Run read permissions to the CI custom role, then returned zero drift.
+- Dev applied `10 create / 0 update / 0 delete / 0 replacement`: two existing APIs entered state,
+  three runtime identities and three services were created, and two leaf invoker grants applied.
+- Remote dev state contains 24 managed resources and the operator plan reports zero drift.
+- All three services are Ready, private, digest-pinned, scale-to-zero, and use distinct identities.
+  User-managed keys, project roles for runtime identities, and public principals are all zero.
 
-Only after all seven gates pass may the project move to `M2-complete / M3-ready-for-planning`.
+## Active blocker
+
+- Both Cloud Run-provided URLs and the official authenticated Cloud Run proxy return Google
+  frontend `404` before the request reaches a container. No Cloud Run request or structured
+  application log is produced.
+- The v2 service reports `defaultUriDisabled=false`, `INGRESS_TRAFFIC_ALL`, IAM enforcement active,
+  and a Ready revision. Local health probes and Cloud Run startup/liveness probes pass.
+- The symptoms match an inherited network or VPC Service Controls route restriction. The operator
+  can detect the parent organization but cannot read its access-policy perimeter configuration.
+- `TF_PLAN_ENABLED=false` remains set. `TF_M2_IMAGE_READY` and `GCP_DEMO_IMAGE_URI` remain absent,
+  so hosted plan cannot run prematurely.
+
+## Resume procedure
+
+1. Have the organization administrator confirm whether the project or caller is inside a VPC
+   Service Controls perimeter or another inherited Cloud Run ingress restriction.
+2. Restore authenticated access without adding `allUsers` or broadening runtime IAM.
+3. Repeat unauthenticated-denial and authenticated 10-order smoke checks.
+4. Verify request/trace logs and request-count/latency metrics, then set the private image variable
+   and hosted plan gates.
+5. Run the manual read-only hosted zero-drift workflow and only then mark M2 complete.
+
+Do not destroy or blindly reapply the deployed resources while this blocker is investigated.
