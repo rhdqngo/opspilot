@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   dev-plan:
-    if: ${{ vars.TF_PLAN_ENABLED == 'true' }}
+    if: ${{ vars.TF_PLAN_ENABLED == 'true' && vars.TF_M2_IMAGE_READY == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -18,12 +18,15 @@ jobs:
       TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_billing_account_id: ${{ vars.GCP_BILLING_ACCOUNT_ID }}
       TF_VAR_budget_notification_email: ${{ secrets.GCP_BUDGET_NOTIFICATION_EMAIL }}
+      TF_VAR_deploy_demo: "true"
+      TF_VAR_demo_image_uri: ${{ vars.GCP_DEMO_IMAGE_URI }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       OPSPILOT_REDACT_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       OPSPILOT_REDACT_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
       OPSPILOT_REDACT_BILLING_ACCOUNT_ID: ${{ vars.GCP_BILLING_ACCOUNT_ID }}
       OPSPILOT_REDACT_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       OPSPILOT_REDACT_BUDGET_EMAIL: ${{ secrets.GCP_BUDGET_NOTIFICATION_EMAIL }}
+      OPSPILOT_REDACT_DEMO_IMAGE_URI: ${{ vars.GCP_DEMO_IMAGE_URI }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

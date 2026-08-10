@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from typing import Any
 
 from opspilot.access_check import (
+    M1_PROJECT_PERMISSIONS,
+    M2_PROJECT_PERMISSIONS,
     PROJECT_PERMISSIONS,
     AccessCheckResult,
     CommandResult,
@@ -52,6 +54,8 @@ class FakeRunner:
                 0,
                 f'{{"billingEnabled":{enabled},"billingAccountName":"secret-billing-id"}}',
             )
+        if command[:3] == ("run", "services", "list"):
+            return CommandResult(0, "[]")
         raise AssertionError(f"Unexpected command shape: {command!r}")
 
 
@@ -121,10 +125,53 @@ def test_access_check_reports_only_missing_permission_names() -> None:
     assert "secret-billing-id" not in summary
 
 
+def test_M2_access_check_reports_permissions_and_candidate_conflicts_without_identifiers() -> None:
+    class ConflictRunner(FakeRunner):
+        def __call__(self, arguments: Sequence[str]) -> CommandResult:
+            if tuple(arguments)[:3] == ("run", "services", "list"):
+                return CommandResult(0, '[{"metadata":{"name":"opspilot-dev-order"}}]')
+            return super().__call__(arguments)
+
+    def missing_upload_requester(
+        token: str,
+        url: str,
+        body: dict[str, Any] | None,
+        quota_project: str,
+    ) -> dict[str, Any]:
+        response = _requester(token, url, body, quota_project)
+        if "cloudresourcemanager" in url:
+            response["permissions"] = [
+                permission
+                for permission in PROJECT_PERMISSIONS
+                if permission != "artifactregistry.repositories.uploadArtifacts"
+            ]
+        return response
+
+    result = run_access_check(
+        project_confirmed=True,
+        billing_currency_krw_confirmed=True,
+        runner=ConflictRunner(),
+        requester=missing_upload_requester,
+    )
+
+    assert result.m1_permissions_ready is True
+    assert result.missing_project_permissions == []
+    assert result.missing_m2_permissions == ["artifactregistry.repositories.uploadArtifacts"]
+    assert result.m2_permissions_ready is False
+    assert result.m2_candidate_service_conflicts == 1
+    assert result.m2_candidate_names_available is False
+    assert result.m2_deploy_ready is False
+    summary = render_access_summary(result)
+    assert "opspilot-dev-order" not in summary
+    assert "secret-project-id" not in summary
+
+
 def test_access_check_requires_manual_project_and_krw_confirmation() -> None:
     result = run_access_check(runner=FakeRunner(), requester=_requester)
 
     assert result.m1_permissions_ready is True
+    assert result.m2_permissions_ready is True
+    assert result.m2_candidate_names_available is True
     assert result.gemini_enterprise_app_exists is True
     assert result.project_confirmed is False
     assert result.billing_currency_krw_confirmed is False
@@ -137,3 +184,9 @@ def test_access_summary_contains_only_redacted_contract_fields() -> None:
     assert "account_alias_match=fail" in summary
     assert "project_id" not in summary
     assert "billing_account" not in summary
+
+
+def test_M1_and_M2_permission_sets_stay_explicitly_separated() -> None:
+    assert set(M1_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
+    assert set(M2_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
+    assert "run.services.create" not in M1_PROJECT_PERMISSIONS

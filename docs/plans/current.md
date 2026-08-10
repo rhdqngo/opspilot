@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M1-complete / M2-ready-for-planning
+phase: M2-code-complete / M2-ready-for-deploy-approval
 updated: 2026-08-10
 
 ## Objective
@@ -11,92 +11,96 @@ updated: 2026-08-10
 
 ## Active scope
 
-- R0 local skeleton and M0 access verification are complete.
-- The M1 bootstrap is applied: protected GCS state, numeric-ID GitHub WIF, read-only CI plan
-  identity, custom read role, additive IAM bindings, and required bootstrap APIs.
-- Bootstrap state is migrated to the GCS `bootstrap` prefix and has no drift.
-- The exact reviewed dev plan was applied and its 14 managed resources were migrated to the GCS
-  `environments/dev` prefix with preserved lineage and operator zero drift.
-- The dev foundation contains ten managed APIs, an empty regional Docker repository, an
-  unprivileged investigator identity, an active email channel, and a protected KRW 50,000 budget.
-- No workload, investigator permission, service-account key, image, or remediation resource exists.
+- R0 local investigation and M0 access verification are complete.
+- M1 bootstrap and dev foundation remain applied in protected GCS state with zero drift.
+- M2 Approval 1 implements order, payment, and inventory as three isolated roles in one non-root
+  Linux/amd64 image with in-memory state, structured logs, propagated request/trace IDs, and a
+  bounded local load generator.
+- Cloud Run IaC is prepared behind `deploy_demo=false`. With the gate disabled, the remote dev plan
+  has zero resource and output changes.
+- No M2 image, Cloud Run service, runtime identity, invoker grant, Firestore resource, fault
+  injector, custom metric, alert, workload, or remediation resource has been created.
 
 ## Milestones
 
 | Milestone | Status | Evidence / notes |
 | --- | --- | --- |
 | Repository Bootstrap | complete | Python package scaffold validated from the repository root |
-| R0 Local Skeleton | complete | 30 tests, strict mypy, ruff, package build, CLI replay, API health/readiness |
-| M0 Access and decisions | complete | Redacted access gate passed for the `Edu_687` alias and current default project |
-| Private GitHub baseline | complete | Private `opspilot` repository on `main`; no history rewrite |
-| M1 Bootstrap infrastructure | complete | 14 managed resources, protected remote state, zero drift, no service-account key |
-| M1 Dev foundation | complete | Exact 14-create plan applied and migrated; operator and hosted plans have zero drift |
-| UI Foundation | not-applicable | R0/M1 are API, CLI, and infrastructure only |
+| R0 Local Skeleton | complete | Fixture workflow, strict validation, API/CLI baseline |
+| M0 Access and decisions | complete | Redacted `Edu_687` access gate |
+| Private GitHub baseline | complete | Private `opspilot/main`; no history rewrite |
+| M1 Bootstrap infrastructure | complete | Protected remote state, numeric WIF, read-only plan identity |
+| M1 Dev foundation | complete | 14 managed resources; operator and hosted zero drift |
+| M2 Approval 1: local workload | complete | Three healthy containers; 10/10 normal orders; no cloud write |
+| M2 Approval 2: Cloud Run deploy | pending approval | Image push, two reviewed plans, apply, telemetry and hosted drift checks |
+| UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
 
 ## Completed major results
 
-- Applied the exact reviewed bootstrap binary plan after address-set and hash verification.
-- Enabled the one missing bootstrap API and brought the five existing bootstrap APIs under state.
-- Verified bucket public-access prevention, uniform access, versioning, lifecycle, and deletion
-  protections.
-- Verified the CI custom role is read-only, WIF admission uses immutable numeric IDs, and no
-  user-managed service-account key exists.
-- Migrated bootstrap state to GCS, confirmed 14 managed resources, and obtained a zero-drift plan.
-- Stored six private GitHub variables and one budget-email secret without disclosing values.
-- Verified WIF hosted dev plan run `31386038802` with 14 creates, no destructive action, and no
-  actual identifier in the redacted artifact.
-- Applied the exact saved dev plan after config/address/hash/redaction checks and verified 14
-  managed resources with no replacement or delete.
-- Enabled the Budget API, created the bounded four-resource dev foundation, and verified the
-  investigator has no project role or user-managed key.
-- Normalized the project-level budget ownership field to the API default, which is semantically
-  equivalent to `ALL_USERS`, eliminating a perpetual one-field drift without another cloud write.
-- Migrated dev state to GCS, preserved lineage, obtained operator zero drift, and removed all local
-  state, plan, and recovery files from the run directory.
-- Verified final hosted run `31389847460`: WIF remote-state read succeeded, the redacted artifact
-  reported no changes, actual identifier leakage was zero, and no binary plan was uploaded.
+- Added typed synthetic order, payment authorization, and inventory reservation APIs with strict
+  non-PII input contracts and safe partial downstream failures.
+- Propagated bounded `X-Request-ID` and Cloud Trace context across parallel order dependencies.
+- Added fixed-shape structured stdout logs without request bodies, authorization headers, tokens,
+  or user identifiers.
+- Built one digest-pinned-base Linux/amd64 image that runs as `65532:65532`; Compose applies a
+  read-only filesystem, no capabilities, and `no-new-privileges`.
+- Verified all three health/readiness endpoints and a bounded run of 10 attempted, 10 fulfilled,
+  and 10 correlated orders.
+- Added gated Cloud Run v2 IaC for two existing API state entries, three runtime identities, three
+  scale-to-zero services, and two order-to-leaf invoker grants.
+- Kept the M1 investigator identity separate and defined no service-account keys, `allUsers`, broad
+  project role, data store, scheduled load, fault injection, or remediation resource.
+- Extended the redacted access check: M2 permissions pass, candidate-name check pass, conflicts 0.
+- Added Cloud Run get/list/getIamPolicy to the CI custom-role definition only; the update is not
+  applied and requires an exact Approval 2 bootstrap plan.
+- Gated the manual hosted plan on `TF_M2_IMAGE_READY=true`; neither that variable nor the private
+  digest URI has been configured.
 
 ## Verification state
 
 | Check | Result | Command / evidence |
 | --- | --- | --- |
 | Install / restore | pass | `uv sync --frozen` |
-| Baseline run | pass | SCN-001 replay; `/healthz` and `/readyz` on a local server |
-| Build | pass | `uv build` produced sdist and wheel |
-| Format / lint | pass | ruff format/check; Terraform recursive format; TFLint 0.64.0 |
-| Type check | pass | `uv run mypy src tests` - no issues |
-| Tests | pass | `uv run pytest` - 30 passed; both Terraform mock-provider tests passed |
-| Bootstrap apply | pass | Exact 14-create saved plan applied; delete/replacement 0 |
-| Remote state | pass | GCS backend `bootstrap` prefix; 14 managed resources; zero drift |
-| Bootstrap security | pass | Bucket controls, read-only IAM, numeric WIF, key absence, API set verified |
-| Dev apply | pass | Exact 14-create plan; update/delete/replacement 0 |
-| Dev resources | pass | API 10/10; repository empty; investigator roles/keys 0; channel and budget contracts pass |
-| Dev remote state | pass | GCS `environments/dev`; 14 managed resources; lineage preserved; operator zero drift |
-| Hosted dev plan | pass | Run `31389847460`; remote state, no changes, redaction pass, binary plan absent |
-| GitHub plan gates | pass | `TF_PLAN_ENABLED=true`; `TF_DEV_STATE_READY=true`; workflow_dispatch only |
-| UI render / input | not-applicable | No R0/M1 end-user UI |
+| Python format / lint | pass | ruff format/check |
+| Type check | pass | strict mypy over `src` and `tests` |
+| Tests | pass | 43 pytest tests |
+| Package build | pass | sdist and wheel |
+| R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
+| Demo image | pass | Linux/amd64; non-root `65532:65532`; pinned Python and uv bases |
+| Demo E2E | pass | Three healthy roles; bounded load 10/10 with 10 request IDs |
+| M2 access gate | pass | Redacted permissions and exact candidate-name conflicts 0 |
+| Terraform static | pass | recursive fmt, validate, three mock-provider runs, TFLint 0.64.0 |
+| Dev gate disabled | pass | Remote state read; zero resource/output changes; temp plan removed |
+| Cloud mutation | pass | API/IAM/Artifact Registry/Cloud Run changes 0 |
+| UI render / input | not-applicable | No end-user UI |
 
 ## Blockers and decisions needed
 
-- Approval 1 and Approval 2 are complete; no M1 blocker remains.
-- M2 requires a new plan and explicit approval before adding a demo workload.
-- Do not store actual account, project, billing, state, app, repository numeric, or credential
-  identifiers in the repository.
+- M2 Approval 2 is required before any image push, GitHub image variable, CI role update, or Cloud
+  Run apply.
+- Approval 2 must review the bootstrap custom-role plan (`0 create / 1 update / 0 delete`) separately
+  from the dev workload plan (`10 create / 0 update / 0 delete / 0 replacement`).
+- Any collision on the three exact candidate names, destructive action, image tag without digest,
+  project/billing change, or permission loss is a hard stop.
+- An existing non-candidate Cloud Run service is outside Terraform scope and must remain untouched.
+- Real account, project, billing, state, service URL, image URI, repository numeric, and credential
+  identifiers must not enter tracked files or artifacts.
 
 ## Next checkpoint
 
-- Plan M2: a scale-to-zero synthetic demo service, image build path, runtime identity boundary,
-  observability defaults, and separate apply approval.
+- Plan and explicitly approve M2 Approval 2: rebuild and local smoke from clean `main`, one operator
+  image push, digest capture, exact bootstrap/dev plans, separate applies, private remote E2E,
+  Logging/Monitoring verification, hosted zero drift, and cleanup confirmation.
 
 ## Related artifacts
 
 - Master plan: `docs/plans/opspilot_ai_implementation_spec.md`
+- Demo runbook: `docs/operations/demo-services.md`
+- Bootstrap runbook: `docs/operations/bootstrap.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`
 - Cost model: `docs/cost-model.md`
-- Bootstrap runbook: `docs/operations/bootstrap.md`
 - IaC decision: `docs/decisions/ADR-007-iac-delivery.md`
-- UI Foundation: not applicable for R0/M1
 
 ## Update rules
 

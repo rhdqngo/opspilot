@@ -27,6 +27,15 @@ Status: M1 bootstrap and dev foundation complete
   the redacted artifact reported no changes, identifier leakage was zero, and no binary plan was
   uploaded.
 
+## M2 read-only plan preparation
+
+M2 Approval 1 adds three Cloud Run read permissions to the existing CI custom-role definition.
+They are not applied in Approval 1. Approval 2 must first review a bootstrap plan with exactly one
+in-place custom-role update and no create/delete/replacement, then review the separate dev plan.
+
+The live dev workflow now also requires `TF_M2_IMAGE_READY=true`. Approval 1 does not create this
+variable or `GCP_DEMO_IMAGE_URI`, so a manual dispatch cannot run with a missing image digest.
+
 ## Safety invariants
 
 - Use only the current gcloud default project verified by `opspilot access-check`.

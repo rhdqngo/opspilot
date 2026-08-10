@@ -43,7 +43,7 @@ run "secure_bootstrap_plan" {
   assert {
     condition = alltrue([
       for permission in google_project_iam_custom_role.ci_plan_reader.permissions :
-      endswith(permission, ".get") || endswith(permission, ".list") || endswith(permission, ".read")
+      endswith(permission, ".get") || endswith(permission, ".getIamPolicy") || endswith(permission, ".list") || endswith(permission, ".read")
     ])
     error_message = "The CI plan custom role must contain read-only permissions only."
   }

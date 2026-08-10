@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from collections.abc import Sequence
 
 import uvicorn
 
 from opspilot.access_check import render_access_summary, run_access_check
+from opspilot.demo.load import run_load
 from opspilot.reporting import render_markdown
 from opspilot.workflow import run_fixture_investigation
 
@@ -30,6 +32,15 @@ def build_parser() -> argparse.ArgumentParser:
     access_check.add_argument("--confirm-project", action="store_true")
     access_check.add_argument("--confirm-billing-currency-krw", action="store_true")
     access_check.add_argument("--format", choices=("json", "summary"), default="summary")
+    demo = subcommands.add_parser("demo", help="Run or exercise synthetic demo services")
+    demo_commands = demo.add_subparsers(dest="demo_command", required=True)
+    demo_serve = demo_commands.add_parser("serve", help="Serve the configured demo role")
+    demo_serve.add_argument("--host", default="0.0.0.0")
+    demo_serve.add_argument("--port", type=int, default=None)
+    demo_load = demo_commands.add_parser("load", help="Generate bounded synthetic order load")
+    demo_load.add_argument("--orders", type=int, default=10)
+    demo_load.add_argument("--concurrency", type=int, default=2)
+    demo_load.add_argument("--auth", choices=("local", "gcloud"), default="local")
     return parser
 
 
@@ -62,4 +73,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(render_access_summary(result), end="")
         return 0 if result.m0_ready else 2
+    if args.command == "demo" and args.demo_command == "serve":
+        port = int(args.port) if args.port is not None else int(os.environ.get("PORT", "8080"))
+        uvicorn.run(
+            "opspilot.demo.api:create_app",
+            factory=True,
+            host=str(args.host),
+            port=port,
+            access_log=False,
+        )
+        return 0
+    if args.command == "demo" and args.demo_command == "load":
+        summary = asyncio.run(
+            run_load(
+                orders=int(args.orders),
+                concurrency=int(args.concurrency),
+                auth=str(args.auth),
+            )
+        )
+        print(json.dumps(summary.model_dump(), separators=(",", ":")))
+        return 0 if summary.failed == 0 else 2
     raise AssertionError("unreachable command")

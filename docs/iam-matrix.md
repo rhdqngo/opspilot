@@ -1,13 +1,15 @@
 # OpsPilot IAM Matrix
 
-Status: M1 bootstrap and dev foundation applied
+Status: M1 applied; M2 runtime boundary defined but not applied
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
 | --- | --- | --- | --- |
-| Developer / `Edu_687` operator | Current dev project | Local read checks and the completed Approval 2 apply | Unapproved future apply, destroy, billing link changes |
-| GitHub CI plan identity | Dev project and state bucket | M1 get/list custom role; state object read | API enable, IAM write, Artifact Registry write, budget write, state write |
+| Developer / `Edu_687` operator | Current dev project | Local read checks, local image build, and completed M1 applies | M2 image push/apply before Approval 2, destroy, billing link changes |
+| GitHub CI plan identity | Dev project and state bucket | M1 reads and, after Approval 2, Cloud Run get/list/getIamPolicy; state object read | API enable, IAM write, Artifact Registry write, Cloud Run update, budget write, state write |
 | Investigator identity | Dev project | Identity exists with no project role and no user-managed key | Logging, Monitoring, Run, Deploy, Secret, IAM, remediation writes |
+| Order runtime identity | Not created | Planned invocation of payment and inventory only | Project roles, secrets, IAM, remediation, arbitrary Cloud Run invocation |
+| Payment / inventory runtime identities | Not created | No project role planned | Cross-service invocation, secrets, IAM, remediation writes |
 | Remediation identity | Not created | None | All execution permissions until M8 |
 
 ## CI plan custom role
@@ -22,6 +24,9 @@ The project custom role is limited to the following permissions:
 - `monitoring.notificationChannels.get`
 - `monitoring.notificationChannels.list`
 - `resourcemanager.projects.get`
+- `run.services.get` *(defined for Approval 2, not yet applied)*
+- `run.services.getIamPolicy` *(defined for Approval 2, not yet applied)*
+- `run.services.list` *(defined for Approval 2, not yet applied)*
 - `serviceusage.services.get`
 - `serviceusage.services.list`
 - `storage.buckets.get`
@@ -34,6 +39,6 @@ repository name, owner name, actor name, branch name, or fork-provided secret.
 
 ## Apply boundary
 
-The repository defines resources but grants no automated apply identity. Bootstrap and dev were
-applied by the authenticated operator after separate approvals. Future applies require another
-explicit approval. Service account keys are prohibited.
+The repository defines resources but grants no automated apply identity. M2 Approval 2 must review
+the bootstrap custom-role update separately from the dev 10-create plan. Service account keys,
+`allUsers`, broad project roles, and automated apply remain prohibited.

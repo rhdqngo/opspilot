@@ -1,0 +1,62 @@
+x-demo-service: &demo-service
+  image: opspilot-demo:local
+  build:
+    context: .
+    dockerfile: Dockerfile
+    platforms:
+      - linux/amd64
+  read_only: true
+  tmpfs:
+    - /tmp:size=16m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  restart: "no"
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - >-
+        import urllib.request;
+        urllib.request.urlopen('http://127.0.0.1:8080/readyz', timeout=2).read()
+    interval: 2s
+    timeout: 2s
+    retries: 15
+    start_period: 2s
+
+services:
+  payment:
+    <<: *demo-service
+    environment:
+      OPSPILOT_DEMO_SERVICE: payment
+      OPSPILOT_ENVIRONMENT: dev
+      OPSPILOT_DOWNSTREAM_AUTH: local
+    ports:
+      - "127.0.0.1:8101:8080"
+
+  inventory:
+    <<: *demo-service
+    environment:
+      OPSPILOT_DEMO_SERVICE: inventory
+      OPSPILOT_ENVIRONMENT: dev
+      OPSPILOT_DOWNSTREAM_AUTH: local
+    ports:
+      - "127.0.0.1:8102:8080"
+
+  order:
+    <<: *demo-service
+    environment:
+      OPSPILOT_DEMO_SERVICE: order
+      OPSPILOT_ENVIRONMENT: dev
+      OPSPILOT_DOWNSTREAM_AUTH: local
+      OPSPILOT_PAYMENT_SERVICE_URL: http://payment:8080
+      OPSPILOT_INVENTORY_SERVICE_URL: http://inventory:8080
+    depends_on:
+      payment:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8100:8080"

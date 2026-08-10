@@ -32,3 +32,33 @@ jobs:
         run: uv run pytest
       - name: Build
         run: uv build
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Build immutable-target demo image
+        run: docker build --platform linux/amd64 -t opspilot-demo:local .
+      - name: Start three local service roles
+        run: docker compose up -d --no-build
+      - name: Wait for order readiness
+        shell: bash
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8100/readyz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose ps
+          exit 1
+      - name: Run bounded container E2E
+        run: >-
+          docker compose exec -T
+          -e OPSPILOT_ORDER_URL=http://127.0.0.1:8080
+          order opspilot demo load --orders 10 --concurrency 2 --auth local
+      - name: Stop local service roles
+        if: always()
+        run: docker compose down --remove-orphans

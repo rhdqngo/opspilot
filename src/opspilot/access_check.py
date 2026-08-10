@@ -14,7 +14,7 @@ from urllib.request import Request, urlopen
 
 from pydantic import BaseModel, Field
 
-PROJECT_PERMISSIONS: tuple[str, ...] = (
+M1_PROJECT_PERMISSIONS: tuple[str, ...] = (
     "serviceusage.services.enable",
     "resourcemanager.projects.get",
     "resourcemanager.projects.getIamPolicy",
@@ -33,6 +33,30 @@ PROJECT_PERMISSIONS: tuple[str, ...] = (
     "discoveryengine.engines.list",
 )
 
+M2_PROJECT_PERMISSIONS: tuple[str, ...] = (
+    "serviceusage.services.enable",
+    "run.services.create",
+    "run.services.update",
+    "run.services.get",
+    "run.services.getIamPolicy",
+    "run.services.list",
+    "run.services.setIamPolicy",
+    "run.routes.invoke",
+    "iam.serviceAccounts.create",
+    "iam.serviceAccounts.actAs",
+    "artifactregistry.repositories.uploadArtifacts",
+)
+
+PROJECT_PERMISSIONS: tuple[str, ...] = tuple(
+    dict.fromkeys((*M1_PROJECT_PERMISSIONS, *M2_PROJECT_PERMISSIONS))
+)
+
+M2_CANDIDATE_SERVICES: tuple[str, ...] = (
+    "opspilot-dev-order",
+    "opspilot-dev-payment",
+    "opspilot-dev-inventory",
+)
+
 
 class AccessCheckResult(BaseModel):
     """Identifier-free result suitable for console output and documentation."""
@@ -48,6 +72,12 @@ class AccessCheckResult(BaseModel):
     api_activation_permission: bool = False
     m1_permissions_ready: bool = False
     missing_project_permissions: list[str] = Field(default_factory=list)
+    m2_permissions_ready: bool = False
+    missing_m2_permissions: list[str] = Field(default_factory=list)
+    m2_candidate_check_available: bool = False
+    m2_candidate_names_available: bool = False
+    m2_candidate_service_conflicts: int = Field(default=0, ge=0)
+    m2_deploy_ready: bool = False
     gemini_enterprise_access: bool = False
     gemini_enterprise_app_exists: bool = False
     m0_ready: bool = False
@@ -112,6 +142,18 @@ def _load_json(result: CommandResult) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _load_json_list(result: CommandResult) -> list[dict[str, Any]] | None:
+    if result.returncode != 0 or not result.stdout:
+        return None
+    try:
+        value = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        return None
+    return value
+
+
 def run_access_check(
     *,
     account_alias: str = "Edu_687",
@@ -161,12 +203,35 @@ def run_access_check(
         )
         granted = set(permission_payload.get("permissions", []))
         result.missing_project_permissions = [
-            permission for permission in PROJECT_PERMISSIONS if permission not in granted
+            permission for permission in M1_PROJECT_PERMISSIONS if permission not in granted
+        ]
+        result.missing_m2_permissions = [
+            permission for permission in M2_PROJECT_PERMISSIONS if permission not in granted
         ]
         result.api_activation_permission = "serviceusage.services.enable" in granted
         result.m1_permissions_ready = not result.missing_project_permissions
+        result.m2_permissions_ready = not result.missing_m2_permissions
     except RuntimeError:
-        result.missing_project_permissions = list(PROJECT_PERMISSIONS)
+        result.missing_project_permissions = list(M1_PROJECT_PERMISSIONS)
+        result.missing_m2_permissions = list(M2_PROJECT_PERMISSIONS)
+
+    candidate_filter = "metadata.name=(" + " ".join(M2_CANDIDATE_SERVICES) + ")"
+    candidates = _load_json_list(
+        runner(
+            (
+                "run",
+                "services",
+                "list",
+                "--region=asia-northeast3",
+                f"--filter={candidate_filter}",
+                "--format=json",
+            )
+        )
+    )
+    if candidates is not None:
+        result.m2_candidate_check_available = True
+        result.m2_candidate_service_conflicts = len(candidates)
+        result.m2_candidate_names_available = not candidates
 
     try:
         engines = requester(
@@ -198,6 +263,13 @@ def run_access_check(
             result.gemini_enterprise_app_exists,
         )
     )
+    result.m2_deploy_ready = all(
+        (
+            result.m0_ready,
+            result.m2_permissions_ready,
+            result.m2_candidate_names_available,
+        )
+    )
     return result
 
 
@@ -212,4 +284,7 @@ def render_access_summary(result: AccessCheckResult) -> str:
     ]
     if result.missing_project_permissions:
         lines.append("missing_project_permissions=" + ",".join(result.missing_project_permissions))
+    if result.missing_m2_permissions:
+        lines.append("missing_m2_permissions=" + ",".join(result.missing_m2_permissions))
+    lines.append(f"m2_candidate_service_conflicts={result.m2_candidate_service_conflicts}")
     return "\n".join(lines) + "\n"

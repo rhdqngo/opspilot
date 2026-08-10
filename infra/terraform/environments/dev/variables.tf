@@ -47,3 +47,24 @@ variable "environment" {
     error_message = "environment must be dev or demo."
   }
 }
+
+variable "deploy_demo" {
+  description = "Approval gate for M2 Cloud Run services and their supporting API state."
+  type        = bool
+  default     = false
+}
+
+variable "demo_image_uri" {
+  description = "Immutable Artifact Registry image URI supplied only after the Approval 2 push."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      var.demo_image_uri == "" ||
+      can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/[^/]+/[^/]+/[^@]+@sha256:[0-9a-f]{64}$", var.demo_image_uri))
+    )
+    error_message = "demo_image_uri must be empty or an immutable Artifact Registry digest URI."
+  }
+}

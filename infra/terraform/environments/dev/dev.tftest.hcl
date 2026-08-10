@@ -61,6 +61,17 @@ run "bounded_dev_foundation" {
   }
 
   assert {
+    condition = (
+      length(google_project_service.m1) == 10 &&
+      length(google_service_account.demo) == 0 &&
+      length(google_cloud_run_v2_service.demo_leaf) == 0 &&
+      length(google_cloud_run_v2_service.demo_order) == 0 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 0
+    )
+    error_message = "The default M2 gate must preserve the M1-only resource graph."
+  }
+
+  assert {
     condition = toset([
       for rule in google_billing_budget.monthly.threshold_rules : rule.threshold_percent
     ]) == toset([0.5, 0.8, 1.0])
@@ -72,5 +83,69 @@ run "bounded_dev_foundation" {
       for service in google_project_service.m1 : service.disable_on_destroy == false
     ])
     error_message = "Terraform destroy must not disable shared project APIs."
+  }
+}
+
+run "m2_deploy_ready_contract" {
+  command = plan
+
+  variables {
+    project_id                = "example-project"
+    billing_account_id        = "000000-000000-000000"
+    budget_notification_email = "operator@example.invalid"
+    deploy_demo               = true
+    demo_image_uri            = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+
+  assert {
+    condition     = length(google_project_service.m1) == 12
+    error_message = "M2 must add only Logging and Cloud Run to the ten M1 managed APIs."
+  }
+
+  assert {
+    condition     = length(google_service_account.demo) == 3
+    error_message = "M2 must define exactly three isolated runtime identities."
+  }
+
+  assert {
+    condition     = length(google_cloud_run_v2_service.demo_leaf) == 2 && length(google_cloud_run_v2_service.demo_order) == 1
+    error_message = "M2 must define exactly three Cloud Run services."
+  }
+
+  assert {
+    condition     = length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2
+    error_message = "Only the two order-to-leaf invoker grants are allowed."
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for service in google_cloud_run_v2_service.demo_leaf : service.scaling[0].min_instance_count == 0 && service.scaling[0].max_instance_count == 2],
+      [google_cloud_run_v2_service.demo_order[0].scaling[0].min_instance_count == 0 && google_cloud_run_v2_service.demo_order[0].scaling[0].max_instance_count == 2],
+    ))
+    error_message = "All M2 services must scale from zero and cap at two instances."
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for service in google_cloud_run_v2_service.demo_leaf : service.template[0].containers[0].image == var.demo_image_uri],
+      [google_cloud_run_v2_service.demo_order[0].template[0].containers[0].image == var.demo_image_uri],
+    ))
+    error_message = "All M2 services must share the reviewed immutable image digest."
+  }
+
+  assert {
+    condition = alltrue([
+      for binding in google_cloud_run_v2_service_iam_member.order_invokes_leaf :
+      binding.role == "roles/run.invoker" && startswith(binding.member, "serviceAccount:")
+    ])
+    error_message = "M2 must grant only authenticated order-to-leaf invocation."
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for service in google_cloud_run_v2_service.demo_leaf : service.labels["data_classification"] == "synthetic"],
+      [google_cloud_run_v2_service.demo_order[0].labels["data_classification"] == "synthetic"],
+    ))
+    error_message = "All M2 services must retain the synthetic-data label."
   }
 }

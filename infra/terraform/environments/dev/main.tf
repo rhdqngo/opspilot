@@ -8,7 +8,7 @@ locals {
     cost_center         = "personal-lab"
   }
 
-  project_services = toset([
+  m1_project_services = toset([
     "artifactregistry.googleapis.com",
     "billingbudgets.googleapis.com",
     "cloudresourcemanager.googleapis.com",
@@ -20,6 +20,24 @@ locals {
     "sts.googleapis.com",
     "storage.googleapis.com",
   ])
+
+  m2_project_services = var.deploy_demo ? toset([
+    "logging.googleapis.com",
+    "run.googleapis.com",
+  ]) : toset([])
+
+  project_services = setunion(local.m1_project_services, local.m2_project_services)
+
+  demo_service_names = var.deploy_demo ? toset([
+    "order",
+    "payment",
+    "inventory",
+  ]) : toset([])
+
+  demo_leaf_service_names = var.deploy_demo ? toset([
+    "payment",
+    "inventory",
+  ]) : toset([])
 }
 
 data "google_project" "current" {
@@ -54,6 +72,219 @@ resource "google_service_account" "investigator" {
   description  = "Unprivileged placeholder identity; telemetry roles are deferred to M5."
 
   depends_on = [google_project_service.m1]
+}
+
+resource "google_service_account" "demo" {
+  for_each = local.demo_service_names
+
+  project      = var.project_id
+  account_id   = "opspilot-${var.environment}-${each.key}"
+  display_name = "OpsPilot ${var.environment} ${each.key} runtime"
+  description  = "Unprivileged runtime identity for the synthetic ${each.key} demo service."
+
+  depends_on = [google_project_service.m1]
+}
+
+resource "google_cloud_run_v2_service" "demo_leaf" {
+  for_each = local.demo_leaf_service_names
+
+  project              = var.project_id
+  name                 = "opspilot-${var.environment}-${each.key}"
+  location             = var.region
+  description          = "OpsPilot synthetic ${each.key} demo service"
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = false
+  deletion_protection  = false
+  labels               = local.labels
+
+  scaling {
+    min_instance_count = 0
+    max_instance_count = 2
+  }
+
+  template {
+    service_account                  = google_service_account.demo[each.key].email
+    timeout                          = "10s"
+    max_instance_request_concurrency = 20
+    labels                           = local.labels
+
+    containers {
+      image = var.demo_image_uri
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "256Mi"
+        }
+        cpu_idle          = true
+        startup_cpu_boost = false
+      }
+
+      env {
+        name  = "OPSPILOT_DEMO_SERVICE"
+        value = each.key
+      }
+
+      env {
+        name  = "OPSPILOT_ENVIRONMENT"
+        value = var.environment
+      }
+
+      env {
+        name  = "OPSPILOT_PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name  = "OPSPILOT_DOWNSTREAM_AUTH"
+        value = "metadata"
+      }
+
+      startup_probe {
+        failure_threshold = 5
+        period_seconds    = 2
+        timeout_seconds   = 1
+
+        http_get {
+          path = "/readyz"
+        }
+      }
+
+      liveness_probe {
+        failure_threshold = 3
+        period_seconds    = 10
+        timeout_seconds   = 1
+
+        http_get {
+          path = "/healthz"
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = can(regex("@sha256:[0-9a-f]{64}$", nonsensitive(var.demo_image_uri)))
+      error_message = "demo_image_uri must be an immutable Artifact Registry digest."
+    }
+  }
+
+  depends_on = [google_project_service.m1]
+}
+
+resource "google_cloud_run_v2_service" "demo_order" {
+  count = var.deploy_demo ? 1 : 0
+
+  project              = var.project_id
+  name                 = "opspilot-${var.environment}-order"
+  location             = var.region
+  description          = "OpsPilot synthetic order demo service"
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = false
+  deletion_protection  = false
+  labels               = local.labels
+
+  scaling {
+    min_instance_count = 0
+    max_instance_count = 2
+  }
+
+  template {
+    service_account                  = google_service_account.demo["order"].email
+    timeout                          = "10s"
+    max_instance_request_concurrency = 20
+    labels                           = local.labels
+
+    containers {
+      image = var.demo_image_uri
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "256Mi"
+        }
+        cpu_idle          = true
+        startup_cpu_boost = false
+      }
+
+      env {
+        name  = "OPSPILOT_DEMO_SERVICE"
+        value = "order"
+      }
+
+      env {
+        name  = "OPSPILOT_ENVIRONMENT"
+        value = var.environment
+      }
+
+      env {
+        name  = "OPSPILOT_PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name  = "OPSPILOT_DOWNSTREAM_AUTH"
+        value = "metadata"
+      }
+
+      env {
+        name  = "OPSPILOT_PAYMENT_SERVICE_URL"
+        value = google_cloud_run_v2_service.demo_leaf["payment"].uri
+      }
+
+      env {
+        name  = "OPSPILOT_INVENTORY_SERVICE_URL"
+        value = google_cloud_run_v2_service.demo_leaf["inventory"].uri
+      }
+
+      startup_probe {
+        failure_threshold = 5
+        period_seconds    = 2
+        timeout_seconds   = 1
+
+        http_get {
+          path = "/readyz"
+        }
+      }
+
+      liveness_probe {
+        failure_threshold = 3
+        period_seconds    = 10
+        timeout_seconds   = 1
+
+        http_get {
+          path = "/healthz"
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = can(regex("@sha256:[0-9a-f]{64}$", nonsensitive(var.demo_image_uri)))
+      error_message = "demo_image_uri must be an immutable Artifact Registry digest."
+    }
+  }
+
+  depends_on = [google_project_service.m1]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "order_invokes_leaf" {
+  for_each = local.demo_leaf_service_names
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.demo_leaf[each.key].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.demo["order"].email}"
 }
 
 resource "google_monitoring_notification_channel" "budget_email" {
