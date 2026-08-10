@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M0-complete / M1-static-validated
+phase: M0-complete / M1-ready-for-apply
 updated: 2026-08-10
 
 ## Objective
@@ -15,7 +15,7 @@ updated: 2026-08-10
   tests, and package build.
 - M0 access verification is complete for the `Edu_687` alias and current gcloud default project.
 - M1 Terraform, offline CI, approval-gated live planning, IAM/cost documentation, and local
-  non-applying plans are implemented and locally validated.
+  non-applying plans are implemented; local and hosted static validation pass.
 - No Terraform apply, API activation, IAM mutation, budget creation, state migration, or hosted
   cloud plan has been performed.
 
@@ -27,7 +27,7 @@ updated: 2026-08-10
 | R0 Local Skeleton | complete | 29 tests, strict mypy, ruff, package build, CLI replay, API health/readiness |
 | M0 Access and decisions | complete | Redacted access check passed; KRW billing and Gemini collaboration path verified |
 | Private GitHub baseline | complete | Private `opspilot` repository, `main`, baseline commit, no history rewrite |
-| M1 Infrastructure foundation | static-validated | Terraform 1.15.8 / Google 7.39.0, mock tests, TFLint, and local plans pass; apply prohibited |
+| M1 Infrastructure foundation | ready-for-apply | Terraform 1.15.8 / Google 7.39.0, local plans, and hosted static CI pass; apply prohibited |
 | UI Foundation | not-applicable | R0/M1 are API, CLI, and infrastructure only |
 
 ## Completed major results
@@ -55,7 +55,7 @@ updated: 2026-08-10
 | Tests | pass | `uv run pytest` - 29 passed; both Terraform mock-provider tests passed |
 | Terraform validate | pass | Bootstrap and dev initialized with lockfile read-only and validated |
 | Local Terraform plans | pass | Bootstrap 14 creates; dev 14 creates; zero delete/replacement; redacted text reviewed |
-| Hosted GitHub Actions | pending | M1 commit and hosted Python/static Terraform run still need verification |
+| Hosted GitHub Actions | pass | `PR checks` run 31383948768 and `Terraform checks` run 31383949052 succeeded |
 | Live Terraform plan | disabled | Repository variable `TF_PLAN_ENABLED=false`; no WIF credentials configured |
 | Cloud resource changes | pass | 0 changes; plan/read operations only |
 | UI render / input | not-applicable | No R0/M1 end-user UI |
@@ -70,8 +70,8 @@ updated: 2026-08-10
 
 ## Next checkpoint
 
-- Push the static-validated M1 commit, verify hosted Python and Terraform checks, then stop at the
-  bootstrap apply approval gate.
+- Stop at Approval 1. The next authorized change, when explicitly approved, is bootstrap apply and
+  state migration only; dev apply remains a separate later approval.
 
 ## Related artifacts
 
