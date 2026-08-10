@@ -23,6 +23,7 @@ jobs:
       OPSPILOT_REDACT_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
       OPSPILOT_REDACT_BILLING_ACCOUNT_ID: ${{ vars.GCP_BILLING_ACCOUNT_ID }}
       OPSPILOT_REDACT_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      OPSPILOT_REDACT_BUDGET_EMAIL: ${{ secrets.GCP_BUDGET_NOTIFICATION_EMAIL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

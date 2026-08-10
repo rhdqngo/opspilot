@@ -26,10 +26,11 @@ uv build
 
 ## Infrastructure
 
-The M1 bootstrap is applied and its state is stored in the protected GCS backend. The dev
-foundation remains non-applying until a separate Approval 2. Real project, billing, GitHub, and
-state identifiers are supplied through environment variables, ignored backend files, and GitHub
-repository variables.
+The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
+GCS backend. The dev foundation contains only API management, an empty Docker repository, an
+unprivileged investigator identity, an email notification channel, and the protected KRW budget.
+Real project, billing, GitHub, and state identifiers are supplied through environment variables,
+ignored backend files, and GitHub repository variables.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform
@@ -52,5 +53,5 @@ See `docs/operations/bootstrap.md` for the approval-gated state migration and ap
 - Google account, project, OAuth, and billing identifiers are never stored in the repository.
 - Pull requests run static Terraform checks without cloud credentials.
 - The live Terraform plan workflow is manual, uses WIF, and has no apply or state-write identity.
-- Before the first dev state exists, hosted plans use an ephemeral local state; dev apply remains a
-  local, separately approved operation.
+- Hosted plans read the dev remote state with `-lock=false`; the WIF identity cannot apply or write
+  state. Future cloud applies remain local and separately approved.

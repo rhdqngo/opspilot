@@ -27,6 +27,7 @@ PROJECT_PERMISSIONS: tuple[str, ...] = (
     "iam.roles.update",
     "storage.buckets.create",
     "artifactregistry.repositories.create",
+    "monitoring.notificationChannels.create",
     "billing.resourcebudgets.read",
     "billing.resourcebudgets.write",
     "discoveryengine.engines.list",

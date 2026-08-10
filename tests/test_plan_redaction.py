@@ -7,6 +7,7 @@ def test_terraform_plan_redaction_removes_injected_identifiers() -> None:
     source = """
     project = "private-project"
     bucket = "private-state-bucket"
+    recipient = "private-operator@example.invalid"
     parent = "billingAccounts/ABCDEF-123456-ABCDEF"
     target = "projects/123456789012"
     """
@@ -16,12 +17,15 @@ def test_terraform_plan_redaction_removes_injected_identifiers() -> None:
         {
             "private-project": "<project-id>",
             "private-state-bucket": "<state-bucket>",
+            "private-operator@example.invalid": "<budget-email>",
         },
     )
 
     assert "private-project" not in redacted
     assert "private-state-bucket" not in redacted
+    assert "private-operator@example.invalid" not in redacted
     assert "ABCDEF-123456-ABCDEF" not in redacted
     assert "123456789012" not in redacted
     assert "<project-id>" in redacted
     assert "<state-bucket>" in redacted
+    assert "<budget-email>" in redacted

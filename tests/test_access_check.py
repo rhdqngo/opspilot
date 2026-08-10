@@ -99,7 +99,11 @@ def test_access_check_reports_only_missing_permission_names() -> None:
         assert token == "secret-user-token"
         response = _requester(token, url, body, quota_project)
         if "cloudresourcemanager" in url:
-            response["permissions"] = list(PROJECT_PERMISSIONS[:-1])
+            response["permissions"] = [
+                permission
+                for permission in PROJECT_PERMISSIONS
+                if permission != "monitoring.notificationChannels.create"
+            ]
         return response
 
     result = run_access_check(
@@ -109,7 +113,7 @@ def test_access_check_reports_only_missing_permission_names() -> None:
         requester=partial_requester,
     )
 
-    assert result.missing_project_permissions == ["discoveryengine.engines.list"]
+    assert result.missing_project_permissions == ["monitoring.notificationChannels.create"]
     assert result.m1_permissions_ready is False
     summary = render_access_summary(result)
     assert "secret-user-token" not in summary

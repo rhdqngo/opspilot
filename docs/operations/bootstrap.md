@@ -1,6 +1,6 @@
 # M1 Bootstrap Operations
 
-Status: bootstrap applied and migrated; dev apply not approved
+Status: bootstrap and dev foundation applied and migrated; final hosted zero-drift check pending
 
 ## Approval 1 execution record
 
@@ -9,8 +9,21 @@ Status: bootstrap applied and migrated; dev apply not approved
 - Configured numeric-ID GitHub WIF and the read-only CI plan identity without service-account keys.
 - Verified hosted dev plan run `31386038802`: 14 creates, zero changes, zero destroys, and no
   identifier leakage in the redacted artifact.
-- Kept `TF_DEV_STATE_READY=false` because Approval 2 has not created or migrated dev state.
-- Created no dev resources and performed no dev apply.
+
+## Approval 2 execution record
+
+- Applied the exact reviewed 14-create dev plan with no delete or replacement.
+- Enabled the one missing Budget API and brought nine existing APIs under dev state.
+- Created one empty regional Docker repository, one unprivileged investigator identity, one email
+  notification channel, and one protected project-scoped KRW 50,000 budget.
+- Verified the investigator has no project role or user-managed key.
+- Migrated dev state to the protected `environments/dev` prefix, preserved lineage, and verified an
+  operator zero-drift plan before removing local state and binary plans.
+- Kept the API default ownership scope because `OWNERSHIP_SCOPE_UNSPECIFIED` is equivalent to
+  `ALL_USERS`; explicitly setting the equivalent enum caused perpetual provider drift for this
+  project-level budget.
+- Set `TF_DEV_STATE_READY=true` and retained `TF_PLAN_ENABLED=true`. Final hosted zero-drift
+  validation follows the push containing the ownership normalization.
 
 ## Safety invariants
 
@@ -71,25 +84,25 @@ Expected repository variables after bootstrap:
 - `GCP_WIF_PROVIDER`
 - `GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT`
 - `TF_STATE_BUCKET`
-- `TF_DEV_STATE_READY=false`
+- `TF_DEV_STATE_READY=true`
 - `TF_PLAN_ENABLED=true`
 
 Store `GCP_BUDGET_NOTIFICATION_EMAIL` as a GitHub repository secret, not a variable or file.
 
-## Approval 2: dev foundation
+## Approval 2: dev foundation (completed locally)
 
-Only after bootstrap state migration and a separate dev approval:
+The completed procedure was:
 
-1. Initialize `infra/terraform/environments/dev` with the approved state bucket.
-   Copy its `backend.tf.example` to ignored `backend.tf` before initialization.
-2. Produce a new plan with `-lock=false` for review.
+1. Copy the committed dev configuration to an ignored run directory and initialize local state.
+2. Produce a new binary plan with `-lock=false` for review.
 3. Confirm the plan contains only API enablement, one Docker repository, one unprivileged
    investigator service account, email notification channel, and the KRW 50,000 budget.
 4. Apply only the reviewed plan.
-5. Manually dispatch the hosted Terraform plan workflow and inspect its redacted text artifact.
-6. After the dev state is migrated successfully, set `TF_DEV_STATE_READY=true` so later hosted
-   plans read the remote state. Before that point, hosted plans use an ephemeral empty local state
-   and cannot create a GCS state or lock object.
+5. Verify all resources, migrate state to the `environments/dev` prefix, and obtain an operator
+   zero-drift plan.
+6. Remove local state and plan material only after remote state and lineage verification.
+7. Set `TF_DEV_STATE_READY=true`, manually dispatch the hosted Terraform plan workflow, and inspect
+   its redacted text artifact.
 
 The budget has deletion protection. Cleanup requires a deliberate policy change and a new reviewed
 plan; it must never be bypassed with state editing.

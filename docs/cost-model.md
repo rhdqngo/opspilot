@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: bootstrap applied; dev foundation not applied
+Status: M1 bootstrap and dev foundation applied
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -22,10 +22,15 @@ cleanup to keep the alert from becoming the only cost control.
 
 - One regional Standard GCS bucket for Terraform state with versioning and 30-day noncurrent
   object cleanup.
+- One empty regional Standard Docker Artifact Registry repository.
+- One email notification channel and one project-scoped KRW 50,000 budget. Budget APIs and email
+  notifications have no configured runtime workload in M1.
 - IAM, service-account, API, and WIF configuration do not directly incur resource runtime costs.
 
-The Docker Artifact Registry repository, investigator identity, notification channel, and budget
-remain unapplied until Approval 2. The hosted plan creates no cloud resources or remote dev state.
+The investigator identity has no roles or user-managed keys. The repository contains no images,
+and M1 creates no Cloud Run service, live telemetry workload, or remediation resource. A budget is
+an alert rather than a hard spending cap; email delivery remains unverified until a real threshold
+is reached.
 
 ## Cleanup order
 

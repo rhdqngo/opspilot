@@ -18,11 +18,11 @@ project number, OAuth client, token, or billing account identifier.
 | Billing currency | pass | Operator-provided billing report displays costs in KRW; the image was not stored |
 | Required API activation permission | pass | Read-only permission test includes API enablement |
 | Project-scoped budget permission | pass | Read/write budget permissions exist for this single project |
-| M1 IAM permissions | pass | WIF create, service-account policy, and custom-role create/update are effective |
+| M1 apply permissions | pass | API, Artifact Registry, service-account, notification-channel, and project-budget writes were verified without identifiers |
 | Gemini Enterprise API access | pass | Global engine listing is permitted |
 | Gemini Enterprise app | pass | An existing global app was detected without recording its identifier |
 | Data policy | pass | Synthetic ecommerce data only |
-| Monthly budget cap | decided | KRW 50,000; create 50/80/100% alerts in M1 |
+| Monthly budget cap | applied | KRW 50,000 with 50/80/100% current-spend alerts |
 | Cleanup owner | decided | Repository owner / `Edu_687` account operator |
 
 ## M0 exit commands

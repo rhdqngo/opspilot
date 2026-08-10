@@ -12,6 +12,7 @@ REDACTION_ENV = {
     "OPSPILOT_REDACT_PROJECT_NUMBER": "<project-number>",
     "OPSPILOT_REDACT_BILLING_ACCOUNT_ID": "<billing-account-id>",
     "OPSPILOT_REDACT_STATE_BUCKET": "<state-bucket>",
+    "OPSPILOT_REDACT_BUDGET_EMAIL": "<budget-email>",
 }
 
 

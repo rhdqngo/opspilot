@@ -56,8 +56,8 @@ run "bounded_dev_foundation" {
   }
 
   assert {
-    condition     = google_billing_budget.monthly.ownership_scope == "ALL_USERS"
-    error_message = "Project-level users must be able to receive and inspect the project budget."
+    condition     = google_billing_budget.monthly.all_updates_rule[0].enable_project_level_recipients
+    error_message = "Project-level recipients must receive alerts for the single-project budget."
   }
 
   assert {

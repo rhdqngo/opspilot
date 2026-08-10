@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M1-bootstrap-complete / dev-ready-for-apply
+phase: M1-dev-applied / hosted-validation-pending
 updated: 2026-08-10
 
 ## Objective
@@ -15,9 +15,11 @@ updated: 2026-08-10
 - The M1 bootstrap is applied: protected GCS state, numeric-ID GitHub WIF, read-only CI plan
   identity, custom read role, additive IAM bindings, and required bootstrap APIs.
 - Bootstrap state is migrated to the GCS `bootstrap` prefix and has no drift.
-- The hosted read-only dev plan is operational and shows the approved 14 creates.
-- No dev apply, dev remote state, Artifact Registry, investigator identity, notification channel,
-  budget, workload, or remediation resource has been created.
+- The exact reviewed dev plan was applied and its 14 managed resources were migrated to the GCS
+  `environments/dev` prefix with preserved lineage and operator zero drift.
+- The dev foundation contains ten managed APIs, an empty regional Docker repository, an
+  unprivileged investigator identity, an active email channel, and a protected KRW 50,000 budget.
+- No workload, investigator permission, service-account key, image, or remediation resource exists.
 
 ## Milestones
 
@@ -28,7 +30,7 @@ updated: 2026-08-10
 | M0 Access and decisions | complete | Redacted access gate passed for the `Edu_687` alias and current default project |
 | Private GitHub baseline | complete | Private `opspilot` repository on `main`; no history rewrite |
 | M1 Bootstrap infrastructure | complete | 14 managed resources, protected remote state, zero drift, no service-account key |
-| M1 Dev foundation | ready-for-apply | Hosted redacted plan has 14 creates and zero change/destroy; Approval 2 required |
+| M1 Dev foundation | verification-pending | Exact 14-create plan applied and migrated; final post-push hosted zero-drift run pending |
 | UI Foundation | not-applicable | R0/M1 are API, CLI, and infrastructure only |
 
 ## Completed major results
@@ -43,6 +45,14 @@ updated: 2026-08-10
 - Stored six private GitHub variables and one budget-email secret without disclosing values.
 - Verified WIF hosted dev plan run `31386038802` with 14 creates, no destructive action, and no
   actual identifier in the redacted artifact.
+- Applied the exact saved dev plan after config/address/hash/redaction checks and verified 14
+  managed resources with no replacement or delete.
+- Enabled the Budget API, created the bounded four-resource dev foundation, and verified the
+  investigator has no project role or user-managed key.
+- Normalized the project-level budget ownership field to the API default, which is semantically
+  equivalent to `ALL_USERS`, eliminating a perpetual one-field drift without another cloud write.
+- Migrated dev state to GCS, preserved lineage, obtained operator zero drift, and removed all local
+  state, plan, and recovery files from the run directory.
 
 ## Verification state
 
@@ -57,23 +67,24 @@ updated: 2026-08-10
 | Bootstrap apply | pass | Exact 14-create saved plan applied; delete/replacement 0 |
 | Remote state | pass | GCS backend `bootstrap` prefix; 14 managed resources; zero drift |
 | Bootstrap security | pass | Bucket controls, read-only IAM, numeric WIF, key absence, API set verified |
-| Hosted dev plan | pass | Run `31386038802`; 14 create, 0 change, 0 destroy; redaction passed |
-| GitHub plan gates | pass | `TF_PLAN_ENABLED=true`; `TF_DEV_STATE_READY=false`; workflow_dispatch only |
-| Dev resource changes | pass | 0 resources and 0 remote dev state objects created |
+| Dev apply | pass | Exact 14-create plan; update/delete/replacement 0 |
+| Dev resources | pass | API 10/10; repository empty; investigator roles/keys 0; channel and budget contracts pass |
+| Dev remote state | pass | GCS `environments/dev`; 14 managed resources; lineage preserved; operator zero drift |
+| Hosted dev plan | pending | Remote-state WIF path passed; final zero-drift run waits for the normalized config push |
+| GitHub plan gates | pass | `TF_PLAN_ENABLED=true`; `TF_DEV_STATE_READY=true`; workflow_dispatch only |
 | UI render / input | not-applicable | No R0/M1 end-user UI |
 
 ## Blockers and decisions needed
 
-- Approval 1 is complete and no bootstrap blocker remains.
-- Dev apply is blocked on a separate explicit Approval 2.
-- `TF_DEV_STATE_READY` must remain false until an approved dev apply and state migration succeed.
+- Approval 1 and the local Approval 2 apply/migration are complete.
+- Final M1 completion is blocked only on the post-push hosted zero-drift artifact and final CI.
 - Do not store actual account, project, billing, state, app, repository numeric, or credential
   identifiers in the repository.
 
 ## Next checkpoint
 
-- Prepare Approval 2: regenerate and review the dev plan, apply only the approved 14 resources,
-  migrate dev state, then switch `TF_DEV_STATE_READY=true` and verify a hosted zero-drift plan.
+- Push the normalized configuration, verify the hosted zero-drift artifact and final CI, then mark
+  M1 complete and begin M2 demo-service planning.
 
 ## Related artifacts
 

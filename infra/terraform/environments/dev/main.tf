@@ -73,8 +73,10 @@ resource "google_monitoring_notification_channel" "budget_email" {
 resource "google_billing_budget" "monthly" {
   billing_account = var.billing_account_id
   display_name    = "OpsPilot ${var.environment} monthly guardrail"
-  ownership_scope = "ALL_USERS"
   deletion_policy = "PREVENT"
+
+  # The API default is OWNERSHIP_SCOPE_UNSPECIFIED, which is equivalent to ALL_USERS.
+  # Omitting it avoids perpetual drift when project-level budget access returns no explicit value.
 
   budget_filter {
     projects               = ["projects/${data.google_project.current.number}"]
