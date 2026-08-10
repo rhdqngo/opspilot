@@ -24,10 +24,11 @@ uv run pytest
 uv build
 ```
 
-## Infrastructure preparation
+## Infrastructure
 
-M1 Terraform is intentionally non-applying until a separate approval. Real project, billing,
-GitHub, and state identifiers are supplied through `TF_VAR_*`, ignored tfvars, and GitHub
+The M1 bootstrap is applied and its state is stored in the protected GCS backend. The dev
+foundation remains non-applying until a separate Approval 2. Real project, billing, GitHub, and
+state identifiers are supplied through environment variables, ignored backend files, and GitHub
 repository variables.
 
 ```powershell
@@ -50,4 +51,6 @@ See `docs/operations/bootstrap.md` for the approval-gated state migration and ap
 - Reports can recommend an approval-gated action but R0 exposes no remediation endpoint.
 - Google account, project, OAuth, and billing identifiers are never stored in the repository.
 - Pull requests run static Terraform checks without cloud credentials.
-- The live Terraform plan workflow is manual and remains disabled until WIF bootstrap is approved.
+- The live Terraform plan workflow is manual, uses WIF, and has no apply or state-write identity.
+- Before the first dev state exists, hosted plans use an ephemeral local state; dev apply remains a
+  local, separately approved operation.

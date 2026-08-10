@@ -1,6 +1,16 @@
 # M1 Bootstrap Operations
 
-Status: ready for static validation; no apply approved
+Status: bootstrap applied and migrated; dev apply not approved
+
+## Approval 1 execution record
+
+- Applied the reviewed bootstrap plan with 14 managed resources and no delete or replacement.
+- Migrated bootstrap state to the protected GCS `bootstrap` prefix and verified a zero-drift plan.
+- Configured numeric-ID GitHub WIF and the read-only CI plan identity without service-account keys.
+- Verified hosted dev plan run `31386038802`: 14 creates, zero changes, zero destroys, and no
+  identifier leakage in the redacted artifact.
+- Kept `TF_DEV_STATE_READY=false` because Approval 2 has not created or migrated dev state.
+- Created no dev resources and performed no dev apply.
 
 ## Safety invariants
 
@@ -38,9 +48,9 @@ terraform -chdir=infra/terraform/environments/dev test
 
 Static validation uses mock provider data and makes no Google Cloud changes.
 
-## Approval 1: bootstrap
+## Approval 1: bootstrap (completed)
 
-Only after an explicit bootstrap approval:
+The completed procedure was:
 
 1. Produce and save a local bootstrap plan under ignored `.tmp/`.
 2. Review API enablement, state bucket, custom role, CI service account, WIF pool/provider, and

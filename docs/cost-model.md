@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M1 plan, not applied
+Status: bootstrap applied; dev foundation not applied
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -18,14 +18,14 @@ The Google Cloud budget is an alert, not a hard spending cap. Later workloads mu
 scale-to-zero, bounded log and metric queries, short retention, manual demo windows, and explicit
 cleanup to keep the alert from becoming the only cost control.
 
-## M1 cost-bearing resources after approval
+## Current M1 cost-bearing resources
 
 - One regional Standard GCS bucket for Terraform state with versioning and 30-day noncurrent
   object cleanup.
-- One empty regional Docker Artifact Registry repository.
-- Billing budget alerts, IAM resources, service accounts, and WIF configuration.
+- IAM, service-account, API, and WIF configuration do not directly incur resource runtime costs.
 
-No M1 resource is created by committing or validating this repository.
+The Docker Artifact Registry repository, investigator identity, notification channel, and budget
+remain unapplied until Approval 2. The hosted plan creates no cloud resources or remote dev state.
 
 ## Cleanup order
 

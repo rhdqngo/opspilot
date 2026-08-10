@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M0-complete / M1-ready-for-apply
+phase: M1-bootstrap-complete / dev-ready-for-apply
 updated: 2026-08-10
 
 ## Objective
@@ -11,67 +11,69 @@ updated: 2026-08-10
 
 ## Active scope
 
-- R0 local skeleton is complete: typed contracts, deterministic SCN-001 workflow, API, CLI,
-  tests, and package build.
-- M0 access verification is complete for the `Edu_687` alias and current gcloud default project.
-- M1 Terraform, offline CI, approval-gated live planning, IAM/cost documentation, and local
-  non-applying plans are implemented; local and hosted static validation pass.
-- No Terraform apply, API activation, IAM mutation, budget creation, state migration, or hosted
-  cloud plan has been performed.
+- R0 local skeleton and M0 access verification are complete.
+- The M1 bootstrap is applied: protected GCS state, numeric-ID GitHub WIF, read-only CI plan
+  identity, custom read role, additive IAM bindings, and required bootstrap APIs.
+- Bootstrap state is migrated to the GCS `bootstrap` prefix and has no drift.
+- The hosted read-only dev plan is operational and shows the approved 14 creates.
+- No dev apply, dev remote state, Artifact Registry, investigator identity, notification channel,
+  budget, workload, or remediation resource has been created.
 
 ## Milestones
 
 | Milestone | Status | Evidence / notes |
 | --- | --- | --- |
-| Bootstrap | complete | Python package scaffold validated from the repository root |
-| R0 Local Skeleton | complete | 29 tests, strict mypy, ruff, package build, CLI replay, API health/readiness |
-| M0 Access and decisions | complete | Redacted access check passed; KRW billing and Gemini collaboration path verified |
-| Private GitHub baseline | complete | Private `opspilot` repository, `main`, baseline commit, no history rewrite |
-| M1 Infrastructure foundation | ready-for-apply | Terraform 1.15.8 / Google 7.39.0, local plans, and hosted static CI pass; apply prohibited |
+| Repository Bootstrap | complete | Python package scaffold validated from the repository root |
+| R0 Local Skeleton | complete | 30 tests, strict mypy, ruff, package build, CLI replay, API health/readiness |
+| M0 Access and decisions | complete | Redacted access gate passed for the `Edu_687` alias and current default project |
+| Private GitHub baseline | complete | Private `opspilot` repository on `main`; no history rewrite |
+| M1 Bootstrap infrastructure | complete | 14 managed resources, protected remote state, zero drift, no service-account key |
+| M1 Dev foundation | ready-for-apply | Hosted redacted plan has 14 creates and zero change/destroy; Approval 2 required |
 | UI Foundation | not-applicable | R0/M1 are API, CLI, and infrastructure only |
 
 ## Completed major results
 
-- Split Terraform into local-state `bootstrap` and remote-state-ready `environments/dev` stacks.
-- Defined protected GCS state, numeric-ID GitHub WIF, a read-only plan identity, required APIs,
-  Docker Artifact Registry, an unprivileged investigator identity, and a protected KRW 50,000
-  project budget.
-- Added pinned, credential-free static Terraform CI and a manual live plan workflow gated by
-  `TF_PLAN_ENABLED=false`.
-- Added plan text redaction, Terraform contract tests, an IAM matrix, cost model, apply/state
-  migration runbook, and IaC/WIF ADR.
-- Produced local bootstrap and dev plans under ignored `.tmp`; both contain 14 creates and zero
-  delete or replacement actions.
+- Applied the exact reviewed bootstrap binary plan after address-set and hash verification.
+- Enabled the one missing bootstrap API and brought the five existing bootstrap APIs under state.
+- Verified bucket public-access prevention, uniform access, versioning, lifecycle, and deletion
+  protections.
+- Verified the CI custom role is read-only, WIF admission uses immutable numeric IDs, and no
+  user-managed service-account key exists.
+- Migrated bootstrap state to GCS, confirmed 14 managed resources, and obtained a zero-drift plan.
+- Stored six private GitHub variables and one budget-email secret without disclosing values.
+- Verified WIF hosted dev plan run `31386038802` with 14 creates, no destructive action, and no
+  actual identifier in the redacted artifact.
 
 ## Verification state
 
 | Check | Result | Command / evidence |
 | --- | --- | --- |
 | Install / restore | pass | `uv sync --frozen` |
-| Baseline run | pass | SCN-001 JSON replay; `/healthz` and `/readyz` on a local server |
+| Baseline run | pass | SCN-001 replay; `/healthz` and `/readyz` on a local server |
 | Build | pass | `uv build` produced sdist and wheel |
 | Format / lint | pass | ruff format/check; Terraform recursive format; TFLint 0.64.0 |
 | Type check | pass | `uv run mypy src tests` - no issues |
-| Tests | pass | `uv run pytest` - 29 passed; both Terraform mock-provider tests passed |
-| Terraform validate | pass | Bootstrap and dev initialized with lockfile read-only and validated |
-| Local Terraform plans | pass | Bootstrap 14 creates; dev 14 creates; zero delete/replacement; redacted text reviewed |
-| Hosted GitHub Actions | pass | `PR checks` run 31383948768 and `Terraform checks` run 31383949052 succeeded |
-| Live Terraform plan | disabled | Repository variable `TF_PLAN_ENABLED=false`; no WIF credentials configured |
-| Cloud resource changes | pass | 0 changes; plan/read operations only |
+| Tests | pass | `uv run pytest` - 30 passed; both Terraform mock-provider tests passed |
+| Bootstrap apply | pass | Exact 14-create saved plan applied; delete/replacement 0 |
+| Remote state | pass | GCS backend `bootstrap` prefix; 14 managed resources; zero drift |
+| Bootstrap security | pass | Bucket controls, read-only IAM, numeric WIF, key absence, API set verified |
+| Hosted dev plan | pass | Run `31386038802`; 14 create, 0 change, 0 destroy; redaction passed |
+| GitHub plan gates | pass | `TF_PLAN_ENABLED=true`; `TF_DEV_STATE_READY=false`; workflow_dispatch only |
+| Dev resource changes | pass | 0 resources and 0 remote dev state objects created |
 | UI render / input | not-applicable | No R0/M1 end-user UI |
 
 ## Blockers and decisions needed
 
-- No M0 blocker remains.
-- Bootstrap apply remains blocked on explicit Approval 1.
-- Dev apply remains blocked on a later, separate Approval 2 after state migration.
-- Do not store actual account, project, billing, app, repository numeric, or credential identifiers
-  in the repository.
+- Approval 1 is complete and no bootstrap blocker remains.
+- Dev apply is blocked on a separate explicit Approval 2.
+- `TF_DEV_STATE_READY` must remain false until an approved dev apply and state migration succeed.
+- Do not store actual account, project, billing, state, app, repository numeric, or credential
+  identifiers in the repository.
 
 ## Next checkpoint
 
-- Stop at Approval 1. The next authorized change, when explicitly approved, is bootstrap apply and
-  state migration only; dev apply remains a separate later approval.
+- Prepare Approval 2: regenerate and review the dev plan, apply only the approved 14 resources,
+  migrate dev state, then switch `TF_DEV_STATE_READY=true` and verify a hosted zero-drift plan.
 
 ## Related artifacts
 
