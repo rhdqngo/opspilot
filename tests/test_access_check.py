@@ -190,3 +190,5 @@ def test_M1_and_M2_permission_sets_stay_explicitly_separated() -> None:
     assert set(M1_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
     assert set(M2_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
     assert "run.services.create" not in M1_PROJECT_PERMISSIONS
+    assert "logging.logEntries.list" in M2_PROJECT_PERMISSIONS
+    assert "monitoring.timeSeries.list" in M2_PROJECT_PERMISSIONS

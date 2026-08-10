@@ -19,7 +19,7 @@ project number, OAuth client, token, or billing account identifier.
 | Required API activation permission | pass | Read-only permission test includes API enablement |
 | Project-scoped budget permission | pass | Read/write budget permissions exist for this single project |
 | M1 apply permissions | pass | API, Artifact Registry, service-account, notification-channel, and project-budget writes were verified without identifiers |
-| M2 deploy permissions | pass | Cloud Run create/update/read/IAM, invoke, actAs, image upload, and API enable permissions were verified without identifiers |
+| M2 deploy permissions | pass | Cloud Run create/update/read/IAM, invoke, actAs, image upload, telemetry read, and API enable permissions were verified without identifiers |
 | M2 candidate names | pass | The three exact Terraform service names have zero conflicts; an unrelated existing service was not inspected or modified |
 | Gemini Enterprise API access | pass | Global engine listing is permitted |
 | Gemini Enterprise app | pass | An existing global app was detected without recording its identifier |

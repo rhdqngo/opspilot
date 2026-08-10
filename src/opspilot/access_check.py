@@ -45,6 +45,8 @@ M2_PROJECT_PERMISSIONS: tuple[str, ...] = (
     "iam.serviceAccounts.create",
     "iam.serviceAccounts.actAs",
     "artifactregistry.repositories.uploadArtifacts",
+    "logging.logEntries.list",
+    "monitoring.timeSeries.list",
 )
 
 PROJECT_PERMISSIONS: tuple[str, ...] = tuple(
