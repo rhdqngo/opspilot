@@ -1,0 +1,5 @@
+project_id         = "replace-with-project-id"
+billing_account_id = "replace-with-billing-account-id"
+budget_notification_email = "replace-with-alert-recipient@example.invalid"
+region             = "asia-northeast3"
+environment        = "dev"

@@ -36,6 +36,16 @@ coverage/
 .tmp/
 tmp/
 
+# Terraform local state, plans, and injected values
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+backend.hcl
+*.auto.tfvars
+crash.log
+crash.*.log
+
 # Editors and operating systems
 .vscode/
 .idea/

@@ -1,0 +1,5 @@
+project_id           = "replace-with-project-id"
+github_owner_id      = "replace-with-numeric-owner-id"
+github_repository_id = "replace-with-numeric-repository-id"
+region               = "asia-northeast3"
+environment          = "dev"

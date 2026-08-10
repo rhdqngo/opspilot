@@ -24,6 +24,24 @@ uv run pytest
 uv build
 ```
 
+## Infrastructure preparation
+
+M1 Terraform is intentionally non-applying until a separate approval. Real project, billing,
+GitHub, and state identifiers are supplied through `TF_VAR_*`, ignored tfvars, and GitHub
+repository variables.
+
+```powershell
+terraform fmt -check -recursive infra/terraform
+terraform -chdir=infra/terraform/bootstrap init -backend=false
+terraform -chdir=infra/terraform/bootstrap validate
+terraform -chdir=infra/terraform/bootstrap test
+terraform -chdir=infra/terraform/environments/dev init -backend=false
+terraform -chdir=infra/terraform/environments/dev validate
+terraform -chdir=infra/terraform/environments/dev test
+```
+
+See `docs/operations/bootstrap.md` for the approval-gated state migration and apply sequence.
+
 ## Safety boundary
 
 - Only synthetic ecommerce fixtures are included.
@@ -31,3 +49,5 @@ uv build
 - Logs are redacted before they become evidence.
 - Reports can recommend an approval-gated action but R0 exposes no remediation endpoint.
 - Google account, project, OAuth, and billing identifiers are never stored in the repository.
+- Pull requests run static Terraform checks without cloud credentials.
+- The live Terraform plan workflow is manual and remains disabled until WIF bootstrap is approved.

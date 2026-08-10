@@ -1,0 +1,65 @@
+name: Terraform plan
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  dev-plan:
+    if: ${{ vars.TF_PLAN_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_billing_account_id: ${{ vars.GCP_BILLING_ACCOUNT_ID }}
+      TF_VAR_budget_notification_email: ${{ secrets.GCP_BUDGET_NOTIFICATION_EMAIL }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      OPSPILOT_REDACT_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      OPSPILOT_REDACT_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+      OPSPILOT_REDACT_BILLING_ACCOUNT_ID: ${{ vars.GCP_BILLING_ACCOUNT_ID }}
+      OPSPILOT_REDACT_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+      - name: Authenticate with read-only WIF identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT }}
+      - name: Initialize remote state
+        shell: bash
+        run: |
+          cp infra/terraform/environments/dev/backend.tf.example \
+            infra/terraform/environments/dev/backend.tf
+          printf 'bucket = "%s"\n' "$TF_STATE_BUCKET" > "$RUNNER_TEMP/backend.hcl"
+          terraform -chdir=infra/terraform/environments/dev init \
+            -backend-config="$RUNNER_TEMP/backend.hcl"
+      - name: Create read-only plan
+        shell: bash
+        run: |
+          terraform -chdir=infra/terraform/environments/dev plan \
+            -input=false \
+            -lock=false \
+            -out="$RUNNER_TEMP/opspilot.tfplan"
+          terraform -chdir=infra/terraform/environments/dev show \
+            -no-color "$RUNNER_TEMP/opspilot.tfplan" \
+            | PYTHONPATH=src python -m opspilot.plan_redaction \
+            > "$RUNNER_TEMP/terraform-plan.txt"
+      - name: Upload redacted text plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: terraform-plan-redacted
+          path: ${{ runner.temp }}/terraform-plan.txt
+          if-no-files-found: error
+          retention-days: 7

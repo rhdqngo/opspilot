@@ -1,70 +1,89 @@
 # Current Project State
 
-status: active  
-phase: M0-complete / M1-baseline  
+status: active
+phase: M0-complete / M1-static-validated
 updated: 2026-08-10
 
 ## Objective
 
-- Build OpsPilot as an evidence-grounded AI incident commander for synthetic Google Cloud operations data.
+- Build OpsPilot as an evidence-grounded AI incident commander for synthetic Google Cloud
+  operations data.
 
 ## Active scope
 
-- R0 local skeleton is complete: typed contracts, deterministic SCN-001 evidence workflow, API, CLI, tests, and GitHub Actions definition.
-- M0 cloud access verification for the `Edu_687` account alias and the currently configured gcloud project is complete.
-- The active scope is the private GitHub baseline followed by non-applying M1 Terraform implementation.
-- No cloud mutation, live telemetry, ADK, Gemini Enterprise integration, Terraform apply, or remediation execution is active.
+- R0 local skeleton is complete: typed contracts, deterministic SCN-001 workflow, API, CLI,
+  tests, and package build.
+- M0 access verification is complete for the `Edu_687` alias and current gcloud default project.
+- M1 Terraform, offline CI, approval-gated live planning, IAM/cost documentation, and local
+  non-applying plans are implemented and locally validated.
+- No Terraform apply, API activation, IAM mutation, budget creation, state migration, or hosted
+  cloud plan has been performed.
 
 ## Milestones
 
 | Milestone | Status | Evidence / notes |
 | --- | --- | --- |
-| Bootstrap | complete | uv package scaffold merged from isolated staging and validated from root |
-| R0 Local Skeleton | complete | 19 tests, strict mypy, ruff, package build, CLI replay, API health/readiness |
-| M0 Access and decisions | complete | redacted command reports ready; KRW billing, effective IAM, and existing Gemini app path verified |
-| M1 Infrastructure foundation | in-progress | private GitHub baseline and static IaC implementation are active; cloud apply remains prohibited |
-| UI Foundation | not-applicable | R0 is API/CLI only; Gemini Enterprise is the intended later user surface |
+| Bootstrap | complete | Python package scaffold validated from the repository root |
+| R0 Local Skeleton | complete | 29 tests, strict mypy, ruff, package build, CLI replay, API health/readiness |
+| M0 Access and decisions | complete | Redacted access check passed; KRW billing and Gemini collaboration path verified |
+| Private GitHub baseline | complete | Private `opspilot` repository, `main`, baseline commit, no history rewrite |
+| M1 Infrastructure foundation | static-validated | Terraform 1.15.8 / Google 7.39.0, mock tests, TFLint, and local plans pass; apply prohibited |
+| UI Foundation | not-applicable | R0/M1 are API, CLI, and infrastructure only |
 
 ## Completed major results
 
-- Added Python 3.12 packaged application with a reproducible `uv.lock`.
-- Added allowlisted request parsing, typed evidence/report contracts, deterministic scoring, and secret-like value redaction.
-- Added parallel fixture collectors with partial-failure reporting and SCN-001 evidence.
-- Added FastAPI investigation/status/report endpoints and JSON/Markdown CLI replay.
-- Added a least-privilege GitHub Actions PR workflow with no cloud credentials.
+- Split Terraform into local-state `bootstrap` and remote-state-ready `environments/dev` stacks.
+- Defined protected GCS state, numeric-ID GitHub WIF, a read-only plan identity, required APIs,
+  Docker Artifact Registry, an unprivileged investigator identity, and a protected KRW 50,000
+  project budget.
+- Added pinned, credential-free static Terraform CI and a manual live plan workflow gated by
+  `TF_PLAN_ENABLED=false`.
+- Added plan text redaction, Terraform contract tests, an IAM matrix, cost model, apply/state
+  migration runbook, and IaC/WIF ADR.
+- Produced local bootstrap and dev plans under ignored `.tmp`; both contain 14 creates and zero
+  delete or replacement actions.
 
 ## Verification state
 
 | Check | Result | Command / evidence |
 | --- | --- | --- |
 | Install / restore | pass | `uv sync --frozen` |
-| Baseline run | pass | CLI SCN-001 replay; `/healthz` and `/readyz` on local server |
+| Baseline run | pass | SCN-001 JSON replay; `/healthz` and `/readyz` on a local server |
 | Build | pass | `uv build` produced sdist and wheel |
-| Format / lint | pass | `uv run ruff format --check .`; `uv run ruff check .` |
-| Type check | pass | `uv run mypy src tests` — no issues |
-| Tests | pass | `uv run pytest` — 19 passed |
-| Hosted GitHub Actions | unverified | no Git remote or pushed workflow exists |
-| Cloud authentication | pass | gcloud user token and ADC reauthentication completed |
-| Cloud access gate | pass | redacted M0 access command reports ready |
-| UI render / input | not-applicable | no R0 end-user UI |
+| Format / lint | pass | ruff format/check; Terraform recursive format; TFLint 0.64.0 |
+| Type check | pass | `uv run mypy src tests` - no issues |
+| Tests | pass | `uv run pytest` - 29 passed; both Terraform mock-provider tests passed |
+| Terraform validate | pass | Bootstrap and dev initialized with lockfile read-only and validated |
+| Local Terraform plans | pass | Bootstrap 14 creates; dev 14 creates; zero delete/replacement; redacted text reviewed |
+| Hosted GitHub Actions | pending | M1 commit and hosted Python/static Terraform run still need verification |
+| Live Terraform plan | disabled | Repository variable `TF_PLAN_ENABLED=false`; no WIF credentials configured |
+| Cloud resource changes | pass | 0 changes; plan/read operations only |
+| UI render / input | not-applicable | No R0/M1 end-user UI |
 
 ## Blockers and decisions needed
 
 - No M0 blocker remains.
-- Terraform apply, API activation, IAM changes, and budget creation still require separate approval.
-- Do not store real account, project, billing, app, or credential identifiers in the repository.
+- Bootstrap apply remains blocked on explicit Approval 1.
+- Dev apply remains blocked on a later, separate Approval 2 after state migration.
+- Do not store actual account, project, billing, app, repository numeric, or credential identifiers
+  in the repository.
 
 ## Next checkpoint
 
-- Create the private GitHub baseline, implement and validate static M1 Terraform, then stop at the apply approval gate.
+- Push the static-validated M1 commit, verify hosted Python and Terraform checks, then stop at the
+  bootstrap apply approval gate.
 
 ## Related artifacts
 
 - Master plan: `docs/plans/opspilot_ai_implementation_spec.md`
 - Access gate: `docs/access-check.md`
-- Decisions: `docs/decisions/ADR-001-runtime.md` through `ADR-004-remediation-boundary.md`
-- UI Foundation: not applicable for R0
+- IAM matrix: `docs/iam-matrix.md`
+- Cost model: `docs/cost-model.md`
+- Bootstrap runbook: `docs/operations/bootstrap.md`
+- IaC decision: `docs/decisions/ADR-007-iac-delivery.md`
+- UI Foundation: not applicable for R0/M1
 
 ## Update rules
 
-Update this document only when the active milestone, scope, major result, blocker, validation state, or next checkpoint changes materially. Do not edit it solely to record the end of a session.
+Update this document only when the active milestone, scope, major result, blocker, validation
+state, or next checkpoint changes materially. Do not edit it solely to record the end of a session.
