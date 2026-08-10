@@ -61,6 +61,7 @@ Expected repository variables after bootstrap:
 - `GCP_WIF_PROVIDER`
 - `GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT`
 - `TF_STATE_BUCKET`
+- `TF_DEV_STATE_READY=false`
 - `TF_PLAN_ENABLED=true`
 
 Store `GCP_BUDGET_NOTIFICATION_EMAIL` as a GitHub repository secret, not a variable or file.
@@ -76,6 +77,9 @@ Only after bootstrap state migration and a separate dev approval:
    investigator service account, email notification channel, and the KRW 50,000 budget.
 4. Apply only the reviewed plan.
 5. Manually dispatch the hosted Terraform plan workflow and inspect its redacted text artifact.
+6. After the dev state is migrated successfully, set `TF_DEV_STATE_READY=true` so later hosted
+   plans read the remote state. Before that point, hosted plans use an ephemeral empty local state
+   and cannot create a GCS state or lock object.
 
 The budget has deletion protection. Cleanup requires a deliberate policy change and a new reviewed
 plan; it must never be bypassed with state editing.

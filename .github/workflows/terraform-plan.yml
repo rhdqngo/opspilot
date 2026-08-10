@@ -37,7 +37,11 @@ jobs:
           project_id: ${{ vars.GCP_PROJECT_ID }}
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT }}
+      - name: Initialize before the first dev state
+        if: ${{ vars.TF_DEV_STATE_READY != 'true' }}
+        run: terraform -chdir=infra/terraform/environments/dev init -backend=false -input=false
       - name: Initialize remote state
+        if: ${{ vars.TF_DEV_STATE_READY == 'true' }}
         shell: bash
         run: |
           cp infra/terraform/environments/dev/backend.tf.example \

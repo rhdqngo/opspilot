@@ -61,6 +61,9 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "pull_request:" not in live_plan
     assert "vars.TF_PLAN_ENABLED == 'true'" in live_plan
     assert live_plan.count("-lock=false") == 2
+    assert "vars.TF_DEV_STATE_READY != 'true'" in live_plan
+    assert "vars.TF_DEV_STATE_READY == 'true'" in live_plan
+    assert "init -backend=false -input=false" in live_plan
 
     pull_request_checks = (workflow_root / "pr-checks.yml").read_text(encoding="utf-8")
     assert "id-token: write" not in pull_request_checks
