@@ -41,6 +41,7 @@ tmp/
 *.tfstate
 *.tfstate.*
 *.tfplan
+backend.tf
 backend.hcl
 *.auto.tfvars
 crash.log

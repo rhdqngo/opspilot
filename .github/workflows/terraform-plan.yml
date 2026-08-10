@@ -44,6 +44,8 @@ jobs:
             infra/terraform/environments/dev/backend.tf
           printf 'bucket = "%s"\n' "$TF_STATE_BUCKET" > "$RUNNER_TEMP/backend.hcl"
           terraform -chdir=infra/terraform/environments/dev init \
+            -lock=false \
+            -input=false \
             -backend-config="$RUNNER_TEMP/backend.hcl"
       - name: Create read-only plan
         shell: bash

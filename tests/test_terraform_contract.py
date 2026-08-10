@@ -31,6 +31,13 @@ def test_M1_state_bucket_contract_is_protected_in_source() -> None:
     assert "prevent_destroy = true" in source
 
 
+def test_M1_runtime_backend_files_are_ignored() -> None:
+    ignore_rules = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+    assert "backend.tf" in ignore_rules
+    assert "backend.hcl" in ignore_rules
+
+
 def test_M1_ci_custom_role_is_read_only() -> None:
     source = (TERRAFORM_ROOT / "bootstrap" / "main.tf").read_text(encoding="utf-8")
     match = re.search(r"permissions\s*=\s*\[(.*?)\]", source, flags=re.DOTALL)
@@ -53,7 +60,7 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "workflow_dispatch:" in live_plan
     assert "pull_request:" not in live_plan
     assert "vars.TF_PLAN_ENABLED == 'true'" in live_plan
-    assert "-lock=false" in live_plan
+    assert live_plan.count("-lock=false") == 2
 
     pull_request_checks = (workflow_root / "pr-checks.yml").read_text(encoding="utf-8")
     assert "id-token: write" not in pull_request_checks
