@@ -1,0 +1,47 @@
+[project]
+name = "opspilot"
+version = "0.1.0"
+description = "Evidence-grounded local skeleton for the OpsPilot incident commander"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "pydantic-settings>=2.15.0",
+    "pyyaml>=6.0.3",
+    "uvicorn>=0.52.1",
+]
+
+[project.scripts]
+opspilot = "opspilot.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [".agents", ".bootstrap-work", ".codex", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.10.0",
+    "mypy>=2.3.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.2",
+    "types-pyyaml>=6.0.12.20260724",
+]

@@ -1,0 +1,12 @@
+version: "1.0"
+max_query_window_minutes: 120
+services:
+  inventory-service:
+    environments: [dev, staging, prod-sim]
+    metrics: [request_count, error_ratio, latency_p95, instance_count]
+  order-service:
+    environments: [dev, staging, prod-sim]
+    metrics: [request_count, error_ratio, latency_p95, instance_count]
+  payment-service:
+    environments: [dev, staging, prod-sim]
+    metrics: [request_count, error_ratio, latency_p95, instance_count, db_pool_waiters]

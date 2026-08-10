@@ -1,0 +1,47 @@
+# Personal instructions and local session state
+AGENTS.override.md
+docs/notes/handoff.local.md
+
+# Bootstrap / UI probe temporary work
+.bootstrap-work/
+.ui-probes/
+
+# Secrets
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.p12
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.next/
+target/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Temporary test and capture output
+playwright-report/
+test-results/
+coverage/
+.tmp/
+tmp/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# BEGIN MANAGED:SCAFFOLD_IGNORE
+# project-bootstrap merges framework-specific ignore patterns here.
+# END MANAGED:SCAFFOLD_IGNORE
