@@ -526,6 +526,26 @@ def test_M4_diagnostic_executes_zero_search_queries(monkeypatch: pytest.MonkeyPa
     assert result.search_query_count == 0
 
 
+def test_M4_serving_config_accepts_only_trusted_project_id_or_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = knowledge_module._CloudContext("synthetic-project", "123456789", "synthetic-bucket")
+    client = knowledge_module.GcloudKnowledgeClient(context)
+    base = "locations/global/collections/default_collection/engines/opspilot-dev-knowledge"
+    payload = {
+        "servingConfigs": [
+            {"name": f"projects/123456789/{base}/servingConfigs/default_search"},
+            {"name": f"projects/untrusted/{base}/servingConfigs/default_search"},
+        ]
+    }
+    monkeypatch.setattr(client, "_request", lambda *_args, **_kwargs: payload)
+
+    configs = client._serving_configs()
+
+    assert len(configs) == 1
+    assert configs[0].startswith("projects/123456789/")
+
+
 def test_M4_probe_requires_gate_and_executes_fixed_case_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

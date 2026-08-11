@@ -912,13 +912,29 @@ class GcloudKnowledgeClient:
         )
         raw_configs = payload.get("servingConfigs")
         configs = raw_configs if isinstance(raw_configs, list) else []
-        engine_prefix = f"{engine_parent}/servingConfigs/"
+
+        def is_owned_config(name: str) -> bool:
+            parts = name.split("/")
+            return (
+                len(parts) == 10
+                and parts[0] == "projects"
+                and parts[1] in {context.project_id, context.project_number}
+                and parts[2] == "locations"
+                and parts[3] == context.location
+                and parts[4] == "collections"
+                and parts[5] == "default_collection"
+                and parts[6] == "engines"
+                and parts[7] == context.engine_id
+                and parts[8] == "servingConfigs"
+                and bool(parts[9])
+            )
+
         return tuple(
             str(item["name"])
             for item in configs
             if isinstance(item, dict)
             and isinstance(item.get("name"), str)
-            and str(item["name"]).startswith(engine_prefix)
+            and is_owned_config(str(item["name"]))
         )
 
     def _resolve_serving_config(self) -> str:
