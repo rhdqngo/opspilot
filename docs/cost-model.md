@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M3 complete; M4 Search resources and corpus applied, live smoke blocked
+Status: M3 complete; M4 Search accepted, hosted plan blocked
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -73,9 +73,9 @@ Future work must not add any cost-bearing resource without a separate plan and a
   Cloud Run, IAM, budget, network, or existing Search assets. Dev state now has 28 managed resources.
 - The dedicated bucket contains thirteen text objects, one manifest, and one current snapshot.
   One FULL import completed with 13 successes and zero failures.
-- Index readiness passed, but the first live Standard Search request returned HTTP 400. No retry
-  was made, so observed M4 live Search usage is one request rather than the planned ten-request
-  acceptance run.
+- The earlier failed Search request was followed under Approval 3 by one successful fixed probe and
+  one successful ten-query acceptance batch. Observed M4 Search usage is therefore twelve requests
+  in total, with a worst-case list price of approximately USD 0.018.
 - Approval 2 is restricted to General pay-as-you-go Standard Search. Enterprise Search, AI
   Overview, LLM add-ons, configurable pricing subscriptions, OCR, and layout parsing are excluded.
 - The applied corpus is far below the documented 10 GiB index free allowance. Ten Standard Search

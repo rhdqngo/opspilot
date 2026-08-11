@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M4-search-deployed / live-smoke-blocked
+phase: M4-search-validated / hosted-plan-blocked
 updated: 2026-08-11
 
 ## Objective
@@ -24,9 +24,13 @@ updated: 2026-08-11
   29 total state addresses with operator zero drift.
 - One FULL import completed with 13 successes and zero failures. The protected bucket contains
   thirteen document objects, one manifest, and one current snapshot; sync plan is now a no-op.
-- Index readiness passed, but the first live Standard Search request returned HTTP 400 before a hit
-  could be normalized. No retry, corpus change, reimport, hosted plan, IAM broadening, or cleanup was
-  performed. Hosted M4 gates remain false and M4 completion requires a separate smoke recovery.
+- Approval 3 added redacted HTTP/RPC diagnostics and corrected project-number canonicalization for
+  the engine-owned serving config. The zero-query diagnostic, one fixed probe, and the separate ten-
+  query acceptance batch all passed without corpus, import, Terraform, or IAM changes.
+- The manual hosted plan reached Terraform but failed because the CI plan identity lacks
+  `serviceusage.services.use`. This is not an IAM propagation delay, so it was not retried. Hosted
+  gates were restored to false/unset and M4 completion requires a separately approved bootstrap
+  custom-role update.
 
 - M4 Approval 1 is complete in the repository. Thirteen synthetic knowledge documents, a
   deterministic hash catalog, ten retrieval queries, typed Search normalization, guarded sync and
@@ -73,7 +77,8 @@ updated: 2026-08-11
 | M3 Approval 1: incident corpus | complete | Seven offline contracts; bounded SCN-001 local injection; no cloud write |
 | M3 Approval 2: live incident | complete | Exact three-service update; three recovered live runs; telemetry and zero drift passed |
 | M4 Approval 1: knowledge and IaC boundary | complete | 13 documents, 10 local retrieval contracts, guarded sync, default-off four-resource graph |
-| M4 Approval 2: Search apply/import | blocked | Four resources and 13-document import complete; first live Search request returned HTTP 400 and was not retried |
+| M4 Approval 2: Search apply/import | complete | Four resources, 13-document import, fixed probe, and live retrieval 10/10 passed |
+| M4 Approval 3: hosted validation | blocked | CI plan identity lacks `serviceusage.services.use`; gates restored false/unset |
 | UI Foundation | not-applicable | M4 is API, CLI, corpus, and infrastructure only |
 
 ## Completed major results
@@ -93,7 +98,11 @@ updated: 2026-08-11
   resources and 29 addresses without changing IAM, Cloud Run, budget, network, or existing Search
   assets.
 - Completed one FULL import with 13 successes, zero failures, fifteen bucket objects, and a no-op
-  follow-up sync. The first live Search request failed safely with HTTP 400 and was not retried.
+  follow-up sync.
+- Added zero-query readiness and fixed-case probe commands, bounded RPC error classification, and
+  canonical serving-config validation without exposing project, query, URL, token, or raw errors.
+- Completed one KQ-001 probe and an independent ten-query acceptance batch: expected document
+  top-five coverage 10/10, citation metadata 100%, and malicious-content safety flag present.
 
 - Added SCN-001 through SCN-007 as validated ground-truth contracts and generalized fixture replay
   so contradictions, insufficient evidence, and malicious knowledge are handled per scenario.
@@ -173,7 +182,10 @@ updated: 2026-08-11
 | M4 bootstrap apply | pass | Exact read-only custom-role `0 create / 1 update / 0 delete`; 14 managed resources; zero drift |
 | M4 dev recovery apply | pass | Exact schema/engine `2 create / 0 update / 0 delete / 0 replacement`; 28 managed resources; operator zero drift |
 | M4 corpus import | pass | Fifteen objects; one FULL import; 13 success / 0 failure; snapshot updated; sync no-op |
-| M4 live Search smoke | blocked | Index ready; first Standard Search request returned HTTP 400; no retry; hosted gates false |
+| M4 live Search diagnostic | pass | Search 0; one serving config; filter-ready schema; 13 indexed; index errors 0 |
+| M4 live Search probe | pass | One fixed KQ-001 request; expected document and citation metadata present |
+| M4 live Search smoke | pass | Exact ten-query batch; 10/10 top-five; citation complete; malicious instruction not executed |
+| M4 hosted plan | blocked | Read-only CI identity lacks `serviceusage.services.use`; no retry; gates false/unset |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -186,11 +198,11 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Prepare a separate M4 live-smoke recovery plan that first captures a redacted Agent Search HTTP
-  error contract and validates the serving configuration without issuing another Search request.
-- Preserve the four Terraform-owned knowledge resources, 15 objects, successful snapshot, 28-resource
-  remote state, and false hosted gates. Do not reimport, repeat smoke, modify corpus, destroy, or
-  broaden IAM under the completed recovery approval.
+- Prepare a separate bootstrap approval for an exact custom-role update adding only
+  `serviceusage.services.use`, followed by bootstrap zero drift and one manual hosted dev plan.
+- Preserve the four Terraform-owned knowledge resources, 15 objects, successful snapshot,
+  28-resource remote state, successful live-search evidence, and false/unset hosted gates. Do not
+  reimport, repeat Search, modify corpus, destroy, or add broader IAM.
 
 ## Related artifacts
 

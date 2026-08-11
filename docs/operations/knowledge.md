@@ -1,6 +1,6 @@
 # Synthetic Knowledge and Agent Search Runbook
 
-Status: M4 search deployed; live smoke blocked
+Status: M4 live Search accepted; hosted plan blocked
 
 ## Recovery and import record
 
@@ -11,10 +11,13 @@ Status: M4 search deployed; live smoke blocked
   or indexable annotations on the title key property.
 - One FULL import completed with 13 successes and zero failures. The bucket contains thirteen text
   objects, one manifest, and one current snapshot; the following sync plan is a no-op.
-- Index readiness passed, but the first live Search request returned a safe HTTP 400 before any hit
-  was normalized. No second Search request was made and the hosted gates remain disabled.
-- Approval 3 adds a zero-query readiness diagnostic, a separately gated fixed-case probe, and
-  redacted HTTP/RPC failure classification before any bounded live-smoke recovery.
+- Approval 3 added a zero-query readiness diagnostic, separately gated fixed-case probe, redacted
+  HTTP/RPC failure classification, and canonical engine serving-config resolution.
+- The readiness diagnostic used zero Search requests. The fixed KQ-001 probe passed once, followed
+  by an independent ten-query acceptance batch with 10/10 top-five coverage, complete citations,
+  and the malicious-document safety flag.
+- The hosted plan failed on missing `serviceusage.services.use`. It was not retried because this is
+  a custom-role contract gap rather than IAM propagation. Both hosted gates are false/unset.
 - Do not modify the corpus, reimport, destroy, or broaden IAM during the live-smoke recovery.
 
 ## Local validation
@@ -59,7 +62,7 @@ exactly the ten versioned queries, never paginates, caps top-k at eight and retu
 - current dev state has 28 managed resources and 29 total state addresses with zero drift
 - the dedicated bucket, data store, schema, and engine are Terraform-owned
 - sync plan is a no-op and the imported document set remains exactly thirteen
-- hosted gates remain false until a successful bounded live smoke
+- hosted gates remain false until an approved bootstrap role correction and successful hosted plan
 - existing Search data stores and engine remain untouched
 
 Run the identifier-free readiness diagnostic before enabling any query gate:
