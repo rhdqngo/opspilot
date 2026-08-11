@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented; strict taxonomy selected, live RCA blocked by an unapproved code
+Status: implemented; verified-evidence taxonomy selected, live acceptance pending
 Date: 2026-08-12
 
 ## Decision
@@ -63,5 +63,9 @@ preventing an LLM from constructing executable resource queries or action payloa
 - Approval 7 used that authorization once. Both model nodes completed within 20 seconds and every
   non-taxonomy predicate passed, but `DB_CONNECTION_POOL_EXHAUSTION` is outside the canonical code
   and sole approved alias. The verifier correctly failed closed with `root_cause_mismatch`.
-- No second alias is inferred from semantic similarity. Expanding aliases or replacing raw-code
-  matching with an evidence-derived classifier requires a separate decision and live approval.
+- Approval 8 replaces model-label aliases with two synthetic-only verified-evidence rules for the
+  payment-pool and prompt-injection acceptance classes. Rules use cited supporting direction,
+  service, source types, and deterministic quality flags only.
+- Model labels remain bounded audit data. Scenario IDs, fixture answers, title/summary parsing,
+  fuzzy matching, contradictory evidence, and user-defined taxonomy rules cannot choose the
+  canonical code. Zero or multiple evidence-rule matches remain fail-closed.

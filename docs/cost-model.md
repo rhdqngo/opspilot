@@ -192,3 +192,12 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - At the same documented list rates used for prior M6 checkpoints, observed usage is approximately
   USD 0.0120. No additional Vertex, Search, live-evidence, deployment, IAM, or Terraform operation
   followed.
+
+## M6 Approval 8 boundary
+
+- Evidence classification implementation and static validation are local-only and add no service,
+  dependency, IAM grant, deployment, Search request, or telemetry read.
+- Live acceptance permits one two-request RCA suite and, only after RCA success, one four-request
+  safety suite. The total ceiling is six Standard PayGo requests with no retry.
+- The model, prompt, schemas, 20/60/200-second limits, input/output bounds, and monthly KRW 50,000
+  alert remain unchanged. Actual bounded token usage is recorded after execution.

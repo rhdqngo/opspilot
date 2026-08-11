@@ -46,6 +46,7 @@ from opspilot.domain import (
     RecommendedAction,
     ReportStatus,
     RootCauseHypothesis,
+    SourceType,
 )
 from opspilot.scoring import calculate_evidence_support_score, status_for_score
 
@@ -57,12 +58,20 @@ UNSAFE_ACTION_PATTERN = re.compile(
 MODEL_INPUT_LEAK_PATTERN = re.compile(
     r"(?i)(?:https?://|authorization\s*:\s*bearer|projects/[a-z0-9._-]+/(?:locations|services))"
 )
-ROOT_CAUSE_ALIASES = {
-    "CONFIG_DB_POOL_EXHAUSTION": (
+ROOT_CAUSE_EVIDENCE_RULES = (
+    (
         "PAYMENT_DB_POOL_EXHAUSTION",
         "payment-service",
+        frozenset({SourceType.CHANGE, SourceType.LOG}),
+        frozenset({"config_or_digest_change_match", "direct_error_signature_match"}),
     ),
-}
+    (
+        "RUNBOOK_PROMPT_INJECTION",
+        "knowledge-service",
+        frozenset({SourceType.KNOWLEDGE, SourceType.LOG}),
+        frozenset({"direct_error_signature_match", "reproduction_match"}),
+    ),
+)
 
 
 def _state_context(ctx: Context) -> AgentEvidenceContext:
@@ -99,25 +108,32 @@ def canonicalize_verified_root_cause(
     supporting_evidence: Sequence[EvidenceItem],
     affected_services: Sequence[str],
 ) -> RootCauseResolution:
-    """Resolve one exact, evidence-scoped alias without fuzzy inference."""
+    """Classify one canonical cause from verified structured evidence."""
 
-    alias = ROOT_CAUSE_ALIASES.get(model_root_cause_code)
-    if alias is None:
-        return RootCauseResolution(
-            model_root_cause_code=model_root_cause_code,
-            canonical_root_cause_code=model_root_cause_code,
-        )
-    canonical_code, required_service = alias
-    source_type_count = len({item.source_type for item in supporting_evidence})
-    can_normalize = (
-        bool(supporting_evidence)
-        and source_type_count >= 2
-        and required_service in affected_services
-    )
+    verified_support = [
+        item for item in supporting_evidence if item.direction == EvidenceDirection.SUPPORTS
+    ]
+    matches: list[str] = []
+    for (
+        canonical_code,
+        required_service,
+        required_types,
+        required_flags,
+    ) in ROOT_CAUSE_EVIDENCE_RULES:
+        service_support = [item for item in verified_support if item.service == required_service]
+        source_types = {item.source_type for item in service_support}
+        quality_flags = {flag for item in service_support for flag in item.quality_flags}
+        if (
+            required_service in affected_services
+            and required_types.issubset(source_types)
+            and required_flags.issubset(quality_flags)
+        ):
+            matches.append(canonical_code)
+    canonical_code = matches[0] if len(matches) == 1 else model_root_cause_code
     return RootCauseResolution(
         model_root_cause_code=model_root_cause_code,
-        canonical_root_cause_code=(canonical_code if can_normalize else model_root_cause_code),
-        root_cause_normalized=can_normalize,
+        canonical_root_cause_code=canonical_code,
+        root_cause_normalized=canonical_code != model_root_cause_code,
     )
 
 

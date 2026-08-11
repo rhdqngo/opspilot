@@ -338,9 +338,9 @@ async def test_M6_acceptance_retains_safe_predicate_diagnostics() -> None:
         assert field in summary
 
 
-def test_M6_root_cause_alias_is_exact_and_evidence_scoped() -> None:
+def test_M6_root_cause_classification_uses_verified_evidence_not_model_label() -> None:
     fixture = load_scenario_fixture("SCN-001")
-    supporting = fixture.evidence[:2]
+    supporting = fixture.evidence
 
     canonical = canonicalize_verified_root_cause(
         "PAYMENT_DB_POOL_EXHAUSTION",
@@ -351,38 +351,95 @@ def test_M6_root_cause_alias_is_exact_and_evidence_scoped() -> None:
     assert canonical.canonical_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
     assert not canonical.root_cause_normalized
 
-    alias = canonicalize_verified_root_cause(
+    historical_alias = canonicalize_verified_root_cause(
         "CONFIG_DB_POOL_EXHAUSTION",
         supporting_evidence=supporting,
         affected_services=[fixture.primary_service],
     )
-    assert alias.model_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION"
-    assert alias.canonical_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
-    assert alias.root_cause_normalized
+    assert historical_alias.model_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION"
+    assert historical_alias.canonical_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert historical_alias.root_cause_normalized
+
+    latest_variant = canonicalize_verified_root_cause(
+        "DB_CONNECTION_POOL_EXHAUSTION",
+        supporting_evidence=supporting,
+        affected_services=[fixture.primary_service],
+    )
+    assert latest_variant.model_root_cause_code == "DB_CONNECTION_POOL_EXHAUSTION"
+    assert latest_variant.canonical_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert latest_variant.root_cause_normalized
+
+    unrelated_model_label = canonicalize_verified_root_cause(
+        "UNRECOGNIZED_MODEL_LABEL",
+        supporting_evidence=supporting,
+        affected_services=[fixture.primary_service],
+    )
+    assert unrelated_model_label.canonical_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert unrelated_model_label.root_cause_normalized
 
     wrong_service = canonicalize_verified_root_cause(
-        "CONFIG_DB_POOL_EXHAUSTION",
+        "DB_CONNECTION_POOL_EXHAUSTION",
         supporting_evidence=supporting,
         affected_services=["inventory-service"],
     )
-    assert wrong_service.canonical_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION"
+    assert wrong_service.canonical_root_cause_code == "DB_CONNECTION_POOL_EXHAUSTION"
     assert not wrong_service.root_cause_normalized
 
-    one_source = canonicalize_verified_root_cause(
-        "CONFIG_DB_POOL_EXHAUSTION",
-        supporting_evidence=supporting[:1],
+    missing_log_source = canonicalize_verified_root_cause(
+        "DB_CONNECTION_POOL_EXHAUSTION",
+        supporting_evidence=[fixture.evidence[0], fixture.evidence[1]],
         affected_services=[fixture.primary_service],
     )
-    assert one_source.canonical_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION"
-    assert not one_source.root_cause_normalized
+    assert missing_log_source.canonical_root_cause_code == "DB_CONNECTION_POOL_EXHAUSTION"
+    assert not missing_log_source.root_cause_normalized
 
-    unknown = canonicalize_verified_root_cause(
-        "CONFIG_DB_POOL_EXHAUSTION_ALT",
-        supporting_evidence=supporting,
+    missing_log_flag = canonicalize_verified_root_cause(
+        "DB_CONNECTION_POOL_EXHAUSTION",
+        supporting_evidence=[
+            fixture.evidence[0],
+            fixture.evidence[2].model_copy(update={"quality_flags": []}),
+        ],
         affected_services=[fixture.primary_service],
     )
-    assert unknown.canonical_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION_ALT"
-    assert not unknown.root_cause_normalized
+    assert missing_log_flag.canonical_root_cause_code == "DB_CONNECTION_POOL_EXHAUSTION"
+    assert not missing_log_flag.root_cause_normalized
+
+    other_service_change = load_scenario_fixture("SCN-003").evidence[0]
+    cross_service_flags = canonicalize_verified_root_cause(
+        "DB_CONNECTION_POOL_EXHAUSTION",
+        supporting_evidence=[other_service_change, fixture.evidence[2]],
+        affected_services=[fixture.primary_service],
+    )
+    assert cross_service_flags.canonical_root_cause_code == "DB_CONNECTION_POOL_EXHAUSTION"
+    assert not cross_service_flags.root_cause_normalized
+
+    contradiction_only_change = canonicalize_verified_root_cause(
+        "DB_CONNECTION_POOL_EXHAUSTION",
+        supporting_evidence=[
+            fixture.evidence[0].model_copy(update={"direction": "CONTRADICTS"}),
+            fixture.evidence[2],
+        ],
+        affected_services=[fixture.primary_service],
+    )
+    assert contradiction_only_change.canonical_root_cause_code == ("DB_CONNECTION_POOL_EXHAUSTION")
+    assert not contradiction_only_change.root_cause_normalized
+
+    injection = load_scenario_fixture("SCN-007")
+    safety_classification = canonicalize_verified_root_cause(
+        "UNTRUSTED_RUNBOOK_CONTENT",
+        supporting_evidence=injection.evidence,
+        affected_services=[injection.primary_service],
+    )
+    assert safety_classification.canonical_root_cause_code == "RUNBOOK_PROMPT_INJECTION"
+    assert safety_classification.root_cause_normalized
+
+    ambiguous = canonicalize_verified_root_cause(
+        "AMBIGUOUS_MODEL_LABEL",
+        supporting_evidence=[*fixture.evidence, *injection.evidence],
+        affected_services=[fixture.primary_service, injection.primary_service],
+    )
+    assert ambiguous.canonical_root_cause_code == "AMBIGUOUS_MODEL_LABEL"
+    assert not ambiguous.root_cause_normalized
 
     with pytest.raises(ValueError):
         canonicalize_verified_root_cause(
@@ -392,7 +449,7 @@ def test_M6_root_cause_alias_is_exact_and_evidence_scoped() -> None:
         )
 
 
-def test_M6_verified_alias_reaches_composer_only_as_canonical_code() -> None:
+def test_M6_verified_evidence_classification_reaches_composer_only_as_canonical_code() -> None:
     fixture = load_scenario_fixture("SCN-001")
 
     class StubContext:
@@ -411,7 +468,7 @@ def test_M6_verified_alias_reaches_composer_only_as_canonical_code() -> None:
                     drafts=[
                         HypothesisDraft(
                             draft_id="D-01",
-                            root_cause_code="CONFIG_DB_POOL_EXHAUSTION",
+                            root_cause_code="DB_CONNECTION_POOL_EXHAUSTION",
                             claim="The payment database pool was exhausted",
                             mechanism="Validated payment evidence shows bounded pool saturation.",
                             affected_services=[fixture.primary_service],
@@ -439,7 +496,7 @@ def test_M6_verified_alias_reaches_composer_only_as_canonical_code() -> None:
     assert "model_root_cause_code" not in output["verified_hypotheses"][0]
     assert context.state["root_cause_resolutions"] == [
         {
-            "model_root_cause_code": "CONFIG_DB_POOL_EXHAUSTION",
+            "model_root_cause_code": "DB_CONNECTION_POOL_EXHAUSTION",
             "canonical_root_cause_code": "PAYMENT_DB_POOL_EXHAUSTION",
             "root_cause_normalized": True,
         }

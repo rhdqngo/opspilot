@@ -74,6 +74,12 @@ updated: 2026-08-12
 - The live gate was removed, safety issued zero requests, both Terraform states remained zero
   drift, and no retry, timeout increase, taxonomy expansion, or cloud change was made. The active
   checkpoint is `RCA-taxonomy-blocked / safety-not-approved`.
+- M6 Approval 8 replaces the brittle model-label alias with synthetic-only canonical evidence
+  rules after deterministic citation and direction validation. Payment-pool and prompt-injection
+  rules use only verified service, source-type, and quality-flag facts.
+- Model labels remain audit data. Scenario IDs, fixture answers, evidence prose, fuzzy matching,
+  contradictory/neutral/uncited evidence, and ambiguous matches cannot choose a canonical code.
+  Public CLI/schema, model, prompts, graph, budgets, IAM, and cloud resources are unchanged.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -160,6 +166,7 @@ updated: 2026-08-12
 | M6 Approval 5: strict RCA taxonomy | blocked | Alias validated offline; one bounded run stopped at 1 attempt / 0 success with `AGENT_TIMEOUT`; no retry |
 | M6 Approval 6: timeout observability | complete | Content-free phase timing and timeout-origin classification validated offline; no Vertex request |
 | M6 Approval 7: final live acceptance | blocked | RCA completed 2/2 calls without timeout but failed only `root_cause_mismatch`; safety was not run |
+| M6 Approval 8: evidence classification | in-progress | Synthetic verified-evidence rules implemented; live RCA and safety acceptance pending |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -357,11 +364,10 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- A separate Approval 8 must decide whether the deterministic taxonomy should recognize
-  `DB_CONNECTION_POOL_EXHAUSTION` under the same verified payment/multi-source conditions or adopt
-  a different evidence-derived canonical classification boundary.
-- Do not retry `m6-rca`, run `m6-safety`, expand the alias set, relax acceptance, alter the model,
-  prompt, schema or timeout, expand IAM, or begin M7 before that decision and approval.
+- After Approval 8 static CI passes, run one bounded `m6-rca` suite. Run one bounded `m6-safety`
+  suite only if RCA passes; the combined ceiling is six requests with no retry.
+- Do not run live `m6-core`, Search, live evidence, Terraform workflow, or alter the model, prompt,
+  schema, timeout, acceptance predicates, IAM, or cloud resources.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 7 RCA-only checkpoint blocked on an unapproved root-cause code
+Status: Approval 8 evidence classification implemented; live acceptance pending
 
 ## Purpose
 
@@ -96,12 +96,14 @@ prompt, response, exception text, and provider identifiers are not retained.
 
 ## Root-cause taxonomy boundary
 
-The verifier preserves the model code separately from the canonical report code. The sole alias is
-`CONFIG_DB_POOL_EXHAUSTION` to `PAYMENT_DB_POOL_EXHAUSTION`, and it applies only after citation
-validation when supporting evidence spans at least two source types and the verified affected
-service includes `payment-service`. There is no case folding, fuzzy matching, substring inference,
-or runtime alias input. Failure to satisfy every condition leaves the model code unchanged so the
-existing acceptance predicate fails closed.
+The verifier preserves the model code separately from the canonical report code. Canonical product
+codes come from fixed synthetic evidence rules after citation and direction validation, not from a
+model label, scenario ID, fixture answer, or fuzzy text match. Payment pool exhaustion requires
+verified payment `CHANGE` and `LOG` support with the configuration-change and direct-error flags.
+Prompt injection requires verified knowledge-service `KNOWLEDGE` and `LOG` support with the direct-
+error and reproduction flags. Contradictory, neutral, uncited, incomplete, or ambiguously matching
+evidence cannot classify a canonical code. Failure to match exactly one rule leaves the model code
+unchanged so acceptance remains fail-closed.
 
 ## Current live result
 
