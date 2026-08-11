@@ -69,6 +69,10 @@ Future work must not add any cost-bearing resource without a separate plan and a
   repository-only data and generate no Google Cloud charge.
 - `deploy_knowledge=false` is the Terraform default. No knowledge bucket, data store, schema,
   engine, object, import operation, or billable Search query was created in Approval 1.
+- Approval 2 is paused after the protected empty bucket and dedicated data store were created.
+  Schema and engine creation did not complete; object uploads, imports, and billable Search queries
+  remain zero. The preserved resources stay within the existing KRW 50,000 budget boundary while
+  a separate two-create recovery approval is prepared.
 - Approval 2 is restricted to General pay-as-you-go Standard Search. Enterprise Search, AI
   Overview, LLM add-ons, configurable pricing subscriptions, OCR, and layout parsing are excluded.
 - The planned corpus is far below the documented 10 GiB index free allowance. Ten Standard Search

@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M4-code-complete / M4-ready-for-search-apply-approval
+phase: M4-partial-apply / recovery-approval-required
 updated: 2026-08-11
 
 ## Objective
@@ -18,6 +18,16 @@ updated: 2026-08-11
 - Optional work cannot enter an MVP acceptance gate or Terraform plan without a separate approval.
 
 ## Active scope
+
+- M4 Approval 2 stopped at its explicit partial-failure boundary. The bootstrap read-only custom
+  role update succeeded and is zero drift. The dev apply created only the protected empty knowledge
+  bucket and dedicated data store before Google rejected array-level schema annotations; schema,
+  engine, import, and live Search were not created or executed.
+- Remote dev state now contains 26 managed resources and 27 total state addresses. The bucket has
+  zero objects, the candidate data store exists, and the candidate engine does not exist.
+- The schema source is corrected so array annotations live on the scalar item definition, matching
+  the Agent Search schema contract. Reapplying the remaining two creates requires a new recovery
+  approval; destroy, automatic retry, import, and query remain prohibited until then.
 
 - M4 Approval 1 is complete in the repository. Thirteen synthetic knowledge documents, a
   deterministic hash catalog, ten retrieval queries, typed Search normalization, guarded sync and
@@ -66,7 +76,7 @@ updated: 2026-08-11
 | M3 Approval 1: incident corpus | complete | Seven offline contracts; bounded SCN-001 local injection; no cloud write |
 | M3 Approval 2: live incident | complete | Exact three-service update; three recovered live runs; telemetry and zero drift passed |
 | M4 Approval 1: knowledge and IaC boundary | complete | 13 documents, 10 local retrieval contracts, guarded sync, default-off four-resource graph |
-| M4 Approval 2: Search apply/import | not-started | Separate approval required; no M4 cloud write or billable query yet |
+| M4 Approval 2: Search apply/import | blocked | Bootstrap update complete; bucket/data store preserved; schema/engine/import/query require recovery approval |
 | UI Foundation | not-applicable | M4 is API, CLI, corpus, and infrastructure only |
 
 ## Completed major results
@@ -158,7 +168,10 @@ updated: 2026-08-11
 | M4 Terraform static | pass | Default-off zero drift contract; enabled graph contains exactly four protected Search resources |
 | M4 operator default-off plan | pass | Remote state 24 managed resources; `deploy_knowledge=false`; zero drift |
 | M4 operator enabled plan | pass | Disposable read-only plan: exact `4 create / 0 update / 0 delete / 0 replacement`; plan removed |
-| M4 cloud mutation/query | pass | Resource changes 0; object uploads/imports 0; billable Search queries 0 |
+| M4 bootstrap apply | pass | Exact read-only custom-role `0 create / 1 update / 0 delete`; 14 managed resources; zero drift |
+| M4 dev apply | blocked | Planned bucket and data store created; schema rejected array-level annotations; 26 managed resources preserved |
+| M4 recovery plan | pass | Fresh read-only plan: exact schema/engine `2 create / 0 update / 0 delete / 0 replacement`; not applied |
+| M4 corpus import/query | blocked | Bucket objects 0; import operations 0; Search queries 0 |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -171,12 +184,12 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Obtain M4 Approval 2 only after rechecking General pay-as-you-go pricing, candidate conflicts,
-  current 24-resource state, and the KRW cost boundary.
-- Review bootstrap `0 create / 1 update / 0 delete` and dev
-  `4 create / 0 update / 0 delete / 0 replacement` as separate binary plans.
-- Do not upload/import the corpus or execute the ten live queries until both plans and the explicit
-  sync/search gates are approved.
+- Obtain a separate M4 recovery approval after static validation and a fresh read-only plan confirm
+  exactly `2 create / 0 update / 0 delete / 0 replacement` for schema and engine only.
+- Preserve the protected empty bucket, dedicated data store, 26-resource remote state, and the
+  false hosted gates. Do not destroy, retry apply, upload, import, or query under the prior approval.
+- After an approved recovery apply, resume at corpus sync plan, one FULL import, index readiness,
+  and exactly ten live Search queries.
 
 ## Related artifacts
 

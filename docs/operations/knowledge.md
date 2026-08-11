@@ -1,6 +1,20 @@
 # Synthetic Knowledge and Agent Search Runbook
 
-Status: M4 Approval 1 code complete; cloud apply and live query not approved
+Status: M4 partial apply preserved; recovery approval required
+
+## Partial apply record
+
+- The bootstrap read-only custom role update completed and is zero drift.
+- The dev apply created the planned protected empty bucket and dedicated data store, then stopped
+  when the API rejected annotations attached to the array rather than its scalar item schema.
+- Remote dev state contains 26 managed resources. Schema and engine are absent; bucket objects,
+  imports, and Search queries remain zero.
+- The schema source is corrected and statically tested. A fresh recovery plan must contain only the
+  remaining schema and engine creates before a separate apply approval.
+- A fresh read-only recovery plan has confirmed exactly those two creates with no update, delete,
+  or replacement. Its binary plan is diagnostic evidence only and must not be reused for apply.
+- Do not destroy, repeat the prior apply, upload corpus objects, import documents, or enable hosted
+  gates while this status is active.
 
 ## Local validation
 
@@ -48,4 +62,3 @@ exactly the ten versioned queries, never paginates, caps top-k at eight and retu
 
 Stop without cleanup or retry if a configurable subscription, add-on, broader IAM, different
 resource graph, import failure, or unexpected cost boundary appears.
-

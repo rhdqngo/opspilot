@@ -6,7 +6,7 @@ Data classification: synthetic only
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
 | --- | --- | --- | --- |
 | Developer / `Edu_687` operator | Current dev project | Local read checks, completed M1-M3 applies, bounded private invocation, M4 read-only gate | Destroy, unapproved Search creation/import, billing model changes, unreviewed IAM broadening |
-| GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, prepared Search data store/schema/engine get/list, state object read | Search/import, API enable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
+| GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, applied Search data store/schema/engine get/list, state object read | Search/import, API enable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
 | Investigator identity | Dev project | Identity exists with no project role and no user-managed key | Logging, Monitoring, Run, Deploy, Secret, IAM, remediation writes |
 | Order runtime identity | Payment and inventory services | `roles/run.invoker` on the two leaf services only | Project roles, keys, secrets, IAM, remediation, arbitrary Cloud Run invocation |
 | Payment / inventory runtime identities | Their own Cloud Run revisions | No IAM role or user-managed key | Cross-service invocation, project roles, secrets, IAM, remediation writes |

@@ -163,10 +163,10 @@ resource "google_discovery_engine_schema" "knowledge" {
       tags = {
         type = "array"
         items = {
-          type = "string"
+          type        = "string"
+          indexable   = true
+          retrievable = true
         }
-        indexable   = true
-        retrievable = true
       }
       section = {
         type        = "string"
