@@ -38,7 +38,7 @@ def test_M1_runtime_backend_files_are_ignored() -> None:
     assert "backend.hcl" in ignore_rules
 
 
-def test_M1_ci_custom_role_is_read_only() -> None:
+def test_M1_ci_custom_role_is_least_privilege() -> None:
     source = (TERRAFORM_ROOT / "bootstrap" / "main.tf").read_text(encoding="utf-8")
     match = re.search(r"permissions\s*=\s*\[(.*?)\]", source, flags=re.DOTALL)
 
@@ -46,9 +46,13 @@ def test_M1_ci_custom_role_is_read_only() -> None:
     permissions = re.findall(r'"([a-zA-Z0-9.]+)"', match.group(1))
     assert permissions
     assert all(
-        permission.endswith((".get", ".getIamPolicy", ".list", ".read"))
+        permission == "serviceusage.services.use"
+        or permission.endswith((".get", ".getIamPolicy", ".list", ".read"))
         for permission in permissions
     )
+    assert permissions.count("serviceusage.services.use") == 1
+    assert "serviceusage.services.enable" not in permissions
+    assert "serviceusage.services.disable" not in permissions
     assert {"run.services.get", "run.services.getIamPolicy", "run.services.list"}.issubset(
         permissions
     )

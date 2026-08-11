@@ -74,7 +74,7 @@ resource "google_project_iam_custom_role" "ci_plan_reader" {
   project     = var.project_id
   role_id     = "opspilotTerraformPlanReader"
   title       = "OpsPilot Terraform Plan Reader"
-  description = "Read-only permissions required to refresh the M1 Terraform plan."
+  description = "Minimum permissions required to refresh the Terraform plan."
   stage       = "GA"
 
   permissions = [
@@ -97,6 +97,7 @@ resource "google_project_iam_custom_role" "ci_plan_reader" {
     "run.services.list",
     "serviceusage.services.get",
     "serviceusage.services.list",
+    "serviceusage.services.use",
     "storage.buckets.get",
   ]
 }

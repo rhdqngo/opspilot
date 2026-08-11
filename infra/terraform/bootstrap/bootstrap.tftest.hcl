@@ -43,9 +43,20 @@ run "secure_bootstrap_plan" {
   assert {
     condition = alltrue([
       for permission in google_project_iam_custom_role.ci_plan_reader.permissions :
-      endswith(permission, ".get") || endswith(permission, ".getIamPolicy") || endswith(permission, ".list") || endswith(permission, ".read")
+      permission == "serviceusage.services.use" || endswith(permission, ".get") || endswith(permission, ".getIamPolicy") || endswith(permission, ".list") || endswith(permission, ".read")
     ])
-    error_message = "The CI plan custom role must contain read-only permissions only."
+    error_message = "The CI plan custom role must contain reads plus service usage consumption only."
+  }
+
+  assert {
+    condition = !contains(
+      google_project_iam_custom_role.ci_plan_reader.permissions,
+      "serviceusage.services.enable",
+      ) && !contains(
+      google_project_iam_custom_role.ci_plan_reader.permissions,
+      "serviceusage.services.disable",
+    )
+    error_message = "The CI plan custom role must not enable or disable APIs."
   }
 
   assert {
