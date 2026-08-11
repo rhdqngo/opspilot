@@ -94,7 +94,9 @@ The diagnostic performs no generation request and emits only redacted readiness 
 
 The first approved Vertex batch stopped safely after the reviewer response reached the client and
 was not retried. Approval 3 replaces that advisory model reviewer with fixed citation rules while
-preserving the seven-node trajectory. M7 deployment has not started.
+preserving the seven-node trajectory. Its separately approved batch stopped after SCN-001 completed
+two successful model calls but failed the final semantic acceptance predicate; SCN-006 and SCN-007
+were not called. M6 remains blocked and M7 deployment has not started.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and

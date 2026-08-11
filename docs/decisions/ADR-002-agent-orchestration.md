@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented; deterministic reviewer selected for MVP
+Status: implemented; deterministic reviewer selected, live acceptance blocked
 Date: 2026-08-11
 
 ## Decision
@@ -35,3 +35,6 @@ preventing an LLM from constructing executable resource queries or action payloa
   validating the reviewer output. The precise invalid field was not retained and is not inferred.
 - A model-based independent reviewer is deferred as a post-MVP option. Restoring it requires a
   separate structured-output contract, request budget, and approval.
+- The Approval 3 batch completed both SCN-001 model calls but failed its final semantic acceptance
+  predicate. It stopped before SCN-006 as designed. No retry, model substitution, schema relaxation,
+  or infrastructure change was made.

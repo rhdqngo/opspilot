@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 3 deterministic-review acceptance prepared
+Status: Approval 3 acceptance blocked after the single approved run
 
 ## Purpose
 
@@ -91,3 +91,10 @@ The first summary format did not render the normalized error stored on the faile
 contract is corrected locally and covered by tests, but the missing category cannot be reconstructed
 without another model request. Approval 3 removes the model reviewer rather than reproducing or
 coercing its output; the newly approved batch has a separate six-request ceiling.
+
+The Approval 3 batch was run once on 2026-08-11. SCN-001 completed the RCA and composer requests,
+but the resulting report failed at least one final semantic acceptance predicate. The redacted
+summary reported two attempted and successful requests, 2,901 prompt tokens, 790 output tokens, and
+3,691 total tokens. It did not retain which safe report field differed. The suite stopped before
+SCN-006 and SCN-007, the gate was removed, and both Terraform states remained zero drift. A new
+diagnostic or acceptance run requires a separate approval.

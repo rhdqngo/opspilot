@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M6-recovery-prepared / live-acceptance-pending
+phase: M6-model-deployed / live-acceptance-blocked
 updated: 2026-08-11
 
 ## Objective
@@ -40,6 +40,10 @@ updated: 2026-08-11
 - The original acceptance summary omitted the case-level normalized error code, so the precise
   safe category was not retained. Approval 3 does not reconstruct or coerce that response; it
   removes the model reviewer from the MVP request path.
+- The separately approved Approval 3 batch was executed once. SCN-001 completed both remaining
+  model nodes but failed the final semantic acceptance predicate after two attempted and successful
+  calls. The batch stopped before SCN-006 and SCN-007, the live gate was removed, and no retry was
+  made. The summary did not retain which safe report predicate differed.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -121,7 +125,7 @@ updated: 2026-08-11
 | M5 Approval 2: investigator IAM and live acceptance | complete | Bootstrap 1-update, dev 3-create, one bounded SCN-001 evidence batch, hosted zero drift |
 | M6 Approval 1: ADK orchestration | complete | Optional ADK 2.5 graph, fake model, seven-case offline evaluation, no cloud/model call |
 | M6 Approval 2: live model acceptance | blocked | One approved batch stopped in SCN-001 after 2 attempts / 1 success; no retry |
-| M6 Approval 3: deterministic review recovery | pending live acceptance | Seven-node graph retained; fake path uses two model calls per case |
+| M6 Approval 3: deterministic review recovery | blocked | SCN-001 used 2/2 successful calls but failed semantic acceptance; no retry |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -141,6 +145,8 @@ updated: 2026-08-11
   successful response; the live gate was removed and all infrastructure remained unchanged.
 - Replaced the reviewer model with fixed duplicate, existence, and evidence-direction checks while
   retaining the reviewer node name and the public report and trajectory contracts.
+- Ran the separately approved deterministic-review Vertex batch once. It stopped after SCN-001
+  completed two model calls but failed the final acceptance predicate; SCN-006/007 were not called.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -276,6 +282,7 @@ updated: 2026-08-11
 | M6 offline evaluation | pass | Seven fixtures passed; fourteen fake model calls; zero cloud/model requests |
 | M6 live controls | pass | Zero-call diagnostic contract; fake core acceptance 3/3 with six attempted and successful calls |
 | M6 Vertex acceptance | blocked | SCN-001 stopped at call 2; 2 attempted / 1 successful; 1,229 prompt, 275 output, 1,504 total tokens; no retry |
+| M6 Approval 3 Vertex acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,901 prompt, 790 output, 3,691 total tokens; final predicate failed; no retry |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -289,9 +296,10 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Complete static validation and the first Approval 3 commit, then run the zero-generation
-  diagnostic and the separately approved six-request `m6-core` Vertex batch exactly once.
-- Do not retry, substitute a model, expand IAM, or begin M7 if any case fails.
+- Prepare a separate corrective plan that makes the safe acceptance summary retain root-cause code,
+  citation coverage, report status, hypothesis count, and action count before any new paid run.
+- Do not rerun the batch, alter prompts or schemas, substitute a model, expand IAM, or begin M7
+  without a new approval and request budget.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

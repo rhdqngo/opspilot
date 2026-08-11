@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 Approval 3 deterministic-review acceptance prepared
+Status: M6 Approval 3 stopped within its approved request budget
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -144,3 +144,6 @@ Future work must not add any cost-bearing resource without a separate plan and a
   0.71. Actual usage is recorded only from bounded provider metadata.
 - IAM, Terraform, Cloud Run, Search, live evidence, deployment, and GitHub credential state remain
   unchanged.
+- The approved batch stopped after SCN-001 used two successful requests. Reported usage was 2,901
+  prompt tokens and 790 output tokens, about USD 0.0115 at the documented list rates. SCN-006 and
+  SCN-007 made no request, and the process gate was removed.

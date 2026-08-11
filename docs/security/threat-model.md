@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: updated for M6 Approval 3 deterministic review
+Status: updated after blocked M6 Approval 3 acceptance
 
 ## Protected assets and trust boundaries
 
@@ -22,6 +22,7 @@ approval cross those boundaries.
 | Unauthorized remediation | No tools or write endpoint; unsafe action text is dropped; all retained actions require approval | M8 needs a separate action-policy threat review |
 | Unsafe failure leakage | Exceptions normalize to fixed error categories and ADK internal trace logging is suppressed at the public boundary | Local debug mode must never be enabled in hosted output |
 | Invalid advisory review output | Citation review is local deterministic code; no model response is parsed at this stage | A future model reviewer would require a separate post-MVP contract and approval |
+| Semantic acceptance mismatch | The fixed suite stops on the first failed predicate and removes the process gate without retry | The summary retains budget and pass/fail but did not retain which safe report predicate differed |
 
 ## Deferred reviews
 
