@@ -88,11 +88,13 @@ uv run opspilot route-check --account-alias Edu_687 --format summary
 The updated diagnostic calls `/health`. See `cloud-run-mvp-recovery.md` for the new-image rollout
 and acceptance sequence.
 
-## M3 Approval 1 handoff
+## M3 completion
 
-The seven offline scenario contracts are complete. SCN-001 uses a strict request-scoped context
-and fixed 5/10/5 baseline, incident, and recovery phases; no service configuration is mutated by a
-scenario run. The Terraform switch defaults to false, so the current remote workload remains zero
-drift. See `scenarios.md` for commands and the separate live Approval 2 boundary.
+The seven offline scenario contracts and the bounded live SCN-001 contract are complete. The
+reviewed M3 rollout pushed one immutable image and updated only the three existing services in
+place. Three live runs each completed the fixed 5/10/5 profile and returned to a 5/5 recovery
+baseline. Managed resources remain 24, private IAM and the two leaf invoker grants are unchanged,
+and operator plus hosted plans are zero drift.
 
-Do not destroy, expose, or broaden the deployed resources while planning M3.
+Scenario behavior remains request-scoped and inactive for normal traffic. Do not destroy, expose,
+or broaden the deployed resources while planning M4.

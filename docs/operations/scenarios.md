@@ -1,6 +1,6 @@
 # M3 Synthetic Incident Scenarios
 
-Status: offline corpus complete; SCN-001 ready for separate live approval
+Status: M3 complete; offline corpus and bounded live SCN-001 validated
 
 ## Safety model
 
@@ -46,10 +46,21 @@ The JSON and summary outputs contain no service URL, project, account, email, to
 or gcloud stderr. The synthetic run ID is intentionally returned so the separately approved live
 run can be correlated with its fixed-shape logs.
 
-## Live Approval 2 boundary
+## Live Approval 2 execution record
 
-Approval 2 rebuilds and pushes one immutable image, sets the M3 image gate, and reviews an exact
-three-service in-place plan. It must not add a resource or IAM binding. After apply, SCN-001 must
-reproduce three times and each run must return to a 5/5 recovery baseline. Cloud Run request count,
-latency, 5xx, request logs, and correlated application logs are checked with a bounded ingestion
-wait. No rollback, public access, or automatic remediation is part of M3.
+- Rebuilt the approved `main` image as Linux/amd64 and verified non-root execution, normal 10/10
+  orders, and three local scenario reproductions before one commit-SHA image push.
+- Applied the reviewed binary plan with exactly `0 create / 3 update / 0 delete / 0 replacement`.
+  Only the three Cloud Run services changed; managed resources remained 24.
+- Verified three Ready private revisions with full traffic, one immutable digest, distinct runtime
+  identities, and `OPSPILOT_SCENARIOS_ENABLED=true`.
+- Reproduced SCN-001 exactly three times. Every run returned baseline 5/5, incident 4 fulfilled and
+  6 failed, recovery 5/5, `recovered=true`, and `ground_truth_matched=true`.
+- Correlated 60 request IDs and 60 traces across all three services. Logging contained the expected
+  18 payment timeout events and 36 incident-only application 5xx entries, with no sensitive-log or
+  non-incident 5xx finding.
+- Cloud Monitoring exposed request-count and latency points for all three services and expected
+  5xx points for order and payment. Operator and hosted plans returned zero drift.
+
+The live gate is now configured for the manual read-only workflow. M3 adds no resource, IAM
+binding, rollback automation, public access, or remediation path.

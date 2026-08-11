@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M2 complete; private remote workload validated and scaled to zero
+Status: M3 complete; bounded incident validated and workload scaled to zero
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -49,15 +49,19 @@ drift and scale to zero after validation.
   is active. Both hosted Terraform plan gates are enabled only for the manual read-only workflow.
 Future work must not add any cost-bearing resource without a separate plan and approval.
 
-## M3 Approval 1 impact
+## M3 impact
 
 - Seven scenario fixtures and SCN-001 execution are local code only.
 - The scenario profile is capped at 20 requests per run; local CI repeats it three times.
-- `enable_scenarios=false` is the Terraform default and `TF_M3_IMAGE_READY` is not configured.
-- No image was pushed and no Cloud Run, Logging, Monitoring, IAM, metric, alert, or state resource
-  changed.
-- Approval 2 may generate only three short live runs, for at most 60 scenario orders plus bounded
-  health and telemetry queries, while all services retain minimum instances zero.
+- `enable_scenarios=false` remains the Terraform default; the live environment enables it only
+  behind the manual M3 image gate.
+- Approval 2 pushed one immutable image and updated the three existing Cloud Run revisions without
+  adding, deleting, or replacing a Terraform resource.
+- Three live runs generated exactly 60 scenario orders. Expected synthetic failures were limited
+  to the incident phases, followed by three successful 5/5 recovery phases.
+- Logging and Monitoring reads were bounded. No custom metric, alert, scheduled load, persistent
+  fault state, IAM grant, or remediation resource was added.
+- All three services retain minimum instances zero and return to scale-to-zero after validation.
 
 ## Cleanup order
 

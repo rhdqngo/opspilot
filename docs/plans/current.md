@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M3-corpus-complete / SCN-001-ready-for-live-approval
+phase: M3-complete / M4-ready-for-planning
 updated: 2026-08-11
 
 ## Objective
@@ -19,12 +19,14 @@ updated: 2026-08-11
 
 ## Active scope
 
-- M3 Approval 1 adds seven deterministic incident fixtures and generalizes fixture replay around
-  scenario-owned ground truth, evidence requirements, contradictions, and approval constraints.
-- SCN-001 is the only live-capable MVP scenario. It uses a strict request-scoped context and a
-  fixed baseline/incident/recovery profile with no persistent fault state or management endpoint.
-- Terraform keeps scenario execution disabled by default and adds no resource or IAM binding.
-  Image push, Cloud Run update, repository-variable changes, and live 5xx remain Approval 2 work.
+- M3 is complete. Seven deterministic incident fixtures cover grounded, contradictory,
+  insufficient, and malicious evidence cases.
+- SCN-001 is the only live-capable MVP scenario. Its strict request-scoped 5/10/5 profile was
+  reproduced three times with automatic recovery and no persistent fault state or management
+  endpoint.
+- The M3 rollout updated only the three existing Cloud Run services. Terraform still adds no
+  scenario resource or IAM binding, and both operator and hosted plans are zero drift.
+- M4 planning is next and must keep Agent Search corpus/index changes behind a separate approval.
 
 - R0 local investigation, M0 access verification, and the M1 foundation are complete.
 - M2 Approval 1 implements order, payment, and inventory as three isolated roles in one non-root
@@ -53,6 +55,7 @@ updated: 2026-08-11
 | M2 Approval 1: local workload | complete | Three healthy containers; 10/10 normal orders; no cloud write |
 | M2 Approval 2: Cloud Run deploy | complete | Private remote E2E, telemetry, security, and hosted zero drift passed |
 | M3 Approval 1: incident corpus | complete | Seven offline contracts; bounded SCN-001 local injection; no cloud write |
+| M3 Approval 2: live incident | complete | Exact three-service update; three recovered live runs; telemetry and zero drift passed |
 | UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
 
 ## Completed major results
@@ -63,6 +66,15 @@ updated: 2026-08-11
   six-of-ten payment pool timeout behavior; baseline and recovery requests remain normal.
 - Added a bounded scenario CLI, three-run Compose CI path, fixed-shape scenario logs, and a
   Terraform/GitHub gate that introduces no resource while Approval 2 is inactive.
+- Pushed one immutable M3 image and applied the reviewed exact
+  `0 create / 3 update / 0 delete / 0 replacement` plan; managed resources remained 24.
+- Reproduced SCN-001 three times against the private workload. All runs matched the expected
+  5/10/5 contract and returned to a 5/5 recovery baseline.
+- Correlated 60 request IDs and traces across all three services, observed exactly 18 payment
+  timeout events and 36 incident-only application 5xx entries, and found no sensitive-log or
+  non-incident 5xx issue.
+- Verified request-count and latency points for all services, expected 5xx points for order and
+  payment, unchanged runtime security, and operator plus hosted zero drift.
 
 - Added typed synthetic order, payment authorization, and inventory reservation APIs with strict
   non-PII input contracts and safe partial downstream failures.
@@ -104,7 +116,9 @@ updated: 2026-08-11
 | M2 access gate | pass | Redacted deploy and telemetry-read permissions; candidate conflicts 0 |
 | Terraform static | pass | recursive fmt, validate, three mock-provider runs, TFLint 0.64.0 |
 | M3 scenario Terraform | pass | Default-off gate; existing resource/IAM graph only; no cloud write |
-| M3 default-off remote plan | blocked | User ADC requires reauthentication; static contract passed and no cloud write occurred |
+| M3 live apply | pass | Exact `0 create / 3 update / 0 delete / 0 replacement`; 24 managed resources |
+| M3 live scenario | pass | Three runs: baseline 5/5, incident 4/6, recovery 5/5; automatic recovery |
+| M3 log correlation | pass | 60 request IDs/traces across three services; expected incident-only 5xx; sensitive findings 0 |
 | Hosted static CI | pass | Python/container and bootstrap/dev Terraform jobs on the deployment baseline |
 | Bootstrap apply | pass | Exact `0 create / 1 update / 0 delete`; operator zero drift |
 | Dev apply | pass | Exact `10 create / 0 update / 0 delete`; 24 managed resources; operator zero drift |
@@ -113,8 +127,8 @@ updated: 2026-08-11
 | Safe-path service update | pass | Exact `0 create / 3 update / 0 delete / 0 replacement`; 24 managed resources |
 | Route diagnostic | pass | Three unauthenticated 403, three authenticated 200; `route_ready`; no pre-container 404 |
 | Remote smoke | pass | 10/10 fulfilled; request IDs and traces correlated across three services; 5xx 0 |
-| Cloud Monitoring | pass | Request-count and latency points for all three services; 5xx points 0 |
-| Hosted plan | pass | WIF read-only run `31453115875`; redacted `No changes`; binary artifacts 0 |
+| Cloud Monitoring | pass | Request-count/latency for three services; expected M3 5xx points on order/payment |
+| Hosted plan | pass | WIF read-only; redacted `No changes`; identifier leaks and binary artifacts 0 |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -127,10 +141,10 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Obtain separate M3 Approval 2 for one immutable image push, exact three-service in-place update,
-  and three bounded live SCN-001 reproductions with automatic baseline recovery.
-- Reauthenticate user ADC before the Approval 2 fresh plan; do not reuse or expose the prior
-  authentication error output.
+- Plan M4 around a minimal synthetic Agent Search knowledge corpus, deterministic retrieval
+  contracts, and a default-off infrastructure boundary.
+- Do not create or import a Search data store, engine, IAM binding, or document corpus until a
+  separate M4 apply approval defines the exact resource and cost boundary.
 
 ## Related artifacts
 

@@ -1,11 +1,11 @@
 # OpsPilot IAM Matrix
 
-Status: M1 and M2 runtime boundary applied and remotely validated
+Status: M1-M3 runtime boundary applied and remotely validated
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
 | --- | --- | --- | --- |
-| Developer / `Edu_687` operator | Current dev project | Local read checks, image push, and completed M1/M2 applies | Destroy, billing link changes, unreviewed IAM broadening |
+| Developer / `Edu_687` operator | Current dev project | Local read checks, approved image push, completed M1-M3 applies, bounded private invocation | Destroy, billing link changes, unreviewed IAM broadening |
 | GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, and state object read | API enable, IAM write, Artifact Registry write, Cloud Run update, budget write, state write |
 | Investigator identity | Dev project | Identity exists with no project role and no user-managed key | Logging, Monitoring, Run, Deploy, Secret, IAM, remediation writes |
 | Order runtime identity | Payment and inventory services | `roles/run.invoker` on the two leaf services only | Project roles, keys, secrets, IAM, remediation, arbitrary Cloud Run invocation |
@@ -47,8 +47,9 @@ remain zero. The manual hosted plan gate is enabled with the unchanged read-only
 
 ## M3 scenario boundary
 
-M3 Approval 1 adds no principal, role, IAM binding, service, or job. The local operator runner uses
-the existing developer ID-token path only in the separately approved live phase. The order runtime
-identity retains only its two leaf `roles/run.invoker` grants. Scenario context is strict,
-request-scoped synthetic data and does not authorize a request or grant access; Cloud Run IAM
-continues to enforce service invocation.
+M3 added no principal, role, IAM binding, service, or job. Approval 2 reused the existing developer
+ID-token path for exactly three bounded live runs and updated only the existing Cloud Run
+revisions. Runtime user-managed keys, runtime project roles, public principals, and unexpected leaf
+invokers remain zero. The order runtime identity retains only its two leaf `roles/run.invoker`
+grants. Scenario context is strict request-scoped synthetic data; it neither authorizes a request
+nor grants access, and Cloud Run IAM continues to enforce invocation.
