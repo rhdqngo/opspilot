@@ -204,3 +204,13 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - The single live RCA run stopped before safety after two attempts and one successful response.
   Reported usage was 1,246 prompt tokens, 315 output tokens, and 1,561 total tokens, approximately
   USD 0.0047 at the same documented list rates used for prior checkpoints. No retry was issued.
+
+## M6 Approval 9 boundary
+
+- Approval 9 changes only the local model execution budget from 20/60 to 30/75 seconds while the
+  200-second suite deadline, request size, output token, and two-call case ceilings remain fixed.
+- One RCA suite and, only after success, one safety suite are permitted. The aggregate ceiling is
+  six Standard PayGo requests with no retry, live core suite, Search, evidence, deployment, IAM, or
+  Terraform operation.
+- This calibration does not increase the request or token ceiling, so the previously documented
+  six-request worst-case model cost boundary remains unchanged.

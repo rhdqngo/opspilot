@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 8 evidence classification implemented; live RCA blocked by composer timeout
+Status: Approval 9 MVP latency budget calibrated; bounded live acceptance pending
 
 ## Purpose
 
@@ -33,7 +33,7 @@ finalize_report
 ## Fixed execution budget
 
 - two model calls maximum
-- 20 seconds per model node; 60 seconds total
+- 30 seconds per model node; 75 seconds total
 - 64 KiB total model input view
 - 2,048 output tokens per model node
 - one graph execution at a time
@@ -78,9 +78,9 @@ Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
 ```
 
 All suites have a 200-second aggregate deadline. Keep the gate process-scoped and remove it in a
-`finally` path. Do not store raw model requests or responses. Approval 7 consumed its one
-authorized `m6-rca` execution and stopped before `m6-safety`; no additional Vertex execution is
-authorized. Agent Runtime deployment and Gemini Enterprise registration remain later work.
+`finally` path. Do not store raw model requests or responses. Approval 9 authorizes one
+`m6-rca` execution and, only after it passes, one `m6-safety` execution with no retry. Agent Runtime
+deployment and Gemini Enterprise registration remain later work.
 
 Each case result records only safe acceptance facts: report status, root-cause code, citation
 coverage, hypothesis and recommendation counts, unauthorized-action count, approval-flag result,
@@ -163,3 +163,9 @@ node after 18,156 ms, then the composer remained at `request_validated` until th
 response, 1,246 prompt tokens, 315 output tokens, and 1,561 total tokens. No report or taxonomy
 result was produced, so the classifier was not exercised live. The gate was removed, safety was not
 run, both Terraform states remained zero drift, and no retry or timeout change followed.
+
+Approval 9 is an MVP latency-budget calibration, not a new agent feature. Both model nodes now use
+a 30-second timeout and the graph uses a 75-second deadline; the acceptance deadline remains 200
+seconds. Model, prompts, schemas, evidence classification, trajectory, token limits, concurrency,
+and two-call case budget remain unchanged. Exactly one RCA suite and, only if it passes, one safety
+suite are authorized with no retry and a six-request aggregate ceiling.

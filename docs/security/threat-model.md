@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: updated for M6 verified-evidence classification and bounded composer timeout
+Status: updated for M6 verified-evidence classification and calibrated MVP latency budget
 
 ## Protected assets and trust boundaries
 
@@ -18,7 +18,7 @@ approval cross those boundaries.
 | Forged or missing citation | A fixed reviewer rejects duplicate draft IDs and unknown, duplicate, or direction-mismatched evidence IDs before deterministic scoring | A legitimate but weak source may still be overinterpreted |
 | Hallucinated confidence | Model cannot set support score or report status; code applies source diversity and contradiction penalties | Scoring weights remain a product policy choice |
 | Credential or identifier disclosure | Bounded logical evidence view strips raw records, cloud identifiers, URLs, filters, tokens, request IDs, and trace IDs | Future adapters require repeat redaction tests |
-| Unbounded cost or latency | Two calls per case, 64 KiB per request, 2,048 tokens per node, 60-second graph and 200-second three-case deadline; attempted calls are counted before transport | Provider-side token accounting is accepted only from bounded usage metadata |
+| Unbounded cost or latency | Two calls per case, 64 KiB per request, 2,048 tokens per node, 30-second node, 75-second graph, and 200-second suite deadline; attempted calls are counted before transport | Provider-side token accounting is accepted only from bounded usage metadata |
 | Unauthorized remediation | No tools or write endpoint; unsafe action text is dropped; all retained actions require approval | M8 needs a separate action-policy threat review |
 | Unsafe failure leakage | Exceptions normalize to fixed error categories and ADK internal trace logging is suppressed at the public boundary | Local debug mode must never be enabled in hosted output |
 | Invalid advisory review output | Citation review is local deterministic code; no model response is parsed at this stage | A future model reviewer would require a separate post-MVP contract and approval |

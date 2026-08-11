@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented; verified-evidence taxonomy selected, live acceptance blocked by timeout
+Status: implemented; verified-evidence taxonomy selected, MVP latency budget calibrated
 Date: 2026-08-12
 
 ## Decision
@@ -18,8 +18,8 @@ preventing an LLM from constructing executable resource queries or action payloa
 ## Constraints
 
 - ADK is an optional `agent` extra; the deployed M2/M3 workload image does not gain it implicitly.
-- Each model node has no tools, a 20-second timeout, and a 2,048-token output cap. The workflow is
-  single-concurrency with a 60-second deadline and at most two model calls.
+- Each model node has no tools, a 30-second timeout, and a 2,048-token output cap. The workflow is
+  single-concurrency with a 75-second deadline and at most two model calls.
 - Model input is capped at 64 KiB and contains only logical evidence URIs. Cloud identifiers,
   credentials, filters, URLs, raw evidence records, and resource names are prohibited.
 - Model confidence is ignored. Citation integrity, minimum source diversity, contradiction penalty,
@@ -72,3 +72,7 @@ preventing an LLM from constructing executable resource queries or action payloa
 - Approval 8 passed offline but its one live RCA run timed out while waiting for the composer model
   response. The evidence classifier was not reached in the final report path, safety was not run,
   and the existing 20/60/200-second limits remain unchanged pending a separate decision.
+- Approval 9 changes only the provider-latency budget to 30 seconds per node and 75 seconds per
+  graph. The 200-second suite deadline and every model, prompt, schema, classification, safety, and
+  call-budget contract remain unchanged. This is an MVP calibration based on measured response
+  latency, not a feature expansion.

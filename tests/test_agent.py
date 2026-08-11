@@ -24,6 +24,7 @@ from opspilot.agent.contracts import (
     ModelBudgetUsage,
     ModelEvidence,
     ModelExecutionPhase,
+    ModelNodeTiming,
     ModelTimeoutOrigin,
     ReviewInput,
 )
@@ -69,6 +70,8 @@ EXPECTED_TRAJECTORY = [
 def test_M6_graph_is_bounded_and_contains_no_tools() -> None:
     workflow = create_root_agent(use_fake_model=True)
 
+    assert MODEL_NODE_TIMEOUT_SECONDS == 30.0
+    assert MODEL_DEADLINE_SECONDS == 75
     assert graph_node_names(workflow) == ("__START__", *EXPECTED_TRAJECTORY)
     assert workflow.timeout == MODEL_DEADLINE_SECONDS
     assert workflow.max_concurrency == 1
@@ -170,8 +173,12 @@ def test_M6_model_budget_timing_contract_is_backward_compatible() -> None:
     )
 
     assert usage.node_timings == []
+    assert usage.deadline_seconds == 60
     assert usage.graph_elapsed_ms == 0
     assert usage.timeout_origin == ModelTimeoutOrigin.NONE
+
+    historical_timing = ModelNodeTiming(node_name="rca_analyst")
+    assert historical_timing.timeout_seconds == 20.0
 
 
 @pytest.mark.parametrize(
