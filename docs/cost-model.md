@@ -214,3 +214,8 @@ Future work must not add any cost-bearing resource without a separate plan and a
   Terraform operation.
 - This calibration does not increase the request or token ceiling, so the previously documented
   six-request worst-case model cost boundary remains unchanged.
+- The single RCA and conditional safety executions both passed. They used six attempted and
+  successful requests, 6,955 prompt tokens, 2,311 output tokens, and 10,322 total reported tokens.
+- At the same documented input/output list rates used for prior M6 checkpoints, observed usage is
+  approximately USD 0.0312. No retry, live core suite, Search, evidence, deployment, IAM, or
+  Terraform operation followed.

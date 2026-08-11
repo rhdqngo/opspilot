@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M6-model-deployed / live-acceptance-blocked
+phase: M6-complete / M7-ready-for-planning
 updated: 2026-08-12
 
 ## Objective
@@ -87,12 +87,12 @@ updated: 2026-08-12
 - The classifier was not reached in a completed live report. The gate was removed, safety issued
   zero requests, Terraform remained zero drift, and no retry or timeout change was made. The active
   checkpoint is `evidence-classifier-ready / RCA-composer-timeout / safety-not-run`.
-- M6 Approval 9 is limited to an MVP latency-budget calibration. It changes only the model-node and
-  graph limits from 20/60 to 30/75 seconds while retaining the 200-second suite deadline, model,
-  prompts, schemas, classifier, seven-node graph, and two-call case budget.
-- After static validation, Approval 9 permits one live `m6-rca` execution and, only after RCA
-  success, one live `m6-safety` execution. The aggregate ceiling is six requests with no retry;
-  live core, Search, evidence, Terraform workflow, deployment, and cloud changes remain excluded.
+- M6 Approval 9 calibrated only the model-node and graph limits from 20/60 to 30/75 seconds while
+  retaining the 200-second suite deadline, model, prompts, schemas, classifier, seven-node graph,
+  and two-call case budget.
+- The one authorized live `m6-rca` execution and the conditional one live `m6-safety` execution
+  passed all three cases with six attempted and successful requests. No retry, live core, Search,
+  evidence, Terraform workflow, deployment, or cloud change occurred.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -180,7 +180,7 @@ updated: 2026-08-12
 | M6 Approval 6: timeout observability | complete | Content-free phase timing and timeout-origin classification validated offline; no Vertex request |
 | M6 Approval 7: final live acceptance | blocked | RCA completed 2/2 calls without timeout but failed only `root_cause_mismatch`; safety was not run |
 | M6 Approval 8: evidence classification | blocked | Classifier and static CI passed; live RCA stopped at composer response timeout and safety was not run |
-| M6 Approval 9: MVP latency calibration | active | Node/graph limits set to 30/75 seconds; bounded RCA then safety acceptance pending |
+| M6 Approval 9: MVP latency calibration | complete | RCA 1/1 and safety 2/2 passed with 6/6 calls, no timeout, and zero cloud drift |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -230,6 +230,12 @@ updated: 2026-08-12
 - Ran the one Approval 8 live RCA checkpoint. The analyst completed in 18,156 ms; the composer
   response exceeded the unchanged node boundary. The run stopped at 2 attempts / 1 success and
   safety was not called.
+- Calibrated only the MVP execution budget to 30 seconds per model node and 75 seconds per graph;
+  the 200-second suite limit and every model, schema, classifier, safety, and call-budget contract
+  remained unchanged.
+- Completed the single Approval 9 RCA and conditional safety executions. SCN-001, SCN-006, and
+  SCN-007 all passed their fixed acceptance predicates with six attempted and successful requests,
+  citation coverage 100%, unauthorized actions zero, and timeout origin `none`.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -373,6 +379,7 @@ updated: 2026-08-12
 | M6 Approval 7 RCA acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,947 prompt, 840 output, 3,787 total tokens; only `root_cause_mismatch`; safety calls 0 |
 | M6 Approval 8 evidence classifier | pass | Verified service/source/quality rules; model labels and evidence prose excluded; all offline contracts pass |
 | M6 Approval 8 Vertex acceptance | blocked | SCN-001: 2 attempted / 1 successful; composer `model_response_pending`; 1,246 prompt, 315 output, 1,561 total tokens; safety calls 0 |
+| M6 Approval 9 Vertex acceptance | pass | RCA 1/1 and safety 2/2; 6 attempted / 6 successful; 6,955 prompt, 2,311 output, 10,322 total tokens; timeout origin `none` |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -386,10 +393,10 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Complete Approval 9 static validation, then execute one bounded RCA suite and, only if it passes,
-  one bounded safety suite under the calibrated 30/75/200-second limits.
-- Do not retry a failed suite, run live `m6-core`, Search, live evidence, Terraform workflow, or
-  alter the model, prompt, schema, classifier, acceptance predicates, IAM, or cloud resources.
+- Plan M7 Agent Runtime identity, deployment package, bounded runtime deployment, and Gemini
+  Enterprise registration as a separate approval.
+- Do not infer M7 deployment authority from M6 completion. Runtime IAM, deployment, Enterprise app
+  registration, and any new model calls remain separately gated.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

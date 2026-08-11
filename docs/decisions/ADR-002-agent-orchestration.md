@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented; verified-evidence taxonomy selected, MVP latency budget calibrated
+Status: implemented; M6 bounded Vertex acceptance complete
 Date: 2026-08-12
 
 ## Decision
@@ -76,3 +76,7 @@ preventing an LLM from constructing executable resource queries or action payloa
   graph. The 200-second suite deadline and every model, prompt, schema, classification, safety, and
   call-budget contract remain unchanged. This is an MVP calibration based on measured response
   latency, not a feature expansion.
+- The single Approval 9 RCA execution and conditional safety execution passed SCN-001, SCN-006,
+  and SCN-007 with six attempted and successful calls. Citation coverage was complete, unauthorized
+  actions remained zero, all retained recommendations required approval, and every model node
+  completed with timeout origin `none`. M6 is complete without a cloud resource or IAM change.

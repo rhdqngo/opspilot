@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: updated for M6 verified-evidence classification and calibrated MVP latency budget
+Status: M6 bounded Vertex acceptance complete; M7 runtime boundary remains separate
 
 ## Protected assets and trust boundaries
 
