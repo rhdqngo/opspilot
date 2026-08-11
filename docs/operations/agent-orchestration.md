@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 2 live acceptance blocked after the single approved run
+Status: Approval 3 deterministic-review acceptance prepared
 
 ## Purpose
 
@@ -17,7 +17,7 @@ uv run --extra agent opspilot agent run --backend fixture --scenario SCN-001 --m
 uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
 ```
 
-Expected evaluation result is seven executed fixtures, seven passes, and twenty-one fake model
+Expected evaluation result is seven executed fixtures, seven passes, and fourteen fake model
 calls. The single-run trajectory is:
 
 ```text
@@ -32,7 +32,7 @@ finalize_report
 
 ## Fixed execution budget
 
-- three model calls maximum
+- two model calls maximum
 - 20 seconds per model node; 60 seconds total
 - 64 KiB total model input view
 - 2,048 output tokens per model node
@@ -49,8 +49,8 @@ exit code 2.
 - The model sees logical `opspilot://evidence/...` citations only.
 - Project IDs, URLs, resource names, credentials, raw filters, request IDs, trace IDs, and source
   records are excluded from model inputs and public errors.
-- The reviewer cannot make a citation trusted. A deterministic node checks each reference against
-  immutable collected evidence and computes support scores in code.
+- The deterministic reviewer rejects duplicate draft IDs and invalid citation structure. The next
+  deterministic node checks references against immutable evidence and computes support scores.
 - Suggested actions containing commands, URLs, resource paths, unknown services, or unknown
   citations are discarded. Surviving recommendations always require human approval.
 
@@ -75,16 +75,19 @@ uv run --extra agent opspilot agent accept --suite m6-core --model vertex --form
 Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
 ```
 
-The complete batch permits at most nine attempted model calls and has a 200-second aggregate
+The complete batch permits at most six attempted model calls and has a 200-second aggregate
 deadline. Keep the gate process-scoped and remove it in a `finally` path. Do not store raw model
 requests or responses. Agent Runtime deployment and Gemini Enterprise registration remain M7 work.
 
 ## Current live result
 
-The approved batch was run once on 2026-08-11. SCN-001 stopped during the reviewer model node after
-two attempted requests and one successful response. Provider usage metadata reported 1,229 prompt,
-275 output, and 1,504 total tokens. The gate was removed and the batch was not retried.
+The Approval 2 batch was run once on 2026-08-11. SCN-001 stopped while validating the reviewer
+response after two attempted requests and one response counted by the client workflow. Provider
+usage metadata reported 1,229 prompt, 275 output, and 1,504 total tokens. Cloud Monitoring later
+showed both Vertex requests completed with HTTP 200 and no provider error category. The gate was
+removed and the batch was not retried.
 
 The first summary format did not render the normalized error stored on the failed case. That output
 contract is corrected locally and covered by tests, but the missing category cannot be reconstructed
-without another model request. Any reproduction or retry requires a separate approval and budget.
+without another model request. Approval 3 removes the model reviewer rather than reproducing or
+coercing its output; the newly approved batch has a separate six-request ceiling.

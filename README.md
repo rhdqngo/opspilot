@@ -85,16 +85,16 @@ uv run --extra agent opspilot agent diagnose --account-alias Edu_687 --format su
 uv run --extra agent opspilot agent accept --suite m6-core --model fake --format summary
 ```
 
-The graph performs bounded evidence preparation, RCA drafting, independent citation review,
-deterministic scoring, and report composition. Model nodes receive normalized evidence only, have
-no tools, and cannot assign support scores or execute recommendations. The Vertex model path is
+The graph performs bounded evidence preparation, RCA drafting, deterministic citation review and
+scoring, and report composition. The two model nodes receive normalized evidence only, have no
+tools, and cannot assign support scores or execute recommendations. The Vertex model path is
 fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true`. The live acceptance path is fixed to
-SCN-001, SCN-006, and SCN-007, stops on first failure, and permits at most nine model requests.
+SCN-001, SCN-006, and SCN-007, stops on first failure, and permits at most six model requests.
 The diagnostic performs no generation request and emits only redacted readiness fields.
 
-The first approved Vertex batch stopped safely during SCN-001 after two attempted calls and was not
-retried. M6 remains blocked pending a separately approved failure-classification run; M7 deployment
-has not started.
+The first approved Vertex batch stopped safely after the reviewer response reached the client and
+was not retried. Approval 3 replaces that advisory model reviewer with fixed citation rules while
+preserving the seven-node trajectory. M7 deployment has not started.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and

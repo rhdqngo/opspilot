@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M6-model-deployed / live-acceptance-blocked
+phase: M6-recovery-prepared / live-acceptance-pending
 updated: 2026-08-11
 
 ## Objective
@@ -19,28 +19,27 @@ updated: 2026-08-11
 
 ## Active scope
 
-- M6 Approval 1 implements a fixed Google ADK 2.5 graph over the existing typed evidence boundary.
-  Three tool-free model nodes draft hypotheses, review citations, and compose report prose; four
-  deterministic nodes bound inputs, preserve trusted evidence, calculate scores, and finalize the
-  existing `IncidentReport` contract.
+- M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
+  reviewer with a deterministic citation-review function. RCA drafting and report composition are
+  the only two tool-free model nodes.
 - ADK remains an optional package extra. The default fake model makes no network call and passes
-  all seven scenario contracts with exactly three model calls per case. Vertex use is fail-closed
-  behind `OPSPILOT_LIVE_MODEL_ENABLED=true` and remains unapproved.
+  all seven scenario contracts with exactly two model calls per case. Vertex use remains
+  fail-closed behind `OPSPILOT_LIVE_MODEL_ENABLED=true`.
 - Model nodes receive no cloud client, credential, identifier, raw filter, URL, request/trace ID,
   or executable tool. Inputs are capped at 64 KiB; node outputs at 2,048 tokens; node timeout is
   20 seconds and total graph deadline 60 seconds. Recommendations remain approval-required data.
 - M6 Approval 1 changes no Terraform, IAM, image, workload, Search corpus, or Google Cloud state.
-- M6 Approval 2 now has a zero-generation readiness diagnostic and a fixed sequential acceptance
-  suite for SCN-001, SCN-006, and SCN-007. The suite stops on first failure, permits at most nine
-  attempted requests, and rejects any model other than `gemini-3.5-flash` in `global`.
+- The fixed sequential acceptance suite remains SCN-001, SCN-006, and SCN-007. It stops on first
+  failure, permits at most six attempted requests, and rejects any model other than
+  `gemini-3.5-flash` in `global`.
 - Request attempts and byte limits are enforced before transport. The seven-case evaluation is
   fake-only, while live errors are reduced to fixed redacted categories without raw provider data.
-- The approved Vertex batch was executed exactly once. SCN-001 stopped during its second model
-  node with two attempted calls, one successful response, and 1,504 reported tokens. No retry was
-  made and the process-scoped live gate was removed.
+- The Approval 2 Vertex batch was executed exactly once. Both provider requests completed with
+  HTTP 200, but SCN-001 stopped during client-side reviewer output validation. The precise invalid
+  field was not retained, no retry was made, and the process-scoped live gate was removed.
 - The original acceptance summary omitted the case-level normalized error code, so the precise
-  safe category was not retained. The summary contract now includes case error codes; another
-  Vertex request requires a separate corrective approval.
+  safe category was not retained. Approval 3 does not reconstruct or coerce that response; it
+  removes the model reviewer from the MVP request path.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -122,23 +121,26 @@ updated: 2026-08-11
 | M5 Approval 2: investigator IAM and live acceptance | complete | Bootstrap 1-update, dev 3-create, one bounded SCN-001 evidence batch, hosted zero drift |
 | M6 Approval 1: ADK orchestration | complete | Optional ADK 2.5 graph, fake model, seven-case offline evaluation, no cloud/model call |
 | M6 Approval 2: live model acceptance | blocked | One approved batch stopped in SCN-001 after 2 attempts / 1 success; no retry |
+| M6 Approval 3: deterministic review recovery | pending live acceptance | Seven-node graph retained; fake path uses two model calls per case |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
 
-- Added a deployment-discoverable ADK root workflow with a fixed seven-node trajectory and three
-  schema-constrained, tool-free reasoning nodes.
+- Added a deployment-discoverable ADK root workflow with a fixed seven-node trajectory and two
+  schema-constrained, tool-free reasoning nodes plus deterministic citation review.
 - Added a deterministic fake ADK model that infers from bounded evidence rather than fixture ground
-  truth; all seven scenario root-cause contracts pass with twenty-one total offline model calls.
+  truth; all seven scenario root-cause contracts pass with fourteen total offline model calls.
 - Added deterministic citation validation, source-diversity and contradiction scoring, unsafe
   recommendation filtering, prompt-injection isolation, and logical evidence URI normalization.
 - Added redacted agent run/eval CLI commands, partial-evidence handling, fail-closed Vertex gating,
   optional dependency locking, offline CI evaluation, runbook, ADR, and threat-model coverage.
 - Added zero-generation Vertex readiness checks, fixed three-case `m6-core` acceptance, pre-request
   attempt and byte accounting, a 200-second aggregate deadline, model allowlisting, and safe
-  provider-error normalization. The fake acceptance passes all three cases with nine calls.
+  provider-error normalization. The fake acceptance passes all three cases with six calls.
 - Ran the approved Vertex acceptance once. It stopped on the SCN-001 reviewer stage after one
   successful response; the live gate was removed and all infrastructure remained unchanged.
+- Replaced the reviewer model with fixed duplicate, existence, and evidence-direction checks while
+  retaining the reviewer node name and the public report and trajectory contracts.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -230,7 +232,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 126 pytest tests, including M6 graph, eval, acceptance, diagnosis, citation, injection, failure, budget, and redaction contracts |
+| Tests | pass | 132 pytest tests, including deterministic reviewer, M6 graph, eval, acceptance, diagnosis, citation, injection, failure, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -270,9 +272,9 @@ updated: 2026-08-11
 | M5 live evidence | pass | One SCN-001; 4 logical sources / 6 API calls; timeout count 6; metrics, neutral revision, runbook and citations accepted |
 | M5 hosted plan | pass | WIF read-only; one redacted text artifact; `No changes`; identifier/credential/binary leaks 0 |
 | M6 optional install | pass | `uv sync --frozen --extra agent`; ADK 2.5 lock resolved |
-| M6 fake agent run | pass | SCN-001 exact seven-node trajectory; three model calls; citation coverage 100% |
-| M6 offline evaluation | pass | Seven fixtures passed; twenty-one fake model calls; zero cloud/model requests |
-| M6 live controls | pass | Zero-call diagnostic contract; fake core acceptance 3/3 with nine attempted and successful calls |
+| M6 fake agent run | pass | SCN-001 exact seven-node trajectory; two model calls; citation coverage 100% |
+| M6 offline evaluation | pass | Seven fixtures passed; fourteen fake model calls; zero cloud/model requests |
+| M6 live controls | pass | Zero-call diagnostic contract; fake core acceptance 3/3 with six attempted and successful calls |
 | M6 Vertex acceptance | blocked | SCN-001 stopped at call 2; 2 attempted / 1 successful; 1,229 prompt, 275 output, 1,504 total tokens; no retry |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
@@ -287,10 +289,9 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Prepare a separate corrective approval that first reproduces the normalized SCN-001 reviewer
-  failure with one bounded run or another zero-generation diagnostic when possible.
-- Do not rerun the three-case batch, substitute a model, expand IAM, or begin M7 until the failure
-  is classified and a new request budget is explicitly approved.
+- Complete static validation and the first Approval 3 commit, then run the zero-generation
+  diagnostic and the separately approved six-request `m6-core` Vertex batch exactly once.
+- Do not retry, substitute a model, expand IAM, or begin M7 if any case fails.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 Approval 2 live batch stopped within budget
+Status: M6 Approval 3 deterministic-review acceptance prepared
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -116,7 +116,7 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - The default package stays unchanged; ADK 2.5 is installed only through the optional `agent` extra.
 - Approval 1 performs zero Vertex model calls, Cloud API reads, deployments, IAM changes, or
   Terraform changes.
-- A future live run is capped at three model calls with bounded input/output and requires the
+- A future live run is capped at two model calls with bounded input/output and requires the
   explicit process gate plus a separate approval. Actual Gemini pricing and quota must be checked
   immediately before that approval.
 
@@ -134,3 +134,13 @@ Future work must not add any cost-bearing resource without a separate plan and a
   successful response. Reported usage was 1,229 prompt tokens and 275 output tokens, about USD
   0.0044 at list price. Even treating both attempts at their full byte/token caps stays below about
   USD 0.24. No retry or additional model request was made.
+
+## M6 Approval 3 boundary
+
+- The model reviewer is replaced by deterministic citation checks, leaving RCA analysis and report
+  composition as the only model nodes. Each case is capped at two attempts.
+- The fixed three-case acceptance batch permits at most six new requests, no retry, and no probe.
+- Applying the same conservative input and output limits yields a new-run ceiling of about USD
+  0.71. Actual usage is recorded only from bounded provider metadata.
+- IAM, Terraform, Cloud Run, Search, live evidence, deployment, and GitHub credential state remain
+  unchanged.

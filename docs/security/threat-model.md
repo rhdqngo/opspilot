@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: updated after blocked M6 Approval 2 acceptance
+Status: updated for M6 Approval 3 deterministic review
 
 ## Protected assets and trust boundaries
 
@@ -15,13 +15,13 @@ approval cross those boundaries.
 | Threat | Control | Residual risk |
 | --- | --- | --- |
 | Prompt injection in logs or runbooks | Instructions label evidence as untrusted; model tools are empty; malicious fixture must produce no action | Model prose can still be misleading and requires human review |
-| Forged or missing citation | Reviewer output is advisory; deterministic verifier rejects unknown, duplicate, or direction-mismatched evidence IDs | A legitimate but weak source may still be overinterpreted |
+| Forged or missing citation | A fixed reviewer rejects duplicate draft IDs and unknown, duplicate, or direction-mismatched evidence IDs before deterministic scoring | A legitimate but weak source may still be overinterpreted |
 | Hallucinated confidence | Model cannot set support score or report status; code applies source diversity and contradiction penalties | Scoring weights remain a product policy choice |
 | Credential or identifier disclosure | Bounded logical evidence view strips raw records, cloud identifiers, URLs, filters, tokens, request IDs, and trace IDs | Future adapters require repeat redaction tests |
-| Unbounded cost or latency | Three calls per case, 64 KiB per request, 2,048 tokens per node, 60-second graph and 200-second three-case deadline; attempted calls are counted before transport | Provider-side token accounting is accepted only from bounded usage metadata |
+| Unbounded cost or latency | Two calls per case, 64 KiB per request, 2,048 tokens per node, 60-second graph and 200-second three-case deadline; attempted calls are counted before transport | Provider-side token accounting is accepted only from bounded usage metadata |
 | Unauthorized remediation | No tools or write endpoint; unsafe action text is dropped; all retained actions require approval | M8 needs a separate action-policy threat review |
 | Unsafe failure leakage | Exceptions normalize to fixed error categories and ADK internal trace logging is suppressed at the public boundary | Local debug mode must never be enabled in hosted output |
-| Lost failure classification | Acceptance summary now emits only the case's fixed error code; raw provider details remain suppressed | The first live failure category was not retained and requires separately approved reproduction |
+| Invalid advisory review output | Citation review is local deterministic code; no model response is parsed at this stage | A future model reviewer would require a separate post-MVP contract and approval |
 
 ## Deferred reviews
 

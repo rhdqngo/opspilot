@@ -15,11 +15,8 @@ from opspilot.agent.contracts import (
     ComposeInput,
     HypothesisDraft,
     HypothesisDraftBatch,
-    HypothesisReview,
-    HypothesisReviewBatch,
     ModelEvidence,
     ReportNarrativeDraft,
-    ReviewInput,
 )
 from opspilot.domain import EvidenceDirection
 
@@ -27,7 +24,7 @@ DEFAULT_MODEL_ID = "gemini-3.5-flash"
 MODEL_LOCATION = "global"
 MAX_MODEL_INPUT_BYTES = 64 * 1024
 MAX_MODEL_OUTPUT_TOKENS = 2_048
-MODEL_CALL_LIMIT = 3
+MODEL_CALL_LIMIT = 2
 MODEL_NODE_TIMEOUT_SECONDS = 20.0
 MODEL_DEADLINE_SECONDS = 60
 
@@ -42,11 +39,9 @@ class FakeOpsPilotLlm(BaseLlm):
     ) -> AsyncGenerator[LlmResponse, None]:
         del stream
         payload = _request_payload(llm_request)
-        response: HypothesisDraftBatch | HypothesisReviewBatch | ReportNarrativeDraft
+        response: HypothesisDraftBatch | ReportNarrativeDraft
         if self.stage == "rca":
             response = _fake_rca(payload)
-        elif self.stage == "review":
-            response = _fake_review(payload)
         elif self.stage == "compose":
             response = _fake_compose(payload)
         else:
@@ -146,29 +141,6 @@ def _infer_cause(combined: str) -> tuple[str, str, str]:
         "Pool acquisition timeouts aligned with error and latency evidence after a "
         "configuration change.",
     )
-
-
-def _fake_review(payload: dict[str, Any]) -> HypothesisReviewBatch:
-    review_input = ReviewInput.model_validate(payload)
-    known = {item.evidence_id for item in review_input.evidence}
-    reviews: list[HypothesisReview] = []
-    for draft in review_input.drafts:
-        referenced = set(draft.supporting_evidence_ids + draft.contradicting_evidence_ids)
-        unsupported = sorted(referenced - known)
-        decision = "REJECT" if unsupported else "ACCEPT"
-        reviews.append(
-            HypothesisReview(
-                draft_id=draft.draft_id,
-                decision=decision,
-                rationale=(
-                    "The draft cites only bounded evidence."
-                    if not unsupported
-                    else "The draft contains unknown evidence references."
-                ),
-                unsupported_evidence_ids=unsupported,
-            )
-        )
-    return HypothesisReviewBatch(reviews=reviews)
 
 
 def _fake_compose(payload: dict[str, Any]) -> ReportNarrativeDraft:

@@ -33,6 +33,7 @@ from opspilot.agent.contracts import (
 from opspilot.agent.models import (
     DEFAULT_MODEL_ID,
     MAX_MODEL_INPUT_BYTES,
+    MODEL_CALL_LIMIT,
     MODEL_DEADLINE_SECONDS,
 )
 from opspilot.agent.workflow import create_root_agent
@@ -48,7 +49,7 @@ from opspilot.fixtures import load_scenario_fixture
 from opspilot.reporting import render_markdown
 
 APP_NAME = "opspilot"
-MODEL_NODE_NAMES = frozenset({"rca_analyst", "evidence_reviewer", "report_composer"})
+MODEL_NODE_NAMES = frozenset({"rca_analyst", "report_composer"})
 EXPECTED_TRAJECTORY = (
     "prepare_bounded_evidence",
     "rca_analyst",
@@ -60,6 +61,7 @@ EXPECTED_TRAJECTORY = (
 )
 M6_CORE_SCENARIOS = ("SCN-001", "SCN-006", "SCN-007")
 M6_ACCEPTANCE_DEADLINE_SECONDS = 200
+M6_ACCEPTANCE_CALL_LIMIT = len(M6_CORE_SCENARIOS) * MODEL_CALL_LIMIT
 EXPECTED_ROOT_CAUSES = {
     "SCN-001": "PAYMENT_DB_POOL_EXHAUSTION",
     "SCN-002": "PAYMENT_UPSTREAM_TIMEOUT",
@@ -189,7 +191,7 @@ class _RequestBudgetTracker:
     successful_nodes: set[str] = field(default_factory=set)
 
     def observe_request(self, size: int) -> None:
-        if self.attempted_model_calls >= 3:
+        if self.attempted_model_calls >= MODEL_CALL_LIMIT:
             raise ValueError("model request count exceeds the fixed call budget")
         self.attempted_model_calls += 1
         self.request_input_bytes += size
@@ -434,8 +436,8 @@ def _acceptance_case(scenario_id: str, result: AgentRunResult) -> AgentAcceptanc
         common = (
             result.succeeded
             and tuple(result.trajectory) == EXPECTED_TRAJECTORY
-            and result.budget.attempted_model_calls == 3
-            and result.budget.successful_model_calls == 3
+            and result.budget.attempted_model_calls == MODEL_CALL_LIMIT
+            and result.budget.successful_model_calls == MODEL_CALL_LIMIT
             and citation_coverage == 1.0
             and report.audit.get("unauthorized_action_count") == 0
             and all(action.requires_approval for action in report.recommended_actions)
@@ -503,7 +505,11 @@ async def run_agent_acceptance(*, model_backend: ModelBackend) -> AgentAcceptanc
             (case.budget.max_request_input_bytes for case in cases), default=0
         ),
         deadline_seconds=M6_ACCEPTANCE_DEADLINE_SECONDS,
-        passed=(len(cases) == 3 and passed_count == 3 and attempted <= 9),
+        passed=(
+            len(cases) == len(M6_CORE_SCENARIOS)
+            and passed_count == len(M6_CORE_SCENARIOS)
+            and attempted == M6_ACCEPTANCE_CALL_LIMIT
+        ),
         cases=cases,
         errors=top_level_errors,
     )
