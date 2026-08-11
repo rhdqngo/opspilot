@@ -156,3 +156,6 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - The conservative request ceiling is one third of the Approval 3 six-request ceiling. Actual token
   usage is recorded only from bounded provider metadata.
 - Terraform, IAM, Cloud Run, Search, live evidence, and deployment changes remain zero.
+- The approved run used two successful requests: 2,893 prompt tokens, 764 output tokens, and 3,657
+  total tokens. At the same documented list rates used above, the observed cost is approximately
+  USD 0.0112. No retry or safety-suite request was issued.

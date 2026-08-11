@@ -42,3 +42,7 @@ preventing an LLM from constructing executable resource queries or action payloa
 - Approval 4 preserves every predicate while exposing allowlisted failure codes and safe report
   facts. It authorizes only the fixed SCN-001 `m6-rca` suite; the safety cases remain a later
   approval boundary.
+- The single Approval 4 `m6-rca` run completed both requests and failed only
+  `root_cause_mismatch`: `CONFIG_DB_POOL_EXHAUSTION` did not match the fixed
+  `PAYMENT_DB_POOL_EXHAUSTION` taxonomy. The mismatch is recorded without coercion, retry, or prompt,
+  schema, model, or acceptance-policy change.

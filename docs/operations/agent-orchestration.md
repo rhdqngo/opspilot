@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 4 safe acceptance diagnostics implemented; RCA-only live checkpoint pending
+Status: Approval 4 RCA-only checkpoint blocked on the fixed root-cause taxonomy
 
 ## Purpose
 
@@ -106,3 +106,11 @@ summary reported two attempted and successful requests, 2,901 prompt tokens, 790
 3,691 total tokens. It did not retain which safe report field differed. The suite stopped before
 SCN-006 and SCN-007, the gate was removed, and both Terraform states remained zero drift. A new
 diagnostic or acceptance run requires a separate approval.
+
+Approval 4 added safe predicate diagnostics and ran the fixed `m6-rca` suite exactly once on
+2026-08-11. Both requests succeeded. The report was `IDENTIFIED`, citation coverage was 100%, the
+trajectory matched, unauthorized actions were zero, and its one recommendation required approval.
+The sole failure was `root_cause_mismatch`: the model returned `CONFIG_DB_POOL_EXHAUSTION` while the
+fixed contract expected `PAYMENT_DB_POOL_EXHAUSTION`. Usage was 2,893 prompt, 764 output, and 3,657
+total tokens. The process gate was removed, identifier and secret scans were clean, both Terraform
+states remained zero drift, and no retry or taxonomy change was made.

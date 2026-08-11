@@ -100,8 +100,10 @@ was not retried. Approval 3 replaces that advisory model reviewer with fixed cit
 preserving the seven-node trajectory. Its separately approved batch stopped after SCN-001 completed
 two successful model calls but failed the final semantic acceptance predicate; SCN-006 and SCN-007
 were not called. Approval 4 exposes each existing acceptance predicate through fixed safe fields
-and failure codes before the separately bounded SCN-001-only checkpoint. M6 remains blocked and M7
-deployment has not started.
+and failure codes. Its separately bounded SCN-001 checkpoint completed both calls and passed every
+predicate except the fixed root-cause taxonomy: the model returned `CONFIG_DB_POOL_EXHAUSTION`
+instead of `PAYMENT_DB_POOL_EXHAUSTION`. No retry or runtime change was made. M6 remains blocked and
+M7 deployment has not started.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
