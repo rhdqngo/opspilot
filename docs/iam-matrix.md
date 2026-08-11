@@ -1,13 +1,13 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M4 applied and hosted zero drift; M5 IAM prepared but not applied
+Status: M1-M5 applied and hosted zero drift
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
 | --- | --- | --- | --- |
 | Developer / `Edu_687` operator | Current dev project and the investigator SA | Local read checks, completed M1-M4 applies, bounded private invocation, and Approval 2 leaf-SA impersonation after apply | Project-wide impersonation, destroy, repeated Search smoke, unapproved import, billing model changes, unreviewed IAM broadening |
 | GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, applied Search data store/schema/engine get/list, service usage consumption, state object read | Search/import, API enable/disable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
-| Investigator identity | Dev project | Identity exists with no project role and no user-managed key; M5 read-only role is default-off | All reads until Approval 2, plus every Logging/Monitoring/Run/Search write, IAM, Secret, remediation operation |
+| Investigator identity | Dev project | Seven-permission M5 read role; one accepted bounded live collection; no user-managed key | Private logs, every Logging/Monitoring/Run/Search write, IAM, Secret, invoke, remediation operation |
 | Order runtime identity | Payment and inventory services | `roles/run.invoker` on the two leaf services only | Project roles, keys, secrets, IAM, remediation, arbitrary Cloud Run invocation |
 | Payment / inventory runtime identities | Their own Cloud Run revisions | No IAM role or user-managed key | Cross-service invocation, project roles, secrets, IAM, remediation writes |
 | Remediation identity | Not created | None | All execution permissions until M8 |
@@ -81,7 +81,7 @@ assets are not attached, imported, renamed, or modified.
 
 ## M5 live evidence boundary
 
-Approval 1 defines, but does not apply, an investigator custom role with exactly:
+The applied investigator custom role contains exactly:
 
 - `discoveryengine.servingConfigs.search`
 - `logging.logEntries.list`
@@ -91,10 +91,17 @@ Approval 1 defines, but does not apply, an investigator custom role with exactly
 - `run.services.get`
 - `serviceusage.services.use`
 
-The project binding and operator leaf-SA binding are gated by `enable_live_evidence=false`.
+The project binding and operator leaf-SA binding are gated by `enable_live_evidence=false` in
+source and explicitly enabled in the approved live environment.
 Private-log access, invoke, update, IAM, import, Storage read, key creation, and every telemetry or
 Search write permission remain excluded from the investigator. The operator receives
 `roles/iam.serviceAccountTokenCreator` only on the investigator service account so the live adapter
 can use a short-lived OAuth token without a key. The hosted plan role adds only `iam.roles.get`,
 `resourcemanager.projects.getIamPolicy`, and `iam.serviceAccounts.getIamPolicy` to refresh the three
 Terraform IAM resources.
+
+Approval 2 applied an exact bootstrap custom-role one-update followed by an exact dev three-create
+plan. Dev state contains 31 managed resources and 32 total addresses. The operator minted one
+short-lived investigator token path for acceptance; no key, broad predefined project role, public
+principal, runtime project role, or extra leaf invoker was created. Operator and hosted plans are
+zero drift.

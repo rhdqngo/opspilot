@@ -23,9 +23,9 @@ project number, OAuth client, token, or billing account identifier.
 | M2 managed services | pass | The three exact Terraform service names are the three expected applied services; no additional Cloud Run service is present |
 | M4 apply permissions | pass | Bucket/object, Search data store/schema/engine, import, operation-read, and search permissions were verified without identifiers |
 | M4 candidate names | pass | Candidate bucket, data store, and engine conflicts are all zero |
-| M5 operator permissions | implemented check | Custom-role create/update plus project and leaf service-account IAM binding permissions are reported without identifiers |
-| Investigator impersonation | implemented check | Service-account token permission is tested on the fixed investigator identity without printing it |
-| Investigator target role | prepared | Seven read/API-use permissions; role and binding are not applied in Approval 1 |
+| M5 operator permissions | pass | Custom-role create/update plus project and leaf service-account IAM binding permissions verified without identifiers |
+| Investigator impersonation | pass | Short-lived token permission succeeds only on the fixed investigator identity |
+| Investigator target role | applied | Seven read/API-use permissions; user-managed keys and write permissions remain absent |
 | Gemini Enterprise API access | pass | Global engine listing is permitted |
 | Gemini Enterprise app | pass | An existing global app was detected without recording its identifier |
 | Data policy | pass | Synthetic ecommerce data only |
@@ -67,9 +67,9 @@ The M4 extension completed with `m4_permissions_ready=pass`,
 import operation, or query was created.
 
 The M5 extension reports operator IAM readiness, investigator impersonation readiness, and the
-fixed target-permission count. Before Approval 2 apply, the operator permission gate passes while
-impersonation correctly remains blocked. The approved Terraform change grants Token Creator only
-on the fixed investigator service account; it does not add a project-level impersonation grant.
+fixed target-permission count. Before Approval 2 apply, impersonation correctly failed; after the
+reviewed three-create dev plan it passes. Token Creator is attached only to the fixed investigator
+service account and no project-level impersonation grant exists.
 
 ## Location decisions
 

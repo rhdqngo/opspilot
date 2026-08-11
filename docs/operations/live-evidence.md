@@ -1,6 +1,6 @@
 # M5 Live Evidence Runbook
 
-Status: Approval 2 IAM and live acceptance prepared; cloud access not yet applied
+Status: M5 Approval 2 complete
 
 ## Purpose
 
@@ -55,3 +55,18 @@ without retaining raw request or trace identifiers.
 
 The revision collector reports temporal facts as neutral evidence. It must not convert the fixture
 statement about a reduced pool size into a live claim unless the actual revision data supports it.
+
+## Approval 2 execution record
+
+- Bootstrap: exact one custom-role update; 14 managed / 15 addresses; zero drift.
+- Dev: exact three IAM creates; 31 managed / 32 addresses; zero drift.
+- Access: operator and investigator impersonation gates pass; investigator user-managed keys 0.
+- Scenario: one remote SCN-001 run completed baseline 5/5, incident 4/6, recovery 5/5.
+- Evidence: four logical sources and six API requests, with no retry, error, data gap, or
+  pagination.
+- Acceptance: six payment timeout occurrences, positive error ratio, latency P95, neutral revision
+  evidence, `RB-PAY-001`, complete logical citations, and no sensitive output.
+- Hosted: the manual WIF plan produced one redacted text artifact reporting `No changes`.
+
+This acceptance result is evidence collection only. It does not create a hypothesis, call a model,
+or turn the neutral revision snapshot into a live configuration-change claim.

@@ -136,3 +136,13 @@ M5 Approval 1 adds `iam.roles.get` and `resourcemanager.projects.getIamPolicy` t
 custom-role source. Approval 2 also prepares `iam.serviceAccounts.getIamPolicy` so the hosted plan
 can refresh the operator binding on the fixed investigator service account. The bootstrap apply
 must remain an exact one-resource in-place update before the M5 hosted gate is enabled.
+
+## M5 Approval 2 execution record
+
+The reviewed bootstrap plan updated only `ci_plan_reader`, adding the three M5 IAM refresh reads.
+Bootstrap remained 14 managed resources and 15 state addresses and returned zero drift.
+
+The separate dev plan created only the investigator custom role, its project member, and the
+operator Token Creator member on the investigator service account. Dev reached 31 managed
+resources and 32 state addresses. The subsequent WIF plan read all three IAM resources and
+returned one redacted `No changes` artifact.

@@ -1,6 +1,6 @@
 # ADR-009: Keep Live Evidence Collection Deterministic and Read-only
 
-Status: accepted; Approval 2 leaf impersonation amendment prepared
+Status: accepted and applied
 
 ## Decision
 
@@ -28,3 +28,5 @@ Terraform receives only the IAM policy read permission required to refresh that 
   synthetic-only project and deterministic service/time/metric allowlists.
 - No Google client dependency, custom metric, alert, model call, or remediation path is added in
   M5 Approval 1.
+- The applied leaf binding and one bounded live collection validated the same protocol without
+  adding a key or granting the investigator any write, invoke, private-log, or IAM permission.

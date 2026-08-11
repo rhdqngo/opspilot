@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M5-approval-2-code-ready / M5-live-apply-pending
+phase: M5-complete / M6-ready-for-planning
 updated: 2026-08-11
 
 ## Objective
@@ -21,13 +21,18 @@ updated: 2026-08-11
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
-  deterministic output while the live adapter remains explicitly disabled.
+  deterministic output while the live adapter remains source-default-off and requires an explicit
+  process gate.
 - Collection is capped at four concurrent sources, eight logical tool calls, ten API calls, a
   45-second deadline, and source-specific row/byte limits. Partial failure preserves remaining
   evidence, tool errors, data gaps, and observable budget usage.
-- The investigator custom role, project binding, and operator leaf-SA Token Creator binding are
-  defined behind `enable_live_evidence=false`; no IAM or other cloud resource has changed yet. The
-  M5 hosted gate remains unset and no live evidence request has been issued in Approval 2.
+- The investigator custom role, project binding, and operator leaf-SA Token Creator binding were
+  applied through exact reviewed plans. The investigator has seven read/API-use permissions, no
+  user-managed key, and no write, invoke, IAM, private-log, import, or Storage access.
+- One live SCN-001 run and one investigator evidence batch passed. The batch used four logical
+  sources and six API requests with no retry, pagination, error, data gap, or sensitive output.
+- Dev state contains 31 managed resources and 32 total addresses. Bootstrap/dev operator plans and
+  the manual WIF plan are zero drift; the M5 hosted gates are enabled.
 
 - M4 recovery created only the explicit schema and Standard Search engine after hardening both the
   array-item and title-key schema contracts. Remote dev state now contains 28 managed resources and
@@ -91,7 +96,7 @@ updated: 2026-08-11
 | M4 Approval 2: Search apply/import | complete | Four resources, 13-document import, fixed probe, and live retrieval 10/10 passed |
 | M4 Approval 3: hosted validation | complete | Live Search accepted; Approval 4 added one quota-consumption permission and hosted plan returned `No changes` |
 | M5 Approval 1: live evidence boundary | complete | Typed collectors, fixture smoke, redaction, default-off two-resource IAM graph |
-| M5 Approval 2: investigator IAM and live acceptance | in progress | Bootstrap 1-update, dev 3-create, one bounded SCN-001 evidence batch |
+| M5 Approval 2: investigator IAM and live acceptance | complete | Bootstrap 1-update, dev 3-create, one bounded SCN-001 evidence batch, hosted zero drift |
 | UI Foundation | not-applicable | M5 is API, CLI, evidence tooling, and infrastructure only |
 
 ## Completed major results
@@ -103,7 +108,14 @@ updated: 2026-08-11
   fixture smoke completes four sources with four evidence items and zero API calls.
 - Added a default-off investigator custom role and project binding with seven read/API-use
   permissions plus an operator Token Creator binding scoped only to the investigator SA. Hosted
-  refresh permissions and the M5 workflow gate are prepared but unapplied.
+  refresh permissions and the M5 workflow gate are applied and validated.
+- Applied the exact bootstrap one-update and dev three-create IAM plans. Bootstrap remained 14/15;
+  dev reached 31 managed resources and 32 total state addresses.
+- Reproduced SCN-001 once and collected six payment timeout occurrences, positive error-ratio and
+  latency evidence, a neutral revision snapshot, and the payment runbook through the impersonated
+  investigator identity.
+- Verified runtime project roles, public principals, and user-managed keys remain zero, while the
+  two existing order-to-leaf invoker bindings remain unchanged.
 
 - Added five runbooks, three prior RCAs, three architecture documents, one ownership document, and
   one malicious-instruction regression document with strict UTC metadata and logical citations.
@@ -215,7 +227,9 @@ updated: 2026-08-11
 | M5 typed evidence contracts | pass | UTC/allowlist/filter/redaction/normalization/partial-failure/call-budget tests |
 | M5 fixture evidence smoke | pass | Four sources, four evidence items, four logical calls, zero API calls |
 | M5 Terraform static | pass | Default-off existing graph; enabled graph adds one custom role and two bindings only |
-| M5 cloud/IAM apply | not-run | Separate Approval 2 required; no live telemetry or Search request issued |
+| M5 cloud/IAM apply | pass | Bootstrap exact 1-update; dev exact 3-create; 31 managed / 32 addresses |
+| M5 live evidence | pass | One SCN-001; 4 logical sources / 6 API calls; timeout count 6; metrics, neutral revision, runbook and citations accepted |
+| M5 hosted plan | pass | WIF read-only; one redacted text artifact; `No changes`; identifier/credential/binary leaks 0 |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -228,13 +242,11 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- M5 Approval 2 must separately review and apply the bootstrap custom-role one-update and dev
-  investigator IAM three-create plans, then impersonate the investigator without a key.
-- Run one bounded live SCN-001 and exactly one log, two metric, one revision, and one Search
-  collection. Require logical citations and preserve revision evidence as neutral unless actual
-  configuration data supports a causal claim.
-- Do not reimport knowledge, deploy an image, add custom metrics, invoke a model, or enable the M5
-  hosted gate before live acceptance and operator zero drift succeed.
+- Plan M6 ADK orchestration over the existing typed evidence protocol.
+- Keep raw cloud clients, project/resource identifiers, tool filters, and credentials outside model
+  inputs. The model may reason only over bounded normalized evidence and logical citations.
+- Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, or add
+  remediation until their separate milestone approvals.
 
 ## Related artifacts
 

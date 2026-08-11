@@ -93,8 +93,8 @@ uv build
 
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
-remote state contains 28 managed resources after M4; operator and hosted read-only plans are zero
-drift.
+remote state contains 31 managed resources after the M5 IAM apply; operator and hosted read-only
+plans are zero drift.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
 ignored backend files, and GitHub repository variables.
 
@@ -102,9 +102,10 @@ M4 Terraform is default-off. Enabling it in a separately reviewed plan adds exac
 knowledge bucket, one Agent Search data store, one metadata schema, and one Standard Search engine.
 Approval 1 does not create those resources or upload a document.
 
-M5 Terraform is also default-off. Enabling it in a separately reviewed Approval 2 plan adds one
-investigator custom role, its project binding, and one operator Token Creator binding scoped only
-to the existing investigator service account.
+M5 Terraform remains default-off in source. The approved live environment manages one investigator
+custom role, its project binding, and one operator Token Creator binding scoped only to the
+investigator service account. One live SCN-001 collection passed through short-lived
+impersonation with no service-account key.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform
@@ -134,5 +135,5 @@ See `docs/operations/demo-services.md` for the workload runbook and
   only after the reviewed three-service update and remains part of the manual read-only plan gate.
 - M4 hosted plans additionally require `TF_M4_KNOWLEDGE_READY=true`; it remains unset until the
   separate Search apply, import, and live smoke approval completes.
-- M5 hosted plans additionally require `TF_M5_LIVE_EVIDENCE_READY=true`; it remains unset until
-  investigator IAM and the bounded live acceptance both pass.
+- M5 hosted plans additionally require `TF_M5_LIVE_EVIDENCE_READY=true`; it is enabled after the
+  investigator IAM apply and bounded live acceptance passed.

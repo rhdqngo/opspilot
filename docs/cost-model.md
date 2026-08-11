@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M4 complete; M5 Approval 1 code-only
+Status: M5 complete
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -96,6 +96,9 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - Approval 2 will cap live acceptance at one SCN-001 run, one Logging request, two Monitoring
   requests, one Cloud Run service read plus one revision list, and one Standard Search request.
 - Approval 2 adds IAM bindings only. It creates no workload or persistent cost-bearing service.
+- The accepted live batch used one Standard Search request plus bounded existing telemetry and
+  Cloud Run reads. No import, image build/push, deployment, or persistent cost-bearing resource was
+  added.
 
 ## Cleanup order
 
