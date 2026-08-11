@@ -26,6 +26,8 @@ project number, OAuth client, token, or billing account identifier.
 | M5 operator permissions | pass | Custom-role create/update plus project and leaf service-account IAM binding permissions verified without identifiers |
 | Investigator impersonation | pass | Short-lived token permission succeeds only on the fixed investigator identity |
 | Investigator target role | applied | Seven read/API-use permissions; user-managed keys and write permissions remain absent |
+| M7 operator permissions | pass | Runtime CRUD/read/query, Enterprise operation read, actAs, leaf IAM, and Enterprise agent management were checked without identifiers |
+| M7 candidate inventory | pass | One existing global app and zero runtime/registration display-name conflicts were confirmed as aggregate counts only |
 | Gemini Enterprise API access | pass | Global engine listing is permitted |
 | Gemini Enterprise app | pass | An existing global app was detected without recording its identifier |
 | Data policy | pass | Synthetic ecommerce data only |
@@ -70,6 +72,12 @@ The M5 extension reports operator IAM readiness, investigator impersonation read
 fixed target-permission count. Before Approval 2 apply, impersonation correctly failed; after the
 reviewed three-create dev plan it passes. Token Creator is attached only to the fixed investigator
 service account and no project-level impersonation grant exists.
+
+The M7 extension completed its Approval 1 read-only check with one existing global Enterprise app,
+zero Runtime and registration display-name conflicts, and the required operator permissions. The
+post-deploy investigator target remains the fixed eight-permission contract. Approval 2 must rerun
+the same gate before any apply without recording discovered app, runtime, agent, project, or
+service-account identifiers.
 
 ## Location decisions
 

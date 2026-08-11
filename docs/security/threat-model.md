@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: M6 bounded Vertex acceptance complete; M7 runtime boundary remains separate
+Status: M6 complete; M7 runtime boundary implemented and deployment remains separate
 
 ## Protected assets and trust boundaries
 
@@ -26,8 +26,18 @@ approval cross those boundaries.
 | Taxonomy coercion | Canonicalization uses fixed service/source/quality-flag rules only after citation and direction verification; model labels and evidence prose are not classification inputs | Synthetic quality flags require a separate production vocabulary review after MVP |
 | Timeout misclassification or diagnostic leakage | Public callbacks retain only allowlisted phase names and bounded monotonic milliseconds; timeout origin is derived from the last completed phase | A pre-response timeout cannot distinguish provider latency from framework work before the response callback |
 
+## M7 preparation threats and controls
+
+| Threat | Control | Residual risk |
+| --- | --- | --- |
+| Natural-language scope expansion | Public callback accepts exactly payment-service and a recent 30-minute read-only investigation; all other input stops before cloud/model calls | Korean/English intent vocabulary is intentionally narrow for MVP |
+| User identity or prompt capture | Input is used only for deterministic scope selection; email/user ID is ignored; Runtime telemetry content capture is explicitly off | Approval 2 must verify hosted telemetry behavior |
+| Runtime credential broadening | Existing investigator SA, workload ADC, eight explicit permissions, no key; Runtime service agent gets leaf Token Creator only | Project-wide telemetry read remains bounded by synthetic-only project and server-side filters |
+| Package contamination | Deterministic file allowlist, pinned requirements, packaged catalog, ignored output, no archive artifact | Dependency supply-chain review remains CI/static rather than attestation-based |
+| Ambiguous Enterprise registration | One global app, one fixed-name runtime, one fixed-name registration; ambiguity hard-stops and apply is process-gated | Existing app administrator must still review the Approval 2 mutation |
+
 ## Deferred reviews
 
-Agent Runtime, Gemini Enterprise registration, session persistence, approval state, and remediation
-remain deferred. The M6 Vertex boundary is local operator-only, fixture-only, tool-free, and
-process-gated; it does not grant a runtime identity or persist a session.
+Agent Runtime deployment and Gemini Enterprise registration remain deferred to Approval 2.
+Sessions, Memory Bank, OAuth user delegation, Agent Gateway, VPC, Model Armor, approval state, and
+remediation remain excluded. M7 Approval 1 grants no runtime identity and persists no session.

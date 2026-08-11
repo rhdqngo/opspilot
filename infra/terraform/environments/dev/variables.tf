@@ -98,6 +98,54 @@ variable "enable_live_evidence" {
   default     = false
 }
 
+variable "deploy_agent_runtime" {
+  description = "Approval gate for the M7 fixed-scope Agent Runtime and leaf identity grant."
+  type        = bool
+  default     = false
+}
+
+variable "agent_runtime_source_archive" {
+  description = "Sensitive deterministic tar.gz source archive encoded as base64 at runtime."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      var.agent_runtime_source_archive == "" ||
+      (
+        length(var.agent_runtime_source_archive) % 4 == 0 &&
+        can(regex("^[A-Za-z0-9+/]+={0,2}$", var.agent_runtime_source_archive))
+      )
+    )
+    error_message = "agent_runtime_source_archive must be empty or valid base64."
+  }
+
+  validation {
+    condition     = !var.deploy_agent_runtime || length(var.agent_runtime_source_archive) > 0
+    error_message = "agent_runtime_source_archive is required when Agent Runtime is enabled."
+  }
+}
+
+variable "agent_runtime_source_sha256" {
+  description = "SHA-256 of the deterministic runtime source archive."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.agent_runtime_source_sha256 == "" ||
+      can(regex("^[0-9a-f]{64}$", var.agent_runtime_source_sha256))
+    )
+    error_message = "agent_runtime_source_sha256 must be empty or a lowercase SHA-256."
+  }
+
+  validation {
+    condition     = !var.deploy_agent_runtime || can(regex("^[0-9a-f]{64}$", var.agent_runtime_source_sha256))
+    error_message = "agent_runtime_source_sha256 is required when Agent Runtime is enabled."
+  }
+}
+
 variable "investigator_operator_email" {
   description = "Operator allowed to mint short-lived investigator credentials; injected at runtime."
   type        = string

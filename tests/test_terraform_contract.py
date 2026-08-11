@@ -79,9 +79,13 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "vars.TF_M3_IMAGE_READY == 'true'" in live_plan
     assert "vars.TF_M4_KNOWLEDGE_READY == 'true'" in live_plan
     assert "vars.TF_M5_LIVE_EVIDENCE_READY == 'true'" in live_plan
+    assert "vars.TF_M7_RUNTIME_READY == 'true'" in live_plan
     assert 'TF_VAR_deploy_demo: "true"' in live_plan
     assert 'TF_VAR_deploy_knowledge: "true"' in live_plan
     assert 'TF_VAR_enable_live_evidence: "true"' in live_plan
+    assert 'TF_VAR_deploy_agent_runtime: "true"' in live_plan
+    assert "opspilot agent runtime package" in live_plan
+    assert "TF_VAR_agent_runtime_source_archive" in live_plan
     assert "TF_VAR_investigator_operator_email" in live_plan
     assert "secrets.GCP_INVESTIGATOR_OPERATOR_EMAIL" in live_plan
     assert "TF_VAR_demo_image_uri" in live_plan
@@ -97,6 +101,9 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "docker compose up -d --no-build" in pull_request_checks
     assert "opspilot knowledge validate" in pull_request_checks
     assert "opspilot knowledge smoke --backend local" in pull_request_checks
+    assert "opspilot agent runtime validate" in pull_request_checks
+    assert "opspilot agent runtime smoke --backend fixture" in pull_request_checks
+    assert "opspilot agent runtime package" in pull_request_checks
 
 
 def test_M2_terraform_defines_only_private_bounded_demo_resources() -> None:
@@ -163,7 +170,9 @@ def test_M5_terraform_is_default_off_and_defines_only_bounded_investigator_iam()
         flags=re.DOTALL,
     )
     assert role is not None
-    permission_block = re.search(r"permissions\s*=\s*\[(.*?)\]", role.group(1), flags=re.DOTALL)
+    permission_block = re.search(
+        r"permissions\s*=\s*concat\(\[(.*?)\]", role.group(1), flags=re.DOTALL
+    )
     assert permission_block is not None
     permissions = set(re.findall(r'"([a-zA-Z0-9.]+)"', permission_block.group(1)))
     assert permissions == {
@@ -181,3 +190,36 @@ def test_M5_terraform_is_default_off_and_defines_only_bounded_investigator_iam()
     assert 'role               = "roles/iam.serviceAccountTokenCreator"' in dev_source
     assert 'member             = "user:${var.investigator_operator_email}"' in dev_source
     assert "service_account_id = google_service_account.investigator.name" in dev_source
+
+
+def test_M7_terraform_is_default_off_and_defines_only_bounded_runtime_resources() -> None:
+    dev_source = (TERRAFORM_ROOT / "environments" / "dev" / "main.tf").read_text(encoding="utf-8")
+    variables = (TERRAFORM_ROOT / "environments" / "dev" / "variables.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'variable "deploy_agent_runtime"' in variables
+    assert 'resource "google_vertex_ai_reasoning_engine" "opspilot"' in dev_source
+    assert dev_source.count('resource "google_vertex_ai_reasoning_engine"') == 1
+    assert "count = var.deploy_agent_runtime ? 1 : 0" in dev_source
+    assert 'agent_framework = "google-adk"' in dev_source
+    assert "service_account = google_service_account.investigator.email" in dev_source
+    assert "min_instances         = 0" in dev_source
+    assert "max_instances         = 1" in dev_source
+    assert 'memory = "1Gi"' in dev_source
+    assert "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT" in dev_source
+    assert 'value = "false"' in dev_source
+    assert 'entrypoint_module = "opspilot.agent.runtime_agent"' in dev_source
+    assert 'deletion_policy = "PREVENT"' in dev_source
+    assert "aiplatform.endpoints.predict" in dev_source
+    assert "allUsers" not in dev_source
+    prohibited_resources = (
+        "google_service_account_key",
+        "google_compute_network",
+        "google_vpc_access_connector",
+        "google_access_context_manager",
+        "google_secret_manager_secret",
+    )
+    assert not any(resource in dev_source for resource in prohibited_resources)
+    assert "memory_bank" not in dev_source.casefold()
+    assert "oauth" not in dev_source.casefold()

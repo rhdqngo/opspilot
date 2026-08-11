@@ -26,7 +26,17 @@ locals {
     "run.googleapis.com",
   ]) : toset([])
 
-  project_services = setunion(local.m1_project_services, local.m2_project_services)
+  m7_project_services = var.deploy_agent_runtime ? toset([
+    "aiplatform.googleapis.com",
+    "cloudtrace.googleapis.com",
+    "telemetry.googleapis.com",
+  ]) : toset([])
+
+  project_services = setunion(
+    local.m1_project_services,
+    local.m2_project_services,
+    local.m7_project_services,
+  )
 
   demo_service_names = var.deploy_demo ? toset([
     "order",
@@ -237,7 +247,7 @@ resource "google_service_account" "investigator" {
 }
 
 resource "google_project_iam_custom_role" "investigator_reader" {
-  count = var.enable_live_evidence ? 1 : 0
+  count = var.enable_live_evidence || var.deploy_agent_runtime ? 1 : 0
 
   project     = var.project_id
   role_id     = "opspilotInvestigatorReader"
@@ -245,7 +255,7 @@ resource "google_project_iam_custom_role" "investigator_reader" {
   description = "Bounded read-only access for M5 live evidence collection."
   stage       = "GA"
 
-  permissions = [
+  permissions = concat([
     "discoveryengine.servingConfigs.search",
     "logging.logEntries.list",
     "monitoring.timeSeries.list",
@@ -253,11 +263,11 @@ resource "google_project_iam_custom_role" "investigator_reader" {
     "run.revisions.list",
     "run.services.get",
     "serviceusage.services.use",
-  ]
+  ], var.deploy_agent_runtime ? ["aiplatform.endpoints.predict"] : [])
 }
 
 resource "google_project_iam_member" "investigator_reader" {
-  count = var.enable_live_evidence ? 1 : 0
+  count = var.enable_live_evidence || var.deploy_agent_runtime ? 1 : 0
 
   project = var.project_id
   role    = google_project_iam_custom_role.investigator_reader[0].name
@@ -270,6 +280,86 @@ resource "google_service_account_iam_member" "investigator_operator_token_creato
   service_account_id = google_service_account.investigator.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "user:${var.investigator_operator_email}"
+}
+
+resource "google_service_account_iam_member" "runtime_service_agent_token_creator" {
+  count = var.deploy_agent_runtime ? 1 : 0
+
+  service_account_id = google_service_account.investigator.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
+}
+
+resource "google_vertex_ai_reasoning_engine" "opspilot" {
+  count = var.deploy_agent_runtime ? 1 : 0
+
+  project         = var.project_id
+  region          = var.region
+  display_name    = "OpsPilot Incident Commander"
+  description     = "Fixed-scope read-only payment-service incident investigation runtime."
+  labels          = local.labels
+  deletion_policy = "PREVENT"
+
+  spec {
+    agent_framework = "google-adk"
+    service_account = google_service_account.investigator.email
+
+    deployment_spec {
+      min_instances         = 0
+      max_instances         = 1
+      container_concurrency = 3
+      resource_limits = {
+        cpu    = "1"
+        memory = "1Gi"
+      }
+
+      env {
+        name  = "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"
+        value = "true"
+      }
+
+      env {
+        name  = "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
+        value = "false"
+      }
+
+      env {
+        name  = "OPSPILOT_LIVE_MODEL_ENABLED"
+        value = "true"
+      }
+    }
+
+    source_code_spec {
+      inline_source {
+        source_archive = var.agent_runtime_source_archive
+      }
+
+      python_spec {
+        version           = "3.12"
+        entrypoint_module = "opspilot.agent.runtime_agent"
+        entrypoint_object = "root_agent"
+        requirements_file = "requirements.txt"
+      }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_live_evidence
+      error_message = "Agent Runtime requires the existing read-only M5 evidence role."
+    }
+
+    precondition {
+      condition     = can(regex("^[0-9a-f]{64}$", var.agent_runtime_source_sha256))
+      error_message = "The deterministic runtime source hash is required."
+    }
+  }
+
+  depends_on = [
+    google_project_service.m1,
+    google_project_iam_member.investigator_reader,
+    google_service_account_iam_member.runtime_service_agent_token_creator,
+  ]
 }
 
 resource "google_service_account" "demo" {

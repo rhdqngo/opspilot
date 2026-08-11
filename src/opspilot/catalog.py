@@ -23,7 +23,10 @@ class ServiceCatalog(BaseModel):
 
 
 def default_catalog_path() -> Path:
-    return Path.cwd() / "config" / "services.yaml"
+    workspace_catalog = Path.cwd() / "config" / "services.yaml"
+    if workspace_catalog.is_file():
+        return workspace_catalog
+    return Path(__file__).parent / "resources" / "services.yaml"
 
 
 def load_service_catalog(path: Path | None = None) -> ServiceCatalog:

@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M5 applied and hosted zero drift
+Status: M1-M5 applied and hosted zero drift; M7 runtime IAM default-off
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
@@ -8,6 +8,7 @@ Data classification: synthetic only
 | Developer / `Edu_687` operator | Current dev project and the investigator SA | Local read checks, completed M1-M4 applies, bounded private invocation, and Approval 2 leaf-SA impersonation after apply | Project-wide impersonation, destroy, repeated Search smoke, unapproved import, billing model changes, unreviewed IAM broadening |
 | GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, applied Search data store/schema/engine get/list, service usage consumption, state object read | Search/import, API enable/disable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
 | Investigator identity | Dev project | Seven-permission M5 read role; one accepted bounded live collection; no user-managed key | Private logs, every Logging/Monitoring/Run/Search write, IAM, Secret, invoke, remediation operation |
+| Agent Runtime service agent | Existing investigator SA only | Approval 1 source defines one future leaf Token Creator grant | Project-wide token creation, project role, key, runtime query outside Approval 2 |
 | Order runtime identity | Payment and inventory services | `roles/run.invoker` on the two leaf services only | Project roles, keys, secrets, IAM, remediation, arbitrary Cloud Run invocation |
 | Payment / inventory runtime identities | Their own Cloud Run revisions | No IAM role or user-managed key | Cross-service invocation, project roles, secrets, IAM, remediation writes |
 | Remediation identity | Not created | None | All execution permissions until M8 |
@@ -18,6 +19,8 @@ The project custom role is limited to the following permissions:
 
 - `artifactregistry.repositories.get`
 - `artifactregistry.repositories.list`
+- `aiplatform.reasoningEngines.get`
+- `aiplatform.reasoningEngines.list`
 - `billing.resourcebudgets.read`
 - `discoveryengine.dataStores.get`
 - `discoveryengine.dataStores.list`
@@ -113,3 +116,17 @@ graph consumes only the already-normalized `EvidenceCollectionResult`; model nod
 Google Cloud client, token provider, tool, project identifier, URL, filter, or runtime identity.
 The fake model is the only enabled CI path. A later Vertex evaluation may reuse operator ADC only
 behind a process-scoped gate and separate approval; it does not expand investigator IAM.
+
+## M7 runtime boundary
+
+Approval 1 applies nothing. Source defaults keep Runtime resources and IAM disabled. A separately
+approved deployment would add only `aiplatform.endpoints.predict` to the existing investigator
+custom role and grant the Vertex Reasoning Engine service agent
+`roles/iam.serviceAccountTokenCreator` on that investigator service account alone. The Runtime
+reuses the same identity and receives no key, broad predefined role, invoke permission, IAM write,
+Storage read, Secret access, or remediation capability.
+
+The hosted plan identity source adds only `aiplatform.reasoningEngines.get/list`. The operator M7
+check covers Runtime create/update/get/list/query, operation read, investigator actAs and leaf IAM,
+plus Enterprise agent create/get/list/update. Results contain booleans, missing permission names,
+and collision counts only.

@@ -95,6 +95,25 @@ M5_INVESTIGATOR_PERMISSIONS: tuple[str, ...] = (
     "serviceusage.services.use",
 )
 
+M7_OPERATOR_PROJECT_PERMISSIONS: tuple[str, ...] = (
+    "aiplatform.reasoningEngines.create",
+    "aiplatform.reasoningEngines.get",
+    "aiplatform.reasoningEngines.list",
+    "aiplatform.reasoningEngines.update",
+    "aiplatform.reasoningEngines.query",
+    "iam.serviceAccounts.actAs",
+    "iam.serviceAccounts.setIamPolicy",
+    "discoveryengine.agents.create",
+    "discoveryengine.agents.get",
+    "discoveryengine.agents.list",
+    "discoveryengine.agents.update",
+    "discoveryengine.operations.get",
+)
+
+M7_INVESTIGATOR_PERMISSIONS: tuple[str, ...] = tuple(
+    (*M5_INVESTIGATOR_PERMISSIONS, "aiplatform.endpoints.predict")
+)
+
 PROJECT_PERMISSIONS: tuple[str, ...] = tuple(
     dict.fromkeys(
         (
@@ -113,6 +132,7 @@ M2_CANDIDATE_SERVICES: tuple[str, ...] = (
 )
 
 M4_CANDIDATE_ID = "opspilot-dev-knowledge"
+M7_RUNTIME_DISPLAY_NAME = "OpsPilot Incident Commander"
 
 
 class AccessCheckResult(BaseModel):
@@ -151,6 +171,16 @@ class AccessCheckResult(BaseModel):
         default=len(M5_INVESTIGATOR_PERMISSIONS), ge=0
     )
     m5_apply_ready: bool = False
+    m7_operator_permissions_ready: bool = False
+    missing_m7_operator_permissions: list[str] = Field(default_factory=list)
+    m7_investigator_target_permission_count: int = Field(
+        default=len(M7_INVESTIGATOR_PERMISSIONS), ge=0
+    )
+    m7_candidate_check_available: bool = False
+    m7_existing_app_count: int = Field(default=0, ge=0)
+    m7_runtime_name_conflicts: int = Field(default=0, ge=0)
+    m7_registration_name_conflicts: int = Field(default=0, ge=0)
+    m7_apply_ready: bool = False
     gemini_enterprise_access: bool = False
     gemini_enterprise_app_exists: bool = False
     m0_ready: bool = False
@@ -300,6 +330,25 @@ def run_access_check(
         result.missing_m4_permissions = list(M4_PROJECT_PERMISSIONS)
         result.missing_m5_operator_permissions = list(M5_OPERATOR_PROJECT_PERMISSIONS)
 
+    granted_m7: set[str] = set()
+    for permission in M7_OPERATOR_PROJECT_PERMISSIONS:
+        try:
+            m7_payload = requester(
+                user_token.stdout,
+                "https://cloudresourcemanager.googleapis.com/v1/projects/"
+                f"{quote(project_id, safe='')}:testIamPermissions",
+                {"permissions": [permission]},
+                project_id,
+            )
+            if permission in m7_payload.get("permissions", []):
+                granted_m7.add(permission)
+        except RuntimeError:
+            continue
+    result.missing_m7_operator_permissions = [
+        permission for permission in M7_OPERATOR_PROJECT_PERMISSIONS if permission not in granted_m7
+    ]
+    result.m7_operator_permissions_ready = not result.missing_m7_operator_permissions
+
     investigator_email = f"opspilot-dev-agent@{project_id}.iam.gserviceaccount.com"
     try:
         impersonation = requester(
@@ -360,7 +409,14 @@ def run_access_check(
         result.gemini_enterprise_access = True
         result.gemini_enterprise_app_exists = bool(engines.get("engines"))
         engine_items = engines.get("engines", [])
+        enterprise_apps: list[dict[str, Any]] = []
         if isinstance(engine_items, list):
+            enterprise_apps = [
+                item
+                for item in engine_items
+                if isinstance(item, dict) and item.get("appType") == "APP_TYPE_INTRANET"
+            ]
+            result.m7_existing_app_count = len(enterprise_apps)
             result.m4_candidate_engine_conflicts = sum(
                 1
                 for item in engine_items
@@ -390,6 +446,37 @@ def run_access_check(
             and result.m4_candidate_data_store_conflicts == 0
             and result.m4_candidate_engine_conflicts == 0
         )
+        runtimes = requester(
+            user_token.stdout,
+            f"https://asia-northeast3-aiplatform.googleapis.com/v1/projects/"
+            f"{quote(project_id, safe='')}/locations/asia-northeast3/reasoningEngines",
+            None,
+            project_id,
+        )
+        runtime_items = runtimes.get("reasoningEngines", [])
+        if isinstance(runtime_items, list):
+            result.m7_runtime_name_conflicts = sum(
+                1
+                for item in runtime_items
+                if isinstance(item, dict) and item.get("displayName") == M7_RUNTIME_DISPLAY_NAME
+            )
+            result.m7_candidate_check_available = True
+        if len(enterprise_apps) == 1:
+            app_name = str(enterprise_apps[0].get("name", ""))
+            registrations = requester(
+                user_token.stdout,
+                "https://discoveryengine.googleapis.com/v1alpha/"
+                f"{quote(app_name, safe='/')}/assistants/default_assistant/agents?pageSize=100",
+                None,
+                project_id,
+            )
+            registration_items = registrations.get("agents", [])
+            if isinstance(registration_items, list):
+                result.m7_registration_name_conflicts = sum(
+                    1
+                    for item in registration_items
+                    if isinstance(item, dict) and item.get("displayName") == M7_RUNTIME_DISPLAY_NAME
+                )
     except RuntimeError:
         pass
 
@@ -430,6 +517,16 @@ def run_access_check(
             result.investigator_impersonation_ready,
         )
     )
+    result.m7_apply_ready = all(
+        (
+            result.m0_ready,
+            result.m7_operator_permissions_ready,
+            result.m7_candidate_check_available,
+            result.m7_existing_app_count == 1,
+            result.m7_runtime_name_conflicts == 0,
+            result.m7_registration_name_conflicts == 0,
+        )
+    )
     return result
 
 
@@ -452,6 +549,10 @@ def render_access_summary(result: AccessCheckResult) -> str:
         lines.append(
             "missing_m5_operator_permissions=" + ",".join(result.missing_m5_operator_permissions)
         )
+    if result.missing_m7_operator_permissions:
+        lines.append(
+            "missing_m7_operator_permissions=" + ",".join(result.missing_m7_operator_permissions)
+        )
     lines.append(f"m2_candidate_service_conflicts={result.m2_candidate_service_conflicts}")
     lines.append(f"m4_candidate_bucket_conflicts={result.m4_candidate_bucket_conflicts}")
     lines.append(f"m4_candidate_data_store_conflicts={result.m4_candidate_data_store_conflicts}")
@@ -459,4 +560,10 @@ def render_access_summary(result: AccessCheckResult) -> str:
     lines.append(
         f"investigator_target_permission_count={result.investigator_target_permission_count}"
     )
+    lines.append(
+        f"m7_investigator_target_permission_count={result.m7_investigator_target_permission_count}"
+    )
+    lines.append(f"m7_existing_app_count={result.m7_existing_app_count}")
+    lines.append(f"m7_runtime_name_conflicts={result.m7_runtime_name_conflicts}")
+    lines.append(f"m7_registration_name_conflicts={result.m7_registration_name_conflicts}")
     return "\n".join(lines) + "\n"

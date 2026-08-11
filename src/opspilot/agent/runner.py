@@ -475,6 +475,45 @@ async def run_agent_investigation(
         )
 
 
+async def run_agent_context(
+    context: AgentEvidenceContext,
+    *,
+    model_backend: ModelBackend,
+    complete: bool,
+) -> AgentRunResult:
+    """Run the existing graph over a pre-collected, bounded evidence context."""
+
+    tracker = _RequestBudgetTracker()
+    input_bytes = len(context.model_dump_json().encode("utf-8"))
+    try:
+        report, trajectory, budget = await _execute_graph(
+            context,
+            model_backend=model_backend,
+            tracker=tracker,
+        )
+        return AgentRunResult(
+            status=AgentRunStatus.COMPLETE if complete else AgentRunStatus.PARTIAL,
+            succeeded=True,
+            backend=AgentBackend.LIVE,
+            model_backend=model_backend,
+            report=report,
+            trajectory=trajectory,
+            budget=budget,
+        )
+    except Exception as error:
+        safe_error = _safe_error(error)
+        if safe_error.category == AgentErrorCategory.TIMEOUT:
+            tracker.observe_timeout()
+        return AgentRunResult(
+            status=AgentRunStatus.FAILED,
+            succeeded=False,
+            backend=AgentBackend.LIVE,
+            model_backend=model_backend,
+            budget=tracker.budget(input_bytes),
+            errors=[safe_error],
+        )
+
+
 async def run_agent_eval(*, model_backend: ModelBackend) -> AgentEvalResult:
     if model_backend != ModelBackend.FAKE:
         raise ValueError("live model evaluation is limited to fixed acceptance suites")

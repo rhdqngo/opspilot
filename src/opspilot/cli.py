@@ -7,7 +7,8 @@ import asyncio
 import json
 import os
 from collections.abc import Sequence
-from typing import cast
+from pathlib import Path
+from typing import Literal, cast
 
 import uvicorn
 
@@ -137,6 +138,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_accept.add_argument("--model", choices=("fake", "vertex"), default="fake")
     agent_accept.add_argument("--format", choices=("json", "summary"), default="summary")
+    agent_runtime = agent_commands.add_parser(
+        "runtime", help="Validate, smoke, or package the fixed-scope Agent Runtime"
+    )
+    runtime_commands = agent_runtime.add_subparsers(dest="runtime_command", required=True)
+    runtime_validate = runtime_commands.add_parser(
+        "validate", help="Validate the runtime entrypoint without cloud calls"
+    )
+    runtime_validate.add_argument("--format", choices=("json", "summary"), default="summary")
+    runtime_smoke = runtime_commands.add_parser(
+        "smoke", help="Run the fixed runtime adapter against fixture evidence"
+    )
+    runtime_smoke.add_argument("--backend", choices=("fixture",), default="fixture")
+    runtime_smoke.add_argument("--format", choices=("json", "summary"), default="summary")
+    runtime_package = runtime_commands.add_parser(
+        "package", help="Create a deterministic runtime source archive under .tmp"
+    )
+    runtime_package.add_argument("--output", default=".tmp/m7-runtime")
+    agent_enterprise = agent_commands.add_parser(
+        "enterprise", help="Plan or gate the fixed Gemini Enterprise registration"
+    )
+    enterprise_commands = agent_enterprise.add_subparsers(dest="enterprise_command", required=True)
+    for enterprise_mode in ("plan", "apply"):
+        enterprise_command = enterprise_commands.add_parser(
+            enterprise_mode, help=f"{enterprise_mode.title()} the fixed runtime registration"
+        )
+        enterprise_command.add_argument("--format", choices=("json", "summary"), default="summary")
     return parser
 
 
@@ -266,6 +293,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 render_agent_diagnostic,
                 run_agent_diagnostic,
             )
+            from opspilot.agent.enterprise import (
+                render_enterprise_summary,
+                run_enterprise_registration,
+            )
             from opspilot.agent.runner import (
                 render_agent_acceptance,
                 render_agent_eval,
@@ -273,6 +304,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_agent_acceptance,
                 run_agent_eval,
                 run_agent_investigation,
+            )
+            from opspilot.agent.runtime import (
+                package_runtime,
+                render_runtime_summary,
+                smoke_runtime,
+                validate_runtime,
             )
         except ImportError:
             print("The agent extra is required: uv sync --extra agent")
@@ -310,4 +347,36 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             print(render_agent_acceptance(acceptance, str(args.format)), end="")
             return 0 if acceptance.passed else 2
+        if args.agent_command == "runtime" and args.runtime_command == "validate":
+            runtime_validation = validate_runtime()
+            if args.format == "json":
+                print(json.dumps(runtime_validation.model_dump(mode="json"), indent=2))
+            else:
+                print(render_runtime_summary(runtime_validation), end="")
+            return 0 if runtime_validation.valid else 2
+        if args.agent_command == "runtime" and args.runtime_command == "smoke":
+            runtime_result = asyncio.run(smoke_runtime())
+            if args.format == "json":
+                print(
+                    json.dumps(
+                        runtime_result.model_dump(mode="json", exclude={"output_markdown"}),
+                        indent=2,
+                    )
+                )
+            else:
+                print(render_runtime_summary(runtime_result), end="")
+            return 0 if runtime_result.succeeded else 2
+        if args.agent_command == "runtime" and args.runtime_command == "package":
+            package_result = package_runtime(Path(str(args.output)))
+            print(render_runtime_summary(package_result), end="")
+            return 0 if package_result.succeeded else 2
+        if args.agent_command == "enterprise":
+            enterprise_result = run_enterprise_registration(
+                cast(Literal["plan", "apply"], str(args.enterprise_command))
+            )
+            if args.format == "json":
+                print(json.dumps(enterprise_result.model_dump(mode="json"), indent=2))
+            else:
+                print(render_enterprise_summary(enterprise_result), end="")
+            return 0 if enterprise_result.succeeded else 2
     raise AssertionError("unreachable command")

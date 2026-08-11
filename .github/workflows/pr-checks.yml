@@ -38,6 +38,11 @@ jobs:
         run: uv run opspilot evidence smoke --backend fixture --scenario SCN-001 --env dev --format summary
       - name: Run deterministic ADK agent evaluation
         run: uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
+      - name: Validate and smoke the fixed Agent Runtime adapter
+        run: |
+          uv run --extra agent opspilot agent runtime validate --format summary
+          uv run --extra agent opspilot agent runtime smoke --backend fixture --format summary
+          uv run --extra agent opspilot agent runtime package --output .tmp/m7-runtime
       - name: Build
         run: uv build
 

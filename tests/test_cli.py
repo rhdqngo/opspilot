@@ -176,3 +176,20 @@ def test_M5_cli_fixture_evidence_smoke_uses_no_live_api(
     assert "project_id" not in output
     assert "token" not in output
     assert "http" not in output
+
+
+def test_M7_cli_runtime_validate_and_fixture_smoke_are_redacted(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["agent", "runtime", "validate", "--format", "json"]) == 0
+    validation = capsys.readouterr().out
+    assert '"upper_routing_model_calls": 0' in validation
+
+    assert main(["agent", "runtime", "smoke", "--backend", "fixture", "--format", "json"]) == 0
+    smoke = capsys.readouterr().out
+    assert '"model_calls": 2' in smoke
+    combined = validation + smoke
+    assert "project_id" not in combined
+    assert "token" not in combined
+    assert "http" not in combined
+    assert "payment database" not in combined

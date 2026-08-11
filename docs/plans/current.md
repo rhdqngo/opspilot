@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M6-complete / M7-ready-for-planning
+phase: M7-code-complete / M7-ready-for-runtime-approval
 updated: 2026-08-12
 
 ## Objective
@@ -18,6 +18,22 @@ updated: 2026-08-12
 - Optional work cannot enter an MVP acceptance gate or Terraform plan without a separate approval.
 
 ## Active scope
+
+- M7 Approval 1 adds a separate managed-runtime entrypoint without changing the existing M6 ADK
+  discovery path, seven-node graph, prompts, report schema, or local fixture/evaluation contracts.
+- A deterministic public `before_agent_callback` accepts only a read-only `payment-service`
+  investigation over the recent 30-minute window. Other services, windows, commands, and recovery
+  requests stop before evidence or model calls; no upper routing model is used.
+- The accepted runtime path uses workload ADC, the packaged service catalog, the existing bounded
+  evidence layer, and the existing two-model-call graph. User email and identity are ignored.
+- Deterministic Python 3.12 source packaging contains package source, catalog, and pinned runtime
+  requirements only. Archives and hashes remain under ignored `.tmp` storage and are not uploaded
+  as artifacts.
+- Terraform defaults `deploy_agent_runtime=false`. Approval 1 applies no API, IAM, Runtime, app,
+  repository variable, or other cloud change. The future enabled graph is limited to three API
+  addresses, one leaf service-agent IAM grant, one Runtime, and one investigator-role update.
+- Enterprise registration is plan-first, fixed-name, unique-app/runtime, idempotent, redacted, and
+  process-gated. Approval 1 performs no live discovery, registration, or paid runtime call.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -181,6 +197,7 @@ updated: 2026-08-12
 | M6 Approval 7: final live acceptance | blocked | RCA completed 2/2 calls without timeout but failed only `root_cause_mismatch`; safety was not run |
 | M6 Approval 8: evidence classification | blocked | Classifier and static CI passed; live RCA stopped at composer response timeout and safety was not run |
 | M6 Approval 9: MVP latency calibration | complete | RCA 1/1 and safety 2/2 passed with 6/6 calls, no timeout, and zero cloud drift |
+| M7 Approval 1: Runtime and Enterprise preparation | complete | Fixed natural-language adapter, workload ADC, deterministic package, default-off IaC, guarded registration; cloud changes 0 |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -327,7 +344,7 @@ updated: 2026-08-12
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 142 pytest tests, including timeout phase/origin, strict taxonomy, fixed acceptance suites, deterministic reviewer, citation, injection, failure, budget, and redaction contracts |
+| Tests | pass | 166 pytest tests, including M7 scope rejection, callback routing, package determinism, registration gating, prior M6 acceptance, citation, failure, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -381,6 +398,11 @@ updated: 2026-08-12
 | M6 Approval 8 Vertex acceptance | blocked | SCN-001: 2 attempted / 1 successful; composer `model_response_pending`; 1,246 prompt, 315 output, 1,561 total tokens; safety calls 0 |
 | M6 Approval 9 Vertex acceptance | pass | RCA 1/1 and safety 2/2; 6 attempted / 6 successful; 6,955 prompt, 2,311 output, 10,322 total tokens; timeout origin `none` |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
+| M7 runtime adapter | pass | Fixed payment/30-minute intent; unsupported service/window/action stops with zero cloud/model calls |
+| M7 fixture runtime smoke | pass | Existing seven-node graph; exactly two fake model calls; citation coverage 100% |
+| M7 runtime package | pass | Deterministic tar.gz/SHA; packaged catalog and pinned requirements; forbidden repository content absent |
+| M7 Terraform static | pass | Default-off existing graph; enabled mock graph adds five addresses and one role update only |
+| M7 cloud/IAM/runtime/app change | pass | Zero changes in Approval 1; deployment and registration remain separately gated |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -393,12 +415,14 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Plan M7 Agent Runtime identity, deployment package, bounded runtime deployment, and Gemini
-  Enterprise registration as a separate approval.
-- Do not infer M7 deployment authority from M6 completion. Runtime IAM, deployment, Enterprise app
-  registration, and any new model calls remain separately gated.
-- Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
-  sessions, or add remediation until their separate milestone approvals.
+- M7 Approval 2 must separately review and apply the bootstrap one-update and dev exact
+  `5 create / 1 update` plans, then deploy the Runtime and register it once into the unique existing
+  global Enterprise app.
+- Run one unsupported request first and require zero evidence/model calls. Then run exactly one
+  supported payment-service 30-minute investigation with bounded evidence and two model calls.
+- Do not infer deployment authority from Approval 1. Sessions, Memory Bank, OAuth delegation,
+  Agent Gateway, VPC, Model Armor, alert intake, remediation, dashboards, and multi-project work
+  remain outside the MVP gate.
 
 ## Related artifacts
 
@@ -411,6 +435,7 @@ updated: 2026-08-12
 - Knowledge runbook: `docs/operations/knowledge.md`
 - Live evidence runbook: `docs/operations/live-evidence.md`
 - Agent orchestration runbook: `docs/operations/agent-orchestration.md`
+- Agent Runtime runbook: `docs/operations/agent-runtime.md`
 - Threat model: `docs/security/threat-model.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`
@@ -418,6 +443,7 @@ updated: 2026-08-12
 - IaC decision: `docs/decisions/ADR-007-iac-delivery.md`
 - Agent Search decision: `docs/decisions/ADR-008-agent-search-corpus.md`
 - Live evidence decision: `docs/decisions/ADR-009-live-evidence-boundary.md`
+- Agent Runtime decision: `docs/decisions/ADR-010-agent-runtime-enterprise.md`
 
 ## Update rules
 

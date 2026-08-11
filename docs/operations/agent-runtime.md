@@ -1,0 +1,49 @@
+# M7 Agent Runtime Runbook
+
+Status: Approval 1 code complete; deployment and Enterprise registration not approved
+
+## MVP contract
+
+The managed entrypoint accepts only a 3–500 character investigation request naming exactly
+`payment-service`. An omitted window becomes the recent 30 minutes with an explicit assumption.
+Other services, other time ranges, commands, recovery, and execution requests return a fixed safe
+message before any evidence or model call. The upper routing model is always skipped.
+
+The accepted path uses workload ADC, the packaged service catalog, the existing read-only evidence
+client, and the existing seven-node graph. Only RCA analysis and report composition call the fixed
+model. Reports retain logical citations, approval-required recommendations, and no executable
+command or cloud resource path.
+
+## Offline commands
+
+```powershell
+uv sync --frozen --extra agent
+uv run --extra agent opspilot agent runtime validate --format summary
+uv run --extra agent opspilot agent runtime smoke --backend fixture --format json
+uv run --extra agent opspilot agent runtime package --output .tmp/m7-runtime
+```
+
+Packaging writes only a deterministic tarball and SHA-256 under `.tmp`. It includes package source,
+the packaged service catalog, and pinned runtime requirements; it excludes repository metadata,
+environment files, tests, docs, scenario data, Terraform, and temporary state. Do not upload this
+archive as a CI artifact.
+
+## Deployment gate
+
+Source default `deploy_agent_runtime=false` preserves the current dev state. Approval 2 must review
+the bootstrap custom-role update separately from the exact dev `5 create / 1 update` plan. The
+runtime must remain in `asia-northeast3`, use the existing investigator service account, scale from
+zero to one, and capture no prompt, response, or user identity content in telemetry.
+
+Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander`.
+Planning is read-only. Apply additionally requires the process-scoped
+`OPSPILOT_ENTERPRISE_REGISTER_ENABLED=true` gate, a unique existing global app, a unique deployed
+runtime, and no conflicting registration. Identifiers are never printed.
+
+## Approval 2 acceptance
+
+First send one unsupported request and require zero evidence/model calls. Then register once and
+send one supported Enterprise request. Require a normal or `INCONCLUSIVE` report, citation coverage
+100%, unauthorized actions zero, no captured message/user content, runtime log/trace presence, and
+operator plus hosted Terraform zero drift. Do not enable Sessions, Memory Bank, OAuth delegation,
+Agent Gateway, VPC, Model Armor, remediation, or dashboard work in M7.

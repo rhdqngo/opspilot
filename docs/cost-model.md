@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 Approval 7 stopped within its approved request budget
+Status: M6 complete; M7 Approval 1 creates no cost-bearing resource
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -15,6 +15,7 @@ contains account and project identifiers.
 | Synthetic load | Manual, 100 orders and concurrency 10 hard maximum |
 | Data | Synthetic ecommerce only |
 | Remediation | Disabled |
+| Agent Runtime source default | Disabled; Approval 1 has no deployment or runtime call |
 
 The Google Cloud budget is an alert, not a hard spending cap. Later workloads must use
 scale-to-zero, bounded log and metric queries, short retention, manual demo windows, and explicit
@@ -48,6 +49,17 @@ drift and scale to zero after validation.
 - The three active revisions use one immutable Artifact Registry digest. No background demo window
   is active. Both hosted Terraform plan gates are enabled only for the manual read-only workflow.
 Future work must not add any cost-bearing resource without a separate plan and approval.
+
+## M7 Approval 1 impact
+
+- Runtime validation, fixture smoke, deterministic packaging, Terraform validation, and CI are
+  local-only.
+- `deploy_agent_runtime=false` preserves the current 31 managed dev resources.
+- No Runtime, API state, IAM grant, Enterprise registration, Search/evidence query, or Vertex model
+  request is created by Approval 1.
+- A future Approval 2 runtime remains min 0/max 1 at 1 vCPU and 1 GiB, concurrency 3. The project
+  KRW 50,000 budget remains the operational ceiling; no subscription or provisioned throughput is
+  enabled.
 
 ## M3 impact
 

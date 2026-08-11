@@ -27,3 +27,9 @@ output "knowledge_engine_name" {
   value       = try(google_discovery_engine_search_engine.knowledge[0].name, null)
   sensitive   = true
 }
+
+output "agent_runtime_name" {
+  description = "M7 Agent Runtime resource name after the separate apply approval."
+  value       = try(google_vertex_ai_reasoning_engine.opspilot[0].name, null)
+  sensitive   = true
+}

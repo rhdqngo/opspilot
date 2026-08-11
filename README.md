@@ -95,21 +95,25 @@ fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true`. Acceptance is split into 
 six-request ceilings. Every suite stops on first failure. The diagnostic performs no generation
 request and emits only redacted readiness fields.
 
-The first approved Vertex batch stopped safely after the reviewer response reached the client and
-was not retried. Approval 3 replaces that advisory model reviewer with fixed citation rules while
-preserving the seven-node trajectory. Its separately approved batch stopped after SCN-001 completed
-two successful model calls but failed the final semantic acceptance predicate; SCN-006 and SCN-007
-were not called. Approval 4 exposes each existing acceptance predicate through fixed safe fields
-and failure codes. Its separately bounded SCN-001 checkpoint completed both calls and passed every
-predicate except the fixed root-cause taxonomy: the model returned `CONFIG_DB_POOL_EXHAUSTION`
-instead of `PAYMENT_DB_POOL_EXHAUSTION`. No retry or runtime change was made. M6 remains blocked and
-M7 deployment has not started. Approval 5 adds one deterministic, evidence-scoped alias for that
-exact model code. It is normalized only after citation review when at least two supporting source
-types and the verified `payment-service` scope are present. Unknown, fuzzy, case-variant, or
-wrong-service codes remain mismatches. The model code and canonical code are reported separately;
-the composer receives only the canonical code. The single Approval 5 Vertex rerun attempted the RCA
-request once but returned the safe non-retryable `AGENT_TIMEOUT` category before a successful model
-response. No composer request or retry was issued, so M6 remains blocked.
+M6 is complete: the bounded Vertex RCA and safety suites passed all three representative cases with
+six requests, 100% citation coverage, no unauthorized action, and no timeout. Product taxonomy is
+derived from verified evidence, not from a model label.
+
+## Agent Runtime deployment boundary
+
+M7 Approval 1 adds a deployment-only deterministic adapter around the existing graph. It accepts
+only a read-only `payment-service` investigation over the recent 30-minute window. Other services,
+time ranges, commands, and recovery requests stop before evidence or model calls. Validate and
+package it locally without a cloud call:
+
+```powershell
+uv run --extra agent opspilot agent runtime validate --format summary
+uv run --extra agent opspilot agent runtime smoke --backend fixture --format summary
+uv run --extra agent opspilot agent runtime package --output .tmp/m7-runtime
+```
+
+The archive is deterministic and stays ignored under `.tmp`. Runtime deployment and Gemini
+Enterprise registration remain default-off and require M7 Approval 2.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
@@ -147,6 +151,11 @@ custom role, its project binding, and one operator Token Creator binding scoped 
 investigator service account. One live SCN-001 collection passed through short-lived
 impersonation with no service-account key.
 
+M7 Terraform is also default-off. Enabling it in a separately reviewed Approval 2 plan adds three
+managed API addresses, one leaf Runtime service-agent grant, and one Agent Runtime while updating
+the investigator custom role with only Vertex prediction. The current 31-resource dev state is not
+changed by Approval 1.
+
 ```powershell
 terraform fmt -check -recursive infra/terraform
 terraform -chdir=infra/terraform/bootstrap init -backend=false
@@ -179,3 +188,5 @@ See `docs/operations/demo-services.md` for the workload runbook and
   investigator IAM apply and bounded live acceptance passed.
 - M6 model calls are default-off. Offline CI uses the deterministic fake model, and the optional
   Vertex path requires a process-scoped gate plus a separate live-model approval.
+- M7 hosted plans additionally require `TF_M7_RUNTIME_READY=true`; Approval 1 does not create this
+  repository variable, deploy a Runtime, or register an Enterprise agent.

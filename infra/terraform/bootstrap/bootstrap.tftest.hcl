@@ -23,6 +23,8 @@ run "secure_bootstrap_plan" {
   assert {
     condition = (
       contains(google_project_iam_custom_role.ci_plan_reader.permissions, "iam.roles.get") &&
+      contains(google_project_iam_custom_role.ci_plan_reader.permissions, "aiplatform.reasoningEngines.get") &&
+      contains(google_project_iam_custom_role.ci_plan_reader.permissions, "aiplatform.reasoningEngines.list") &&
       contains(google_project_iam_custom_role.ci_plan_reader.permissions, "iam.serviceAccounts.getIamPolicy") &&
       contains(google_project_iam_custom_role.ci_plan_reader.permissions, "resourcemanager.projects.getIamPolicy")
     )

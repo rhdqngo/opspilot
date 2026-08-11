@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from time import perf_counter
-from typing import Any, Literal, Protocol, Self
+from typing import Any, Literal, Protocol, Self, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
@@ -547,6 +547,35 @@ class GcloudImpersonationTokenProvider:
                 safe_message="The investigator identity could not be impersonated.",
             )
         return completed.stdout.strip()
+
+
+class WorkloadAdcTokenProvider:
+    """Mint a short-lived access token from the runtime workload ADC."""
+
+    async def get_token(self) -> str:
+        return await asyncio.to_thread(self._get_token_sync)
+
+    @staticmethod
+    def _get_token_sync() -> str:
+        try:
+            import google.auth
+            from google.auth.transport.requests import Request as AuthRequest
+
+            credentials, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            cast(Any, credentials).refresh(AuthRequest())
+            token = credentials.token
+        except Exception:
+            token = None
+        if not token:
+            raise LiveEvidenceFailure(
+                "EVIDENCE_WORKLOAD_ADC_FAILED",
+                ToolErrorCategory.AUTH,
+                retryable=False,
+                safe_message="The runtime workload credential is unavailable.",
+            )
+        return str(token)
 
 
 class FixtureEvidenceClient:

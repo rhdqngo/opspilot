@@ -73,7 +73,9 @@ run "bounded_dev_foundation" {
       length(google_discovery_engine_search_engine.knowledge) == 0 &&
       length(google_project_iam_custom_role.investigator_reader) == 0 &&
       length(google_project_iam_member.investigator_reader) == 0 &&
-      length(google_service_account_iam_member.investigator_operator_token_creator) == 0
+      length(google_service_account_iam_member.investigator_operator_token_creator) == 0 &&
+      length(google_service_account_iam_member.runtime_service_agent_token_creator) == 0 &&
+      length(google_vertex_ai_reasoning_engine.opspilot) == 0
     )
     error_message = "The default M2 gate must preserve the M1-only resource graph."
   }
@@ -358,5 +360,97 @@ run "m5_live_evidence_apply_ready_contract" {
       length(google_discovery_engine_search_engine.knowledge) == 1
     )
     error_message = "M5 must not change the existing API, workload, Search, or runtime IAM graph."
+  }
+}
+
+run "m7_agent_runtime_apply_ready_contract" {
+  command = plan
+
+  variables {
+    project_id                   = "example-project"
+    billing_account_id           = "000000-000000-000000"
+    budget_notification_email    = "operator@example.invalid"
+    deploy_demo                  = true
+    enable_scenarios             = true
+    deploy_knowledge             = true
+    search_location              = "global"
+    enable_live_evidence         = true
+    investigator_operator_email  = "operator@example.invalid"
+    deploy_agent_runtime         = true
+    agent_runtime_source_archive = "H4sIAAAAAAAA/wMAAAAAAAAAAAA="
+    agent_runtime_source_sha256  = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    demo_image_uri               = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+
+  assert {
+    condition     = length(google_project_service.m1) == 15
+    error_message = "M7 may add only the three Runtime telemetry/API service addresses."
+  }
+
+  assert {
+    condition = (
+      length(google_service_account_iam_member.runtime_service_agent_token_creator) == 1 &&
+      length(google_vertex_ai_reasoning_engine.opspilot) == 1
+    )
+    error_message = "M7 must add one leaf Token Creator grant and one Agent Runtime only."
+  }
+
+  assert {
+    condition = toset(google_project_iam_custom_role.investigator_reader[0].permissions) == toset([
+      "aiplatform.endpoints.predict",
+      "discoveryengine.servingConfigs.search",
+      "logging.logEntries.list",
+      "monitoring.timeSeries.list",
+      "resourcemanager.projects.get",
+      "run.revisions.list",
+      "run.services.get",
+      "serviceusage.services.use",
+    ])
+    error_message = "M7 may add only Vertex prediction to the existing investigator role."
+  }
+
+  assert {
+    condition = (
+      google_service_account_iam_member.runtime_service_agent_token_creator[0].role == "roles/iam.serviceAccountTokenCreator" &&
+      startswith(google_service_account_iam_member.runtime_service_agent_token_creator[0].member, "serviceAccount:service-")
+    )
+    error_message = "The Runtime service agent grant must remain leaf-scoped to the investigator identity."
+  }
+
+  assert {
+    condition = (
+      google_vertex_ai_reasoning_engine.opspilot[0].region == "asia-northeast3" &&
+      google_vertex_ai_reasoning_engine.opspilot[0].deletion_policy == "PREVENT" &&
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].agent_framework == "google-adk"
+    )
+    error_message = "M7 must use the fixed Seoul ADK runtime and existing private investigator identity."
+  }
+
+  assert {
+    condition = (
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].min_instances == 0 &&
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].max_instances == 1 &&
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].container_concurrency == 3 &&
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].resource_limits["cpu"] == "1" &&
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].resource_limits["memory"] == "1Gi"
+    )
+    error_message = "The Runtime must scale to zero and retain the MVP resource ceiling."
+  }
+
+  assert {
+    condition = (
+      contains([for item in google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].env : "${item.name}=${item.value}"], "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=true") &&
+      contains([for item in google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].env : "${item.name}=${item.value}"], "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false")
+    )
+    error_message = "Telemetry must remain enabled without model message-content capture."
+  }
+
+  assert {
+    condition = (
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].source_code_spec[0].python_spec[0].version == "3.12" &&
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].source_code_spec[0].python_spec[0].entrypoint_module == "opspilot.agent.runtime_agent" &&
+      google_vertex_ai_reasoning_engine.opspilot[0].spec[0].source_code_spec[0].python_spec[0].entrypoint_object == "root_agent"
+    )
+    error_message = "M7 must use the deterministic Python 3.12 runtime entrypoint."
   }
 }

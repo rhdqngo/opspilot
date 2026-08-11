@@ -9,6 +9,8 @@ from opspilot.access_check import (
     M4_PROJECT_PERMISSIONS,
     M5_INVESTIGATOR_PERMISSIONS,
     M5_OPERATOR_PROJECT_PERMISSIONS,
+    M7_INVESTIGATOR_PERMISSIONS,
+    M7_OPERATOR_PROJECT_PERMISSIONS,
     PROJECT_PERMISSIONS,
     AccessCheckResult,
     CommandResult,
@@ -73,14 +75,28 @@ def _requester(
     assert quota_project == "secret-project-id"
     if url.startswith("https://cloudresourcemanager.googleapis.com"):
         assert body is not None
+        requested = body.get("permissions", [])
+        if isinstance(requested, list) and len(requested) == 1:
+            return {"permissions": requested}
         return {"permissions": list(PROJECT_PERMISSIONS)}
     if url.startswith("https://iam.googleapis.com"):
         assert body == {"permissions": ["iam.serviceAccounts.getAccessToken"]}
         return {"permissions": ["iam.serviceAccounts.getAccessToken"]}
+    if "aiplatform.googleapis.com" in url:
+        return {"reasoningEngines": []}
+    if "/assistants/default_assistant/agents" in url:
+        return {"agents": []}
     if "/dataStores" in url:
         return {"dataStores": [{"name": "synthetic-other-data-store"}]}
     if url.startswith("https://discoveryengine.googleapis.com"):
-        return {"engines": [{"name": "secret-engine-id"}]}
+        return {
+            "engines": [
+                {
+                    "name": "secret-engine-id",
+                    "appType": "APP_TYPE_INTRANET",
+                }
+            ]
+        }
     raise AssertionError(f"Unexpected URL shape: {url}")
 
 
@@ -183,6 +199,7 @@ def test_access_check_requires_manual_project_and_krw_confirmation() -> None:
     assert result.m2_permissions_ready is True
     assert result.m4_permissions_ready is True
     assert result.m5_operator_permissions_ready is True
+    assert result.m7_operator_permissions_ready is True
     assert result.investigator_impersonation_ready is True
     assert result.m2_candidate_names_available is True
     assert result.gemini_enterprise_app_exists is True
@@ -204,6 +221,10 @@ def test_M1_and_M2_permission_sets_stay_explicitly_separated() -> None:
     assert set(M2_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
     assert set(M4_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
     assert set(M5_OPERATOR_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
+    assert not set(M7_OPERATOR_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
+    assert not any(
+        permission.startswith("aiplatform.reasoningEngines.") for permission in PROJECT_PERMISSIONS
+    )
     assert "run.services.create" not in M1_PROJECT_PERMISSIONS
     assert "logging.logEntries.list" in M2_PROJECT_PERMISSIONS
     assert "monitoring.timeSeries.list" in M2_PROJECT_PERMISSIONS
@@ -218,6 +239,10 @@ def test_M1_and_M2_permission_sets_stay_explicitly_separated() -> None:
         "run.revisions.list",
         "run.services.get",
         "serviceusage.services.use",
+    }
+    assert set(M7_INVESTIGATOR_PERMISSIONS) == {
+        *M5_INVESTIGATOR_PERMISSIONS,
+        "aiplatform.endpoints.predict",
     }
 
 
@@ -289,3 +314,24 @@ def test_M4_access_check_reports_permissions_and_conflicts_without_identifiers()
     summary = render_access_summary(result)
     assert "secret-knowledge-bucket" not in summary
     assert "projects/hidden" not in summary
+
+
+def test_M7_access_check_reports_runtime_boundary_without_identifiers() -> None:
+    result = run_access_check(
+        project_confirmed=True,
+        billing_currency_krw_confirmed=True,
+        runner=FakeRunner(),
+        requester=_requester,
+    )
+
+    assert result.m7_operator_permissions_ready is True
+    assert result.m7_candidate_check_available is True
+    assert result.m7_existing_app_count == 1
+    assert result.m7_runtime_name_conflicts == 0
+    assert result.m7_registration_name_conflicts == 0
+    assert result.m7_investigator_target_permission_count == 8
+    assert result.m7_apply_ready is True
+    summary = render_access_summary(result)
+    assert "secret-project-id" not in summary
+    assert "secret-engine-id" not in summary
+    assert "operator+Edu_687@example.invalid" not in summary
