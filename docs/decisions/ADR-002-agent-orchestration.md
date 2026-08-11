@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented; deterministic reviewer selected, live acceptance blocked
+Status: implemented; deterministic reviewer and strict taxonomy boundary selected, RCA rerun pending
 Date: 2026-08-11
 
 ## Decision
@@ -46,3 +46,8 @@ preventing an LLM from constructing executable resource queries or action payloa
   `root_cause_mismatch`: `CONFIG_DB_POOL_EXHAUSTION` did not match the fixed
   `PAYMENT_DB_POOL_EXHAUSTION` taxonomy. The mismatch is recorded without coercion, retry, or prompt,
   schema, model, or acceptance-policy change.
+- Approval 5 permits one exact alias only after deterministic citation validation. The alias
+  requires at least two supporting source types and verified `payment-service` scope. The original
+  model code remains a bounded diagnostic field, while the composer and public root-cause contract
+  receive the canonical code. Fuzzy, case-insensitive, user-provided, and wrong-service mappings are
+  prohibited.

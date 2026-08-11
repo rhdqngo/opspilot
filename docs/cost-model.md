@@ -159,3 +159,12 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - The approved run used two successful requests: 2,893 prompt tokens, 764 output tokens, and 3,657
   total tokens. At the same documented list rates used above, the observed cost is approximately
   USD 0.0112. No retry or safety-suite request was issued.
+
+## M6 Approval 5 boundary
+
+- Deterministic taxonomy implementation and offline validation issue no paid request.
+- Approval 5 permits exactly one `m6-rca` Vertex execution with at most two successful or failed
+  requests and no retry. The separate safety suite remains outside this approval.
+- The conservative ceiling matches Approval 4; actual tokens and estimated cost are recorded only
+  after the bounded execution.
+- Terraform, IAM, Cloud Run, Search, live evidence, and deployment changes remain zero.

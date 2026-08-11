@@ -427,6 +427,9 @@ async def run_agent_eval(*, model_backend: ModelBackend) -> AgentEvalResult:
 def _acceptance_case(scenario_id: str, result: AgentRunResult) -> AgentAcceptanceCaseResult:
     report = result.report
     root_code: str | None = None
+    model_root_code: str | None = None
+    canonical_root_code: str | None = None
+    root_cause_normalized = False
     citation_coverage = 0.0
     hypothesis_count = 0
     action_count = 0
@@ -447,7 +450,13 @@ def _acceptance_case(scenario_id: str, result: AgentRunResult) -> AgentAcceptanc
     if report is not None:
         report_status = report.status
         root_value = report.audit.get("root_cause_code")
-        root_code = root_value if isinstance(root_value, str) else None
+        canonical_value = report.audit.get("canonical_root_cause_code", root_value)
+        model_value = report.audit.get("model_root_cause_code", canonical_value)
+        canonical_root_code = canonical_value if isinstance(canonical_value, str) else None
+        model_root_code = model_value if isinstance(model_value, str) else None
+        root_code = canonical_root_code
+        normalized_value = report.audit.get("root_cause_normalized", False)
+        root_cause_normalized = normalized_value if isinstance(normalized_value, bool) else False
         coverage_value = report.audit.get("citation_coverage")
         citation_coverage = (
             float(coverage_value) if isinstance(coverage_value, int | float) else 0.0
@@ -488,6 +497,9 @@ def _acceptance_case(scenario_id: str, result: AgentRunResult) -> AgentAcceptanc
         status=result.status,
         report_status=report_status,
         actual_root_cause_code=root_code,
+        model_root_cause_code=model_root_code,
+        canonical_root_cause_code=canonical_root_code,
+        root_cause_normalized=root_cause_normalized,
         citation_coverage=citation_coverage,
         hypothesis_count=hypothesis_count,
         recommended_action_count=action_count,
@@ -616,6 +628,9 @@ def _acceptance_case_summary_lines(case: AgentAcceptanceCaseResult) -> list[str]
         f"{prefix}: {'pass' if case.passed else 'fail'}",
         f"{prefix}_report_status: {report_status}",
         f"{prefix}_root_cause_code: {case.actual_root_cause_code or 'none'}",
+        f"{prefix}_model_root_cause_code: {case.model_root_cause_code or 'none'}",
+        f"{prefix}_canonical_root_cause_code: {case.canonical_root_cause_code or 'none'}",
+        f"{prefix}_root_cause_normalized: {'yes' if case.root_cause_normalized else 'no'}",
         f"{prefix}_citation_coverage: {case.citation_coverage}",
         f"{prefix}_hypothesis_count: {case.hypothesis_count}",
         f"{prefix}_recommended_action_count: {case.recommended_action_count}",

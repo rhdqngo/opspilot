@@ -78,7 +78,7 @@ Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
 ```
 
 All suites have a 200-second aggregate deadline. Keep the gate process-scoped and remove it in a
-`finally` path. Do not store raw model requests or responses. Approval 4 authorizes only one
+`finally` path. Do not store raw model requests or responses. Approval 5 authorizes only one new
 `m6-rca` Vertex execution; `m6-safety` and `m6-core` remain fake-only until a later approval. Agent
 Runtime deployment and Gemini Enterprise registration remain M7 work.
 
@@ -86,6 +86,15 @@ Each case result records only safe acceptance facts: report status, root-cause c
 coverage, hypothesis and recommendation counts, unauthorized-action count, approval-flag result,
 trajectory result, request counts, and allowlisted failure codes. It never records prompt, response,
 evidence body, transport detail, URL, credential, or cloud identifier.
+
+## Root-cause taxonomy boundary
+
+The verifier preserves the model code separately from the canonical report code. The sole alias is
+`CONFIG_DB_POOL_EXHAUSTION` to `PAYMENT_DB_POOL_EXHAUSTION`, and it applies only after citation
+validation when supporting evidence spans at least two source types and the verified affected
+service includes `payment-service`. There is no case folding, fuzzy matching, substring inference,
+or runtime alias input. Failure to satisfy every condition leaves the model code unchanged so the
+existing acceptance predicate fails closed.
 
 ## Current live result
 
@@ -114,3 +123,8 @@ The sole failure was `root_cause_mismatch`: the model returned `CONFIG_DB_POOL_E
 fixed contract expected `PAYMENT_DB_POOL_EXHAUSTION`. Usage was 2,893 prompt, 764 output, and 3,657
 total tokens. The process gate was removed, identifier and secret scans were clean, both Terraform
 states remained zero drift, and no retry or taxonomy change was made.
+
+Approval 5 implements the strict taxonomy boundary locally. Its single RCA rerun remains pending
+until static CI, the zero-generation diagnostic, and both Terraform zero-drift gates pass. A pass
+will record `M6-RCA-accepted / safety-acceptance-pending`; it will not authorize the safety suite or
+M7.

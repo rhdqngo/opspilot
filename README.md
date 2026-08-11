@@ -103,7 +103,11 @@ were not called. Approval 4 exposes each existing acceptance predicate through f
 and failure codes. Its separately bounded SCN-001 checkpoint completed both calls and passed every
 predicate except the fixed root-cause taxonomy: the model returned `CONFIG_DB_POOL_EXHAUSTION`
 instead of `PAYMENT_DB_POOL_EXHAUSTION`. No retry or runtime change was made. M6 remains blocked and
-M7 deployment has not started.
+M7 deployment has not started. Approval 5 adds one deterministic, evidence-scoped alias for that
+exact model code. It is normalized only after citation review when at least two supporting source
+types and the verified `payment-service` scope are present. Unknown, fuzzy, case-variant, or
+wrong-service codes remain mismatches. The model code and canonical code are reported separately;
+the composer receives only the canonical code.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and

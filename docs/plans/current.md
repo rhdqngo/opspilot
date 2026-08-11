@@ -51,6 +51,11 @@ updated: 2026-08-11
   six-request ceilings. The single approved `m6-rca` Vertex execution completed both calls and
   failed only `root_cause_mismatch`: the safe model code was `CONFIG_DB_POOL_EXHAUSTION` rather than
   the fixed `PAYMENT_DB_POOL_EXHAUSTION`. The other suites remained fake-only.
+- M6 Approval 5 adds one exact, deterministic alias after citation verification. It requires at
+  least two supporting source types plus verified `payment-service` scope, preserves the bounded
+  model code separately, and passes only the canonical code to the composer. Fuzzy, case-variant,
+  user-provided, and wrong-service mappings remain rejected. The single approved RCA rerun is
+  pending the code commit and hosted static gate.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -134,6 +139,7 @@ updated: 2026-08-11
 | M6 Approval 2: live model acceptance | blocked | One approved batch stopped in SCN-001 after 2 attempts / 1 success; no retry |
 | M6 Approval 3: deterministic review recovery | blocked | SCN-001 used 2/2 successful calls but failed semantic acceptance; no retry |
 | M6 Approval 4: safe RCA checkpoint | blocked | Exact two-call run failed only `root_cause_mismatch`; no retry or contract change |
+| M6 Approval 5: strict RCA taxonomy | in progress | Exact evidence-scoped alias implemented and validated; one bounded RCA rerun pending |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -160,6 +166,9 @@ updated: 2026-08-11
 - Ran the approved RCA-only Vertex checkpoint once. Both requests succeeded; report status,
   trajectory, citation, action, and approval checks passed, while the model root-cause code differed
   from the fixed taxonomy. The gate was removed and no retry was made.
+- Added a strict root-cause canonicalizer that recognizes only the exact SCN-001 model alias after
+  verified multi-source payment evidence. Public diagnostics retain model and canonical codes plus
+  the normalization flag, while the composer receives no model-code provenance field.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -251,7 +260,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 135 pytest tests, including fixed acceptance suites, safe predicate diagnostics, deterministic reviewer, graph, eval, citation, injection, failure, budget, and redaction contracts |
+| Tests | pass | 137 pytest tests, including strict taxonomy, fixed acceptance suites, safe predicate diagnostics, deterministic reviewer, graph, eval, citation, injection, failure, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -297,6 +306,7 @@ updated: 2026-08-11
 | M6 Vertex acceptance | blocked | SCN-001 stopped at call 2; 2 attempted / 1 successful; 1,229 prompt, 275 output, 1,504 total tokens; no retry |
 | M6 Approval 3 Vertex acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,901 prompt, 790 output, 3,691 total tokens; final predicate failed; no retry |
 | M6 Approval 4 RCA acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,893 prompt, 764 output, 3,657 total tokens; only `root_cause_mismatch`; no retry |
+| M6 Approval 5 taxonomy | pass | Exact alias, canonical pass-through, wrong-service, insufficient-source, unknown/case-variant, and composer-boundary contracts validated offline |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -310,11 +320,13 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Prepare a separate plan for the root-cause taxonomy boundary before any additional model request.
-  Decide whether `CONFIG_DB_POOL_EXHAUSTION` is a permitted alias normalized deterministically to
-  the canonical payment code or must remain a hard mismatch.
-- Do not rerun SCN-001, run `m6-safety`, alter prompts or schemas, relax acceptance, substitute a
-  model, expand IAM, or begin M7 without that separate approval.
+- Commit and push the validated Approval 5 taxonomy boundary, require hosted static success, then
+  recheck zero-generation Vertex readiness and bootstrap/dev operator zero drift.
+- Execute the separately approved `m6-rca` suite exactly once with at most two requests and no
+  retry. Success records `M6-RCA-accepted / safety-acceptance-pending`; failure retains the exact
+  safe predicate and keeps M6 blocked.
+- Do not run `m6-safety`, alter prompts or schemas, expand the alias set, relax acceptance,
+  substitute a model, expand IAM, or begin M7 in Approval 5.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

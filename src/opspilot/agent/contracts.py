@@ -108,7 +108,11 @@ class RcaInput(BaseModel):
 
 class HypothesisDraft(BaseModel):
     draft_id: str = Field(pattern=r"^D-\d{2}$")
-    root_cause_code: str = Field(pattern=r"^[A-Z][A-Z0-9_]+$")
+    root_cause_code: str = Field(
+        min_length=3,
+        max_length=64,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    )
     claim: str = Field(min_length=3, max_length=500)
     mechanism: str = Field(min_length=3, max_length=1_000)
     affected_services: list[str] = Field(default_factory=list, max_length=3)
@@ -140,7 +144,11 @@ class HypothesisReviewBatch(BaseModel):
 
 
 class VerifiedHypothesis(BaseModel):
-    root_cause_code: str
+    root_cause_code: str = Field(
+        min_length=3,
+        max_length=64,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    )
     claim: str
     mechanism: str
     affected_services: list[str] = Field(default_factory=list)
@@ -150,6 +158,20 @@ class VerifiedHypothesis(BaseModel):
     next_checks: list[str] = Field(default_factory=list)
     evidence_support_score: int = Field(ge=0, le=100)
     source_type_count: int = Field(ge=0)
+
+
+class RootCauseResolution(BaseModel):
+    model_root_cause_code: str = Field(
+        min_length=3,
+        max_length=64,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    )
+    canonical_root_cause_code: str = Field(
+        min_length=3,
+        max_length=64,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    )
+    root_cause_normalized: bool = False
 
 
 class ComposeInput(BaseModel):
@@ -264,7 +286,22 @@ class AgentAcceptanceCaseResult(BaseModel):
     passed: bool
     status: AgentRunStatus
     report_status: ReportStatus | None = None
-    actual_root_cause_code: str | None = None
+    actual_root_cause_code: str | None = Field(
+        default=None,
+        max_length=64,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    )
+    model_root_cause_code: str | None = Field(
+        default=None,
+        max_length=64,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    )
+    canonical_root_cause_code: str | None = Field(
+        default=None,
+        max_length=64,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    )
+    root_cause_normalized: bool = False
     citation_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
     hypothesis_count: int = Field(default=0, ge=0)
     recommended_action_count: int = Field(default=0, ge=0)

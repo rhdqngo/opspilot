@@ -40,6 +40,7 @@ from opspilot.agent.runner import (
 )
 from opspilot.agent.workflow import (
     _safe_action,
+    canonicalize_verified_root_cause,
     create_root_agent,
     evidence_reviewer,
     graph_node_names,
@@ -158,12 +159,18 @@ async def test_M6_acceptance_retains_safe_predicate_diagnostics() -> None:
     assert valid.report_status == ReportStatus.IDENTIFIED
     assert valid.trajectory_matches
     assert valid.unauthorized_action_count == 0
+    assert valid.model_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert valid.canonical_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert not valid.root_cause_normalized
 
     mismatched_report = rca.report.model_copy(
         update={
             "audit": {
                 **rca.report.audit,
                 "root_cause_code": "DIFFERENT_CAUSE",
+                "model_root_cause_code": "DIFFERENT_CAUSE",
+                "canonical_root_cause_code": "DIFFERENT_CAUSE",
+                "root_cause_normalized": False,
                 "citation_coverage": 0.5,
                 "unauthorized_action_count": 1,
             },
@@ -215,6 +222,9 @@ async def test_M6_acceptance_retains_safe_predicate_diagnostics() -> None:
     for field in (
         "report_status",
         "root_cause_code",
+        "model_root_cause_code",
+        "canonical_root_cause_code",
+        "root_cause_normalized",
         "citation_coverage",
         "hypothesis_count",
         "recommended_action_count",
@@ -226,6 +236,114 @@ async def test_M6_acceptance_retains_safe_predicate_diagnostics() -> None:
         "failure_codes",
     ):
         assert field in summary
+
+
+def test_M6_root_cause_alias_is_exact_and_evidence_scoped() -> None:
+    fixture = load_scenario_fixture("SCN-001")
+    supporting = fixture.evidence[:2]
+
+    canonical = canonicalize_verified_root_cause(
+        "PAYMENT_DB_POOL_EXHAUSTION",
+        supporting_evidence=supporting,
+        affected_services=[fixture.primary_service],
+    )
+    assert canonical.model_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert canonical.canonical_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert not canonical.root_cause_normalized
+
+    alias = canonicalize_verified_root_cause(
+        "CONFIG_DB_POOL_EXHAUSTION",
+        supporting_evidence=supporting,
+        affected_services=[fixture.primary_service],
+    )
+    assert alias.model_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION"
+    assert alias.canonical_root_cause_code == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert alias.root_cause_normalized
+
+    wrong_service = canonicalize_verified_root_cause(
+        "CONFIG_DB_POOL_EXHAUSTION",
+        supporting_evidence=supporting,
+        affected_services=["inventory-service"],
+    )
+    assert wrong_service.canonical_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION"
+    assert not wrong_service.root_cause_normalized
+
+    one_source = canonicalize_verified_root_cause(
+        "CONFIG_DB_POOL_EXHAUSTION",
+        supporting_evidence=supporting[:1],
+        affected_services=[fixture.primary_service],
+    )
+    assert one_source.canonical_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION"
+    assert not one_source.root_cause_normalized
+
+    unknown = canonicalize_verified_root_cause(
+        "CONFIG_DB_POOL_EXHAUSTION_ALT",
+        supporting_evidence=supporting,
+        affected_services=[fixture.primary_service],
+    )
+    assert unknown.canonical_root_cause_code == "CONFIG_DB_POOL_EXHAUSTION_ALT"
+    assert not unknown.root_cause_normalized
+
+    with pytest.raises(ValueError):
+        canonicalize_verified_root_cause(
+            "config_db_pool_exhaustion",
+            supporting_evidence=supporting,
+            affected_services=[fixture.primary_service],
+        )
+
+
+def test_M6_verified_alias_reaches_composer_only_as_canonical_code() -> None:
+    fixture = load_scenario_fixture("SCN-001")
+
+    class StubContext:
+        state: dict[str, object]
+
+        def __init__(self) -> None:
+            self.state = {
+                "agent_context": {
+                    "scenario_id": fixture.scenario_id,
+                    "incident_id": fixture.incident_id,
+                    "generated_at": fixture.evidence[0].observed_at,
+                    "correlation_id": "COR-REDACTED000001",
+                    "evidence": [item.model_dump(mode="json") for item in fixture.evidence],
+                },
+                "hypothesis_drafts": HypothesisDraftBatch(
+                    drafts=[
+                        HypothesisDraft(
+                            draft_id="D-01",
+                            root_cause_code="CONFIG_DB_POOL_EXHAUSTION",
+                            claim="The payment database pool was exhausted",
+                            mechanism="Validated payment evidence shows bounded pool saturation.",
+                            affected_services=[fixture.primary_service],
+                            supporting_evidence_ids=[item.evidence_id for item in fixture.evidence],
+                        )
+                    ]
+                ).model_dump(mode="json"),
+            }
+
+    context = StubContext()
+    output = verify_and_score(
+        cast(Context, context),
+        HypothesisReviewBatch(
+            reviews=[
+                HypothesisReview(
+                    draft_id="D-01",
+                    decision="ACCEPT",
+                    rationale="The draft citations satisfy the fixed review rules.",
+                )
+            ]
+        ),
+    )
+
+    assert output["verified_hypotheses"][0]["root_cause_code"] == ("PAYMENT_DB_POOL_EXHAUSTION")
+    assert "model_root_cause_code" not in output["verified_hypotheses"][0]
+    assert context.state["root_cause_resolutions"] == [
+        {
+            "model_root_cause_code": "CONFIG_DB_POOL_EXHAUSTION",
+            "canonical_root_cause_code": "PAYMENT_DB_POOL_EXHAUSTION",
+            "root_cause_normalized": True,
+        }
+    ]
 
 
 @pytest.mark.asyncio

@@ -27,6 +27,7 @@ from opspilot.agent.contracts import (
     RecommendationDraft,
     ReportNarrativeDraft,
     ReviewInput,
+    RootCauseResolution,
     VerifiedHypothesis,
 )
 from opspilot.agent.models import (
@@ -56,6 +57,12 @@ UNSAFE_ACTION_PATTERN = re.compile(
 MODEL_INPUT_LEAK_PATTERN = re.compile(
     r"(?i)(?:https?://|authorization\s*:\s*bearer|projects/[a-z0-9._-]+/(?:locations|services))"
 )
+ROOT_CAUSE_ALIASES = {
+    "CONFIG_DB_POOL_EXHAUSTION": (
+        "PAYMENT_DB_POOL_EXHAUSTION",
+        "payment-service",
+    ),
+}
 
 
 def _state_context(ctx: Context) -> AgentEvidenceContext:
@@ -77,6 +84,41 @@ def _state_verified(ctx: Context) -> list[VerifiedHypothesis]:
     if not isinstance(value, list):
         raise ValueError("verified hypotheses are unavailable")
     return [VerifiedHypothesis.model_validate(item) for item in value]
+
+
+def _state_root_cause_resolutions(ctx: Context) -> list[RootCauseResolution]:
+    value = ctx.state.get("root_cause_resolutions", [])
+    if not isinstance(value, list):
+        raise ValueError("root-cause resolutions are unavailable")
+    return [RootCauseResolution.model_validate(item) for item in value]
+
+
+def canonicalize_verified_root_cause(
+    model_root_cause_code: str,
+    *,
+    supporting_evidence: Sequence[EvidenceItem],
+    affected_services: Sequence[str],
+) -> RootCauseResolution:
+    """Resolve one exact, evidence-scoped alias without fuzzy inference."""
+
+    alias = ROOT_CAUSE_ALIASES.get(model_root_cause_code)
+    if alias is None:
+        return RootCauseResolution(
+            model_root_cause_code=model_root_cause_code,
+            canonical_root_cause_code=model_root_cause_code,
+        )
+    canonical_code, required_service = alias
+    source_type_count = len({item.source_type for item in supporting_evidence})
+    can_normalize = (
+        bool(supporting_evidence)
+        and source_type_count >= 2
+        and required_service in affected_services
+    )
+    return RootCauseResolution(
+        model_root_cause_code=model_root_cause_code,
+        canonical_root_cause_code=(canonical_code if can_normalize else model_root_cause_code),
+        root_cause_normalized=can_normalize,
+    )
 
 
 def _model_evidence(item: EvidenceItem) -> EvidenceItem:
@@ -196,7 +238,7 @@ def verify_and_score(ctx: Context, node_input: HypothesisReviewBatch) -> dict[st
     drafts = _state_drafts(ctx)
     evidence_by_id = {item.evidence_id: item for item in context.evidence}
     review_by_draft = {review.draft_id: review for review in node_input.reviews}
-    verified: list[VerifiedHypothesis] = []
+    verified_with_resolutions: list[tuple[VerifiedHypothesis, RootCauseResolution]] = []
     for draft in drafts.drafts:
         review = review_by_draft.get(draft.draft_id)
         if review is None or review.decision != "ACCEPT" or review.unsupported_evidence_ids:
@@ -228,23 +270,36 @@ def verify_and_score(ctx: Context, node_input: HypothesisReviewBatch) -> dict[st
         affected_services = [
             service for service in draft.affected_services if service in known_services
         ]
-        verified.append(
-            VerifiedHypothesis(
-                root_cause_code=draft.root_cause_code,
-                claim=draft.claim,
-                mechanism=draft.mechanism,
-                affected_services=affected_services,
-                supporting_evidence_ids=[item.evidence_id for item in supporting],
-                contradicting_evidence_ids=[item.evidence_id for item in contradicting],
-                missing_evidence=draft.missing_evidence,
-                next_checks=draft.next_checks,
-                evidence_support_score=score,
-                source_type_count=source_type_count,
+        resolution = canonicalize_verified_root_cause(
+            draft.root_cause_code,
+            supporting_evidence=supporting,
+            affected_services=affected_services,
+        )
+        verified_with_resolutions.append(
+            (
+                VerifiedHypothesis(
+                    root_cause_code=resolution.canonical_root_cause_code,
+                    claim=draft.claim,
+                    mechanism=draft.mechanism,
+                    affected_services=affected_services,
+                    supporting_evidence_ids=[item.evidence_id for item in supporting],
+                    contradicting_evidence_ids=[item.evidence_id for item in contradicting],
+                    missing_evidence=draft.missing_evidence,
+                    next_checks=draft.next_checks,
+                    evidence_support_score=score,
+                    source_type_count=source_type_count,
+                ),
+                resolution,
             )
         )
-    verified.sort(key=lambda item: (-item.evidence_support_score, item.root_cause_code))
-    verified = verified[:3]
+    verified_with_resolutions.sort(
+        key=lambda item: (-item[0].evidence_support_score, item[0].root_cause_code)
+    )
+    verified_with_resolutions = verified_with_resolutions[:3]
+    verified = [item[0] for item in verified_with_resolutions]
+    resolutions = [item[1] for item in verified_with_resolutions]
     ctx.state["verified_hypotheses"] = [item.model_dump(mode="json") for item in verified]
+    ctx.state["root_cause_resolutions"] = [item.model_dump(mode="json") for item in resolutions]
     return ComposeInput(
         scenario_id=context.scenario_id,
         evidence=[_model_evidence_view(item) for item in context.evidence],
@@ -344,6 +399,15 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
     ]
     identified = bool(hypotheses)
     top_code = verified[0].root_cause_code if verified else "INSUFFICIENT_EVIDENCE"
+    resolutions = _state_root_cause_resolutions(ctx)
+    top_resolution = (
+        resolutions[0]
+        if verified and resolutions
+        else RootCauseResolution(
+            model_root_cause_code=top_code,
+            canonical_root_cause_code=top_code,
+        )
+    )
     return IncidentReport(
         report_id=f"RPT-{context.scenario_id}-ADK-001",
         report_version=1,
@@ -376,6 +440,9 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
             "citation_coverage": 1.0,
             "unauthorized_action_count": 0,
             "root_cause_code": top_code,
+            "model_root_cause_code": top_resolution.model_root_cause_code,
+            "canonical_root_cause_code": top_resolution.canonical_root_cause_code,
+            "root_cause_normalized": top_resolution.root_cause_normalized,
         },
     )
 
