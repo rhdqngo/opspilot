@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M3 complete; M4 Search accepted, hosted plan blocked
+Status: M4 complete; hosted plan zero drift
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -83,6 +83,9 @@ Future work must not add any cost-bearing resource without a separate plan and a
   actual billing must still be checked because existing project Search usage can share allowances.
 - The existing KRW 50,000 alert remains the project guardrail. A configurable subscription or an
   unexpected add-on is a hard stop rather than an accepted cost increase.
+- Approval 4 added one service-usage quota-consumption permission to the existing CI custom role.
+  It created no cost-bearing resource and issued no Search request or import; the hosted plan was
+  read-only and zero drift.
 
 ## Cleanup order
 

@@ -1,12 +1,12 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M3 applied; M4 Search accepted, hosted plan blocked
+Status: M1-M4 applied and hosted zero drift
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
 | --- | --- | --- | --- |
 | Developer / `Edu_687` operator | Current dev project | Local read checks, completed M1-M3 applies, bounded private invocation, approved M4 apply/import, one probe, and ten-query acceptance | Destroy, repeated Search smoke, unapproved import, billing model changes, unreviewed IAM broadening |
-| GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, applied Search data store/schema/engine get/list, state object read | Search/import, API enable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
+| GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, applied Search data store/schema/engine get/list, service usage consumption, state object read | Search/import, API enable/disable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
 | Investigator identity | Dev project | Identity exists with no project role and no user-managed key | Logging, Monitoring, Run, Deploy, Secret, IAM, remediation writes |
 | Order runtime identity | Payment and inventory services | `roles/run.invoker` on the two leaf services only | Project roles, keys, secrets, IAM, remediation, arbitrary Cloud Run invocation |
 | Payment / inventory runtime identities | Their own Cloud Run revisions | No IAM role or user-managed key | Cross-service invocation, project roles, secrets, IAM, remediation writes |
@@ -35,10 +35,13 @@ The project custom role is limited to the following permissions:
 - `run.services.list`
 - `serviceusage.services.get`
 - `serviceusage.services.list`
+- `serviceusage.services.use`
 - `storage.buckets.get`
 
 The state bucket grants `roles/storage.objectViewer` separately. Dev remote-state plans run with
-`-lock=false`; the CI identity has no state object write permissions.
+`-lock=false`; the CI identity has no state object write permissions. The single
+`serviceusage.services.use` permission lets the identity consume quota for already enabled read
+APIs; it does not grant API enable or disable permission.
 
 GitHub admission uses immutable numeric owner and repository IDs. It does not trust a reusable
 repository name, owner name, actor name, branch name, or fork-provided secret.
@@ -69,6 +72,6 @@ data store, schema, and engine are now Terraform-owned; they are not candidate c
 Terraform manages only four knowledge resources and no IAM binding. The existing investigator
 identity remains unprivileged, and document import/search never runs in hosted Terraform. One
 operator FULL import, one fixed probe, and one ten-query acceptance batch succeeded. The hosted
-plan identity has the six Search get/list permissions but lacks `serviceusage.services.use`, so the
-manual plan was stopped and gates were reset. Existing Search assets are not attached, imported,
-renamed, or modified.
+plan identity has the six Search get/list permissions plus the minimum service-usage consumption
+permission required by Google APIs. The corrected manual plan returned zero drift. Existing Search
+assets are not attached, imported, renamed, or modified.

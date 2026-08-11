@@ -1,6 +1,6 @@
 # Synthetic Knowledge and Agent Search Runbook
 
-Status: M4 live Search accepted; hosted plan blocked
+Status: M4 complete; live Search and hosted plan accepted
 
 ## Recovery and import record
 
@@ -16,9 +16,10 @@ Status: M4 live Search accepted; hosted plan blocked
 - The readiness diagnostic used zero Search requests. The fixed KQ-001 probe passed once, followed
   by an independent ten-query acceptance batch with 10/10 top-five coverage, complete citations,
   and the malicious-document safety flag.
-- The hosted plan failed on missing `serviceusage.services.use`. It was not retried because this is
-  a custom-role contract gap rather than IAM propagation. Both hosted gates are false/unset.
-- Do not modify the corpus, reimport, destroy, or broaden IAM during the live-smoke recovery.
+- Approval 4 added only `serviceusage.services.use` to the existing CI plan custom role. Bootstrap
+  and dev operator plans are zero drift, and the first corrected hosted plan returned `No changes`.
+- `TF_M4_KNOWLEDGE_READY=true` and `TF_PLAN_ENABLED=true` enable only the manual read-only plan.
+  Approval 4 did not repeat Search, import, object upload, or corpus modification.
 
 ## Local validation
 
@@ -62,7 +63,7 @@ exactly the ten versioned queries, never paginates, caps top-k at eight and retu
 - current dev state has 28 managed resources and 29 total state addresses with zero drift
 - the dedicated bucket, data store, schema, and engine are Terraform-owned
 - sync plan is a no-op and the imported document set remains exactly thirteen
-- hosted gates remain false until an approved bootstrap role correction and successful hosted plan
+- hosted gates remain enabled only for the manual read-only plan workflow
 - existing Search data stores and engine remain untouched
 
 Run the identifier-free readiness diagnostic before enabling any query gate:

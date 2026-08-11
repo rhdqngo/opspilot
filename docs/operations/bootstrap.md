@@ -37,6 +37,17 @@ The live dev workflow also requires `TF_M2_IMAGE_READY=true`. After M2 private r
 the immutable image variable and both gates are configured. Hosted run `31453115875` used the
 read-only WIF identity and returned a redacted `No changes` artifact with no binary plan.
 
+## M4 hosted plan correction
+
+M4 Approval 4 applied one in-place update to the existing CI custom role. The only new permission
+is `serviceusage.services.use`, which permits quota consumption for already enabled APIs but not
+API enablement or disablement. The plan changed no IAM binding, WIF resource, service account,
+bucket, API resource, or dev infrastructure.
+
+Bootstrap remained at 14 managed resources and 15 state addresses with zero drift. Dev remained at
+28 managed resources and 29 addresses with zero drift. The first manual hosted plan after the
+correction succeeded and uploaded one redacted `No changes` text artifact without a binary plan.
+
 ## Safety invariants
 
 - Use only the current gcloud default project verified by `opspilot access-check`.

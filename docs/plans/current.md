@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M4-search-validated / hosted-plan-blocked
+phase: M4-complete / M5-ready-for-planning
 updated: 2026-08-11
 
 ## Objective
@@ -27,19 +27,20 @@ updated: 2026-08-11
 - Approval 3 added redacted HTTP/RPC diagnostics and corrected project-number canonicalization for
   the engine-owned serving config. The zero-query diagnostic, one fixed probe, and the separate ten-
   query acceptance batch all passed without corpus, import, Terraform, or IAM changes.
-- The manual hosted plan reached Terraform but failed because the CI plan identity lacks
-  `serviceusage.services.use`. This is not an IAM propagation delay, so it was not retried. Hosted
-  gates were restored to false/unset and M4 completion requires a separately approved bootstrap
-  custom-role update.
+- Approval 4 added only `serviceusage.services.use` to the CI plan custom role. The reviewed
+  bootstrap plan was an exact one-resource in-place update, the applied permission set matches the
+  source contract, and API enable/disable permissions remain absent.
+- Bootstrap and dev operator plans are zero drift. The manual WIF plan succeeded on its first run
+  and produced one redacted `No changes` artifact with no identifier, credential, or binary plan.
 
 - M4 Approval 1 is complete in the repository. Thirteen synthetic knowledge documents, a
   deterministic hash catalog, ten retrieval queries, typed Search normalization, guarded sync and
   smoke commands, and a default-off four-resource Agent Search boundary are implemented.
 - The M4 redacted gate confirms the operator has the required permissions and the dedicated
-  candidate bucket, data store, and engine have zero conflicts. This read-only check changed no
-  Google Cloud resource.
+  knowledge resources remain Terraform-owned without modifying existing Search assets.
 - `deploy_knowledge=false` remains the source default while the live environment explicitly manages
-  the four approved resources. `TF_M4_KNOWLEDGE_READY` remains unset and `TF_PLAN_ENABLED=false`.
+  the four approved resources. `TF_M4_KNOWLEDGE_READY=true` and `TF_PLAN_ENABLED=true` now enable
+  only the manual read-only plan workflow.
 
 - M3 is complete. Seven deterministic incident fixtures cover grounded, contradictory,
   insufficient, and malicious evidence cases.
@@ -78,7 +79,7 @@ updated: 2026-08-11
 | M3 Approval 2: live incident | complete | Exact three-service update; three recovered live runs; telemetry and zero drift passed |
 | M4 Approval 1: knowledge and IaC boundary | complete | 13 documents, 10 local retrieval contracts, guarded sync, default-off four-resource graph |
 | M4 Approval 2: Search apply/import | complete | Four resources, 13-document import, fixed probe, and live retrieval 10/10 passed |
-| M4 Approval 3: hosted validation | blocked | CI plan identity lacks `serviceusage.services.use`; gates restored false/unset |
+| M4 Approval 3: hosted validation | complete | Live Search accepted; Approval 4 added one quota-consumption permission and hosted plan returned `No changes` |
 | UI Foundation | not-applicable | M4 is API, CLI, corpus, and infrastructure only |
 
 ## Completed major results
@@ -103,6 +104,10 @@ updated: 2026-08-11
   canonical serving-config validation without exposing project, query, URL, token, or raw errors.
 - Completed one KQ-001 probe and an independent ten-query acceptance batch: expected document
   top-five coverage 10/10, citation metadata 100%, and malicious-content safety flag present.
+- Added only `serviceusage.services.use` to the hosted plan custom role through an exact bootstrap
+  in-place update. No binding, WIF, API, Search, corpus, or dev resource changed.
+- Verified bootstrap and dev operator zero drift and one successful manual hosted plan with a
+  single redacted `No changes` text artifact. Approval 4 issued no Search request or import.
 
 - Added SCN-001 through SCN-007 as validated ground-truth contracts and generalized fixture replay
   so contradictions, insufficient evidence, and malicious knowledge are handled per scenario.
@@ -153,7 +158,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 75 pytest tests, including knowledge, seven scenario contracts, and bounded SCN-001 execution |
+| Tests | pass | 91 pytest tests, including safe Search diagnostics, seven scenario contracts, and bounded SCN-001 execution |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -185,7 +190,7 @@ updated: 2026-08-11
 | M4 live Search diagnostic | pass | Search 0; one serving config; filter-ready schema; 13 indexed; index errors 0 |
 | M4 live Search probe | pass | One fixed KQ-001 request; expected document and citation metadata present |
 | M4 live Search smoke | pass | Exact ten-query batch; 10/10 top-five; citation complete; malicious instruction not executed |
-| M4 hosted plan | blocked | Read-only CI identity lacks `serviceusage.services.use`; no retry; gates false/unset |
+| M4 hosted plan | pass | Exact custom-role 1-update; first manual WIF plan returned redacted `No changes`; gates enabled |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -198,11 +203,12 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Prepare a separate bootstrap approval for an exact custom-role update adding only
-  `serviceusage.services.use`, followed by bootstrap zero drift and one manual hosted dev plan.
+- Plan M5 as a read-only live evidence layer for bounded Cloud Logging, Monitoring, Cloud Run, and
+  knowledge retrieval. Define tool contracts, investigator IAM, redaction, quotas, and failure
+  isolation before any cloud permission or code apply.
 - Preserve the four Terraform-owned knowledge resources, 15 objects, successful snapshot,
-  28-resource remote state, successful live-search evidence, and false/unset hosted gates. Do not
-  reimport, repeat Search, modify corpus, destroy, or add broader IAM.
+  28-resource remote state, and accepted live-search evidence. Do not reimport or repeat Search as
+  an M5 preparation step.
 
 ## Related artifacts
 
