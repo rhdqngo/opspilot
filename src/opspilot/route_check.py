@@ -210,7 +210,6 @@ def classify_route(result: CloudRunRouteCheckResult) -> CloudRunRouteCheckResult
             result.unauthenticated_status_codes == [403] * expected,
             result.authenticated_status_codes == [200] * expected,
             result.pre_container_404_services == 0,
-            result.container_application_logs == expected,
         )
     )
     if route_ready:
@@ -328,7 +327,7 @@ def run_route_check(
             service_urls.append(service_uri.rstrip("/"))
 
     for service_uri in service_urls:
-        health_url = f"{service_uri}/healthz"
+        health_url = f"{service_uri}/health"
         request_id = f"req_route_{uuid4().hex[:20]}"
         result.unauthenticated_status_codes.append(status_requester(health_url, None, request_id))
         authenticated_status = status_requester(health_url, identity_token.stdout, request_id)

@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M2-deployed / remote-smoke-blocked
+phase: M2-safe-path-recovery / rollout-pending
 updated: 2026-08-11
 
 ## Objective
@@ -25,12 +25,13 @@ updated: 2026-08-11
   bounded local load generator.
 - M2 Approval 2 pushed one immutable image and applied the reviewed bootstrap update and exact
   10-create dev plan. Remote state now contains 24 managed resources and is zero drift.
-- Three private Cloud Run services are Ready, but their default URLs and the authenticated Cloud
-  Run proxy return a pre-container 404. Remote E2E, request telemetry, and hosted plan remain gated.
+- Three private Cloud Run services are Ready. The pre-container 404 is a confirmed conflict with
+  Cloud Run's reserved `z`-suffix paths, not a VPC, IAM, ingress, revision, or image failure.
 - A repeatable `route-check` CLI now reduces the fixed-service route state to identifier-free
   counts, booleans, HTTP status classes, and one bounded blocker code.
 - One reviewed `0 create / 3 update / 0 delete / 0 replacement` revision refresh completed with
-  the same image and identities. Three post-apply checks still returned `endpoint_not_found`.
+  the same image and identities. The approved recovery replaces the demo endpoints and probes with
+  `/health` and `/ready`, then updates only the same three services with a new image digest.
 
 ## Milestones
 
@@ -43,7 +44,7 @@ updated: 2026-08-11
 | M1 Bootstrap infrastructure | complete | Protected remote state, numeric WIF, read-only plan identity |
 | M1 Dev foundation | complete | 14 managed resources; operator and hosted zero drift |
 | M2 Approval 1: local workload | complete | Three healthy containers; 10/10 normal orders; no cloud write |
-| M2 Approval 2: Cloud Run deploy | blocked after controlled refresh | Infrastructure remains private and zero drift; endpoint-level 404 blocks remote smoke |
+| M2 Approval 2: Cloud Run deploy | recovery approved | Safe-path image and exact three-service update pending |
 | UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
 
 ## Completed major results
@@ -67,6 +68,8 @@ updated: 2026-08-11
   advanced connectivity outside the active MVP implementation.
 - Applied the single permitted three-service revision refresh; managed resources remained 24,
   the digest and identities were unchanged, and no IAM or other resource changed.
+- Confirmed the endpoint root cause against Cloud Run's reserved-path contract: `/healthz` is
+  intercepted before the container while authenticated `/health` reaches FastAPI.
 
 ## Verification state
 
@@ -75,7 +78,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 51 pytest tests, including redaction and generic endpoint classification |
+| Tests | pass | 52 pytest tests, including delayed-log readiness and generic endpoint classification |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -86,32 +89,30 @@ updated: 2026-08-11
 | Dev apply | pass | Exact `10 create / 0 update / 0 delete`; 24 managed resources; operator zero drift |
 | Controlled revision refresh | pass | Exact `0 create / 3 update / 0 delete`; same image/identities; operator zero drift |
 | Runtime security | pass | Three Ready private services; digest match; keys/project roles/public principals 0 |
-| Route diagnostic | blocked | Three pre-apply and three post-apply attempts; authenticated 404s; container logs 0; `endpoint_not_found` |
-| Remote smoke | blocked | Google frontend 404 before container; request logs and metrics absent |
+| Route diagnostic | recovery pending | Diagnostic now targets the Cloud Run-safe `/health` path |
+| Remote smoke | recovery pending | New safe-path image and three-service rollout required |
 | Hosted plan | gated | Plan gate false; image-ready and digest variables absent |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Blockers and decisions needed
 
 - Do not add `allUsers`, broad runtime IAM, or unplanned operator bindings to bypass the blocker.
-- A persistent `endpoint_not_found` permits one exact three-service in-place revision refresh; all
-  other blocker codes stop before apply.
-- The one permitted refresh has been exhausted. Do not refresh, reapply, expose, replace, or
-  destroy the current services.
+- Apply only a fresh exact `0 create / 3 update / 0 delete / 0 replacement` plan that changes the
+  three service image digests and probe paths. No repeated apply or public access is permitted.
 - Real account, project, billing, state, service URL, image URI, repository numeric, and credential
   identifiers must not enter tracked files or artifacts.
 
 ## Next checkpoint
 
-- Review and separately approve the personal-project migration plan. Preserve the current project,
-  disabled hosted gates, and versioned remote state until a replacement passes remote acceptance.
+- Validate the safe-path implementation, push one immutable image, apply the exact three-service
+  plan, and complete remote smoke, telemetry, security, and hosted zero-drift acceptance.
 
 ## Related artifacts
 
 - Master plan: `docs/plans/opspilot_ai_implementation_spec.md`
 - Demo runbook: `docs/operations/demo-services.md`
 - MVP endpoint recovery: `docs/operations/cloud-run-mvp-recovery.md`
-- Personal-project migration: `docs/plans/m2_personal_project_migration.md`
+- Superseded migration contingency: `docs/plans/m2_personal_project_migration.md`
 - Bootstrap runbook: `docs/operations/bootstrap.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`

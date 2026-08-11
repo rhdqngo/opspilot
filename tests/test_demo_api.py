@@ -142,8 +142,10 @@ def test_M2_leaf_services_expose_only_their_contract(
     result_status: str,
 ) -> None:
     with TestClient(create_app(_settings(service))) as client:
-        assert client.get("/healthz").json() == {"status": "ok"}
-        assert client.get("/readyz").json() == {"status": "ready"}
+        assert client.get("/health").json() == {"status": "ok"}
+        assert client.get("/ready").json() == {"status": "ready"}
+        assert client.get("/healthz").status_code == 404
+        assert client.get("/readyz").status_code == 404
         response = client.post(path, json=payload, headers={"X-Request-ID": "req_demo_0003"})
         assert client.post("/v1/orders", json={}).status_code == 404
 
@@ -157,7 +159,7 @@ def test_M2_rejects_bad_inputs_request_ids_and_service_roles() -> None:
             "/v1/payments/authorizations",
             json={"order_id": "not-an-order", "amount_krw": 1},
         )
-        bad_request_id = client.get("/healthz", headers={"X-Request-ID": "short"})
+        bad_request_id = client.get("/health", headers={"X-Request-ID": "short"})
 
     assert bad_payload.status_code == 422
     assert bad_request_id.status_code == 400

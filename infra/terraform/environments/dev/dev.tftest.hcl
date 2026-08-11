@@ -134,6 +134,14 @@ run "m2_deploy_ready_contract" {
   }
 
   assert {
+    condition = alltrue(concat(
+      [for service in google_cloud_run_v2_service.demo_leaf : service.template[0].containers[0].startup_probe[0].http_get[0].path == "/ready" && service.template[0].containers[0].liveness_probe[0].http_get[0].path == "/health"],
+      [google_cloud_run_v2_service.demo_order[0].template[0].containers[0].startup_probe[0].http_get[0].path == "/ready" && google_cloud_run_v2_service.demo_order[0].template[0].containers[0].liveness_probe[0].http_get[0].path == "/health"],
+    ))
+    error_message = "Cloud Run probes must avoid reserved paths ending in z."
+  }
+
+  assert {
     condition = alltrue([
       for binding in google_cloud_run_v2_service_iam_member.order_invokes_leaf :
       binding.role == "roles/run.invoker" && startswith(binding.member, "serviceAccount:")

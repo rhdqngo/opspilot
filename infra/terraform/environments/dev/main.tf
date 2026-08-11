@@ -152,7 +152,7 @@ resource "google_cloud_run_v2_service" "demo_leaf" {
         timeout_seconds   = 1
 
         http_get {
-          path = "/readyz"
+          path = "/ready"
         }
       }
 
@@ -162,7 +162,7 @@ resource "google_cloud_run_v2_service" "demo_leaf" {
         timeout_seconds   = 1
 
         http_get {
-          path = "/healthz"
+          path = "/health"
         }
       }
     }
@@ -255,7 +255,7 @@ resource "google_cloud_run_v2_service" "demo_order" {
         timeout_seconds   = 1
 
         http_get {
-          path = "/readyz"
+          path = "/ready"
         }
       }
 
@@ -265,7 +265,7 @@ resource "google_cloud_run_v2_service" "demo_order" {
         timeout_seconds   = 1
 
         http_get {
-          path = "/healthz"
+          path = "/health"
         }
       }
     }

@@ -1,6 +1,9 @@
 # M2 Personal Project Migration Plan
 
-Status: separate approval required
+Status: superseded by confirmed Cloud Run reserved-path root cause
+
+This contingency is retained for history only. Do not execute it for M2 endpoint recovery; the
+current project, IAM boundary, and deployed services remain the approved target.
 
 ## Objective
 

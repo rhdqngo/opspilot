@@ -58,6 +58,13 @@ def test_route_check_accepts_iam_403_and_authenticated_200() -> None:
     assert result.blocker_code == "none"
 
 
+def test_route_check_does_not_fail_healthy_route_while_logs_are_delayed() -> None:
+    result = classify_route(_healthy_result(container_application_logs=0))
+
+    assert result.route_ready is True
+    assert result.blocker_code == "none"
+
+
 def test_route_check_distinguishes_authenticated_iam_denial() -> None:
     result = classify_route(_healthy_result(authenticated_status_codes=[403] * 3))
 
@@ -154,10 +161,14 @@ def _requester(
 
 
 def test_route_check_redacts_endpoint_and_credential_identifiers() -> None:
+    def status_requester(url: str, _token: str | None, _request_id: str) -> int:
+        assert url.endswith("/health")
+        return 404
+
     result = run_route_check(
         runner=FakeRunner(),
         requester=_requester,
-        status_requester=lambda _url, _token, _request_id: 404,
+        status_requester=status_requester,
     )
 
     assert result.blocker_code == "endpoint_not_found"

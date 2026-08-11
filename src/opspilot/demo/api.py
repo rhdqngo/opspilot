@@ -61,11 +61,11 @@ def create_app(
     app = FastAPI(title="OpsPilot synthetic ecommerce service", version="1.0")
     install_request_logging(app, runtime)
 
-    @app.get("/healthz")
+    @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/readyz")
+    @app.get("/ready")
     async def ready() -> dict[str, str]:
         return {"status": "ready"}
 

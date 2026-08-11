@@ -1,6 +1,6 @@
 # M2 Synthetic Demo Services
 
-Status: Approval 2 infrastructure applied; remote invocation validation blocked
+Status: safe-path revision prepared; remote validation pending
 
 ## Local workflow
 
@@ -25,7 +25,7 @@ set `no-new-privileges`.
 - order: `POST /v1/orders`
 - payment: `POST /v1/payments/authorizations`
 - inventory: `POST /v1/inventory/reservations`
-- all roles: `GET /healthz` and `GET /readyz`
+- all roles: `GET /health` and `GET /ready`
 
 Only synthetic SKU, quantity, and KRW amount fields are accepted. `X-Request-ID` and valid Cloud
 Trace context propagate across order dependencies. Structured logs never include request bodies,
@@ -55,17 +55,17 @@ authorization headers, account identifiers, or tokens.
 - All three services are Ready, private, digest-pinned, scale-to-zero, and use distinct identities.
   User-managed keys, project roles for runtime identities, and public principals are all zero.
 - A reviewed same-digest refresh updated only the three service revisions. All three became Ready
-  with full traffic, but the endpoint-level `404` remained through the final propagation check.
+  with full traffic, but `/healthz` remained unavailable because it conflicts with a Cloud Run
+  reserved path.
 
-## Active blocker
+## Confirmed root cause and recovery
 
-- Both Cloud Run-provided URLs and the official authenticated Cloud Run proxy return Google
-  frontend `404` before the request reaches a container. No Cloud Run request or structured
-  application log is produced.
+- Cloud Run reserves some paths ending in `z` and recommends avoiding every such path. The retired
+  `/healthz` request returned a Google frontend `404` before the request reached a container.
 - The v2 service reports `defaultUriDisabled=false`, `INGRESS_TRAFFIC_ALL`, IAM enforcement active,
   and a Ready revision. Local health probes and Cloud Run startup/liveness probes pass.
-- The symptoms are classified only as an endpoint-level failure. They do not establish a specific
-  platform or policy cause.
+- Authenticated `/health` reached FastAPI, proving that the URL, IAM, ingress, revision, and
+  container route are functional. The replacement image exposes `/health` and `/ready` only.
 - `TF_PLAN_ENABLED=false` remains set. `TF_M2_IMAGE_READY` and `GCP_DEMO_IMAGE_URI` remain absent,
   so hosted plan cannot run prematurely.
 - The current Cloud Run inventory contains only the three managed M2 candidates. An earlier note
@@ -77,14 +77,14 @@ Run the repeatable redacted diagnostic without supplying a project identifier:
 uv run opspilot route-check --account-alias Edu_687 --format summary
 ```
 
-The current blocked contract exits `2` with `blocker_code=endpoint_not_found`. See
-`cloud-run-mvp-recovery.md` for the controlled refresh and acceptance sequence.
+The updated diagnostic calls `/health`. See `cloud-run-mvp-recovery.md` for the new-image rollout
+and acceptance sequence.
 
 ## Resume procedure
 
-1. Do not repeat the exhausted revision refresh or change the current private service boundary.
-2. Review `docs/plans/m2_personal_project_migration.md` as a separate approval.
-3. Keep the current project and hosted gates unchanged until a replacement passes remote smoke,
-   telemetry, security, and zero-drift acceptance.
+1. Build and push the validated safe-path image once.
+2. Apply only the exact three-service in-place plan with no IAM or resource-count change.
+3. Keep the current project and hosted gates unchanged until remote smoke, telemetry, security,
+   and zero-drift acceptance pass.
 
 Do not destroy or blindly reapply the deployed resources while this blocker is investigated.

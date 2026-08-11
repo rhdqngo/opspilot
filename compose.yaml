@@ -20,7 +20,7 @@ x-demo-service: &demo-service
       - -c
       - >-
         import urllib.request;
-        urllib.request.urlopen('http://127.0.0.1:8080/readyz', timeout=2).read()
+        urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=2).read()
     interval: 2s
     timeout: 2s
     retries: 15
