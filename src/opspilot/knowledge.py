@@ -126,7 +126,7 @@ class KnowledgeHit(BaseModel):
     uri: str | None = None
     section: str | None = None
     chunk_text: str
-    relevance_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    relevance_score: float | None = Field(default=None, ge=-1.0, le=1.0)
     staleness_warning: str | None = None
     safety_flags: list[str] = Field(default_factory=list)
 
@@ -142,16 +142,22 @@ class KnowledgeValidationResult(BaseModel):
 class KnowledgeSmokeResult(BaseModel):
     backend: KnowledgeBackend
     query_count: int = Field(ge=0)
+    executed_query_count: int = Field(ge=0)
     passed_count: int = Field(ge=0)
     failed_case_ids: list[str] = Field(default_factory=list)
+    backend_ready: bool = True
     citation_metadata_complete: bool
+    untrusted_content_flagged: bool
     untrusted_instruction_executed: bool = False
 
     @property
     def passed(self) -> bool:
         return (
             self.query_count == self.passed_count
+            and self.executed_query_count == self.query_count
+            and self.backend_ready
             and self.citation_metadata_complete
+            and self.untrusted_content_flagged
             and not self.untrusted_instruction_executed
         )
 
@@ -162,8 +168,32 @@ class KnowledgeSyncResult(BaseModel):
     removed_document_count: int = Field(ge=0)
     manifest_changed: bool
     import_requested: bool
+    import_success_count: int = Field(default=0, ge=0)
+    import_failure_count: int = Field(default=0, ge=0)
     snapshot_updated: bool
     no_op: bool
+
+
+class KnowledgeImportOutcome(BaseModel):
+    success_count: int = Field(ge=0)
+    failure_count: int = Field(ge=0)
+    total_count: int = Field(ge=0)
+    completed: bool
+
+
+class KnowledgeIndexStatus(BaseModel):
+    document_count: int = Field(ge=0)
+    indexed_count: int = Field(ge=0)
+    error_count: int = Field(ge=0)
+    exact_document_set: bool
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.exact_document_set
+            and self.document_count == self.indexed_count
+            and self.error_count == 0
+        )
 
 
 def default_knowledge_dir() -> Path:
@@ -380,6 +410,14 @@ def _parse_datetime(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo is not None else None
 
 
+def _operation_count(metadata: Mapping[str, Any], name: str) -> int:
+    value = metadata.get(name, 0)
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return 0
+
+
 def normalize_search_response(
     payload: Mapping[str, Any], request: SearchKnowledgeInput
 ) -> list[KnowledgeHit]:
@@ -391,43 +429,65 @@ def normalize_search_response(
     for raw_result in raw_results[: request.top_k]:
         if not isinstance(raw_result, dict):
             continue
+        raw_chunk = raw_result.get("chunk")
         raw_document = raw_result.get("document")
-        if not isinstance(raw_document, dict):
-            continue
-        struct_data = raw_document.get("structData")
-        derived_data = raw_document.get("derivedStructData")
-        metadata = struct_data if isinstance(struct_data, dict) else {}
+        chunk = raw_chunk if isinstance(raw_chunk, dict) else {}
+        document = raw_document if isinstance(raw_document, dict) else {}
+        document_metadata = chunk.get("documentMetadata")
+        chunk_document_metadata = document_metadata if isinstance(document_metadata, dict) else {}
+        chunk_struct_data = chunk_document_metadata.get("structData")
+        document_struct_data = document.get("structData")
+        metadata = (
+            chunk_struct_data
+            if isinstance(chunk_struct_data, dict)
+            else document_struct_data
+            if isinstance(document_struct_data, dict)
+            else {}
+        )
+        derived_data = document.get("derivedStructData")
         derived = derived_data if isinstance(derived_data, dict) else {}
-        document_id = metadata.get("document_id") or raw_document.get("id")
-        title = metadata.get("title") or derived.get("title")
+        document_id = (
+            metadata.get("document_id")
+            or raw_result.get("id")
+            or chunk.get("id")
+            or document.get("id")
+        )
+        title = (
+            metadata.get("title") or chunk_document_metadata.get("title") or derived.get("title")
+        )
         document_type = metadata.get("document_type")
         if not all(isinstance(value, str) for value in (document_id, title, document_type)):
             continue
         if document_type not in ALLOWED_DOCUMENT_TYPES:
             continue
-        chunk = ""
+        chunk_text = str(chunk.get("content", ""))
         chunks = derived.get("chunks")
-        if isinstance(chunks, list) and chunks and isinstance(chunks[0], dict):
-            chunk = str(chunks[0].get("content", ""))
-        if not chunk:
+        if not chunk_text and isinstance(chunks, list) and chunks and isinstance(chunks[0], dict):
+            chunk_text = str(chunks[0].get("content", ""))
+        if not chunk_text:
             segments = derived.get("extractive_segments")
             if isinstance(segments, list) and segments and isinstance(segments[0], dict):
-                chunk = str(segments[0].get("content", ""))
-        if not chunk:
-            chunk = str(metadata.get("description", ""))
+                chunk_text = str(segments[0].get("content", ""))
+        if not chunk_text:
+            chunk_text = str(metadata.get("description", ""))
         remaining = MAX_CHUNK_BYTES - used_bytes
         if remaining <= 0:
             break
-        bounded_chunk = _bounded_utf8(chunk, remaining)
+        bounded_chunk = _bounded_utf8(chunk_text, remaining)
         used_bytes += len(bounded_chunk.encode("utf-8"))
         model_scores = raw_result.get("modelScores")
-        relevance_score: float | None = None
-        if isinstance(model_scores, dict):
+        raw_chunk_score = chunk.get("relevanceScore")
+        relevance_score = (
+            max(-1.0, min(1.0, float(raw_chunk_score)))
+            if isinstance(raw_chunk_score, (int, float))
+            else None
+        )
+        if relevance_score is None and isinstance(model_scores, dict):
             relevance = model_scores.get("relevance_score")
             if isinstance(relevance, dict):
                 values = relevance.get("values")
                 if isinstance(values, list) and values and isinstance(values[0], (int, float)):
-                    relevance_score = max(0.0, min(1.0, float(values[0])))
+                    relevance_score = max(-1.0, min(1.0, float(values[0])))
         review_due_at = _parse_datetime(metadata.get("review_due_at"))
         security_test = metadata.get("security_test") is True
         hits.append(
@@ -469,6 +529,7 @@ def run_local_smoke(root: Path | None = None) -> KnowledgeSmokeResult:
     cases = load_smoke_cases(root)
     failed: list[str] = []
     citation_complete = True
+    untrusted_content_flagged = False
     for case in cases:
         request = SearchKnowledgeInput(
             query=case.query,
@@ -479,15 +540,22 @@ def run_local_smoke(root: Path | None = None) -> KnowledgeSmokeResult:
         hits = local_search(request, documents)
         if case.expected_document_id not in {hit.document_id for hit in hits}:
             failed.append(case.case_id)
+        if case.expected_document_id == "SEC-001":
+            untrusted_content_flagged = any(
+                hit.document_id == "SEC-001" and "UNTRUSTED_INSTRUCTION_CONTENT" in hit.safety_flags
+                for hit in hits
+            )
         citation_complete = citation_complete and all(
             hit.document_id and hit.title and hit.uri and hit.section for hit in hits
         )
     return KnowledgeSmokeResult(
         backend="local",
         query_count=len(cases),
+        executed_query_count=len(cases),
         passed_count=len(cases) - len(failed),
         failed_case_ids=failed,
         citation_metadata_complete=citation_complete,
+        untrusted_content_flagged=untrusted_content_flagged,
     )
 
 
@@ -498,7 +566,9 @@ class KnowledgeCloudClient(Protocol):
 
     def import_documents(self, manifest_object: str) -> str: ...
 
-    def wait_for_operation(self, operation_name: str) -> bool: ...
+    def wait_for_operation(self, operation_name: str) -> KnowledgeImportOutcome: ...
+
+    def read_index_status(self, expected_document_ids: Sequence[str]) -> KnowledgeIndexStatus: ...
 
 
 def _snapshot(documents: Sequence[KnowledgeDocument]) -> dict[str, str]:
@@ -556,7 +626,13 @@ def sync_knowledge(
     manifest_object = "manifests/import.jsonl"
     client.upload_text(manifest_object, _manifest_jsonl(documents, bucket_name))
     operation_name = client.import_documents(manifest_object)
-    if not client.wait_for_operation(operation_name):
+    outcome = client.wait_for_operation(operation_name)
+    if (
+        not outcome.completed
+        or outcome.success_count != len(documents)
+        or outcome.failure_count != 0
+        or outcome.total_count != len(documents)
+    ):
         raise RuntimeError("knowledge import did not complete successfully")
     client.upload_text(
         "snapshots/current.json",
@@ -568,6 +644,8 @@ def sync_knowledge(
         removed_document_count=len(removed),
         manifest_changed=True,
         import_requested=True,
+        import_success_count=outcome.success_count,
+        import_failure_count=outcome.failure_count,
         snapshot_updated=True,
         no_op=False,
     )
@@ -704,15 +782,58 @@ class GcloudKnowledgeClient:
             raise RuntimeError("Agent Search import operation was not created")
         return name
 
-    def wait_for_operation(self, operation_name: str) -> bool:
-        for _ in range(30):
+    def wait_for_operation(self, operation_name: str) -> KnowledgeImportOutcome:
+        for _ in range(180):
             payload = self._request(
                 "GET", f"https://discoveryengine.googleapis.com/v1/{operation_name}"
             )
             if payload.get("done") is True:
-                return "error" not in payload
+                metadata = payload.get("metadata")
+                counts = metadata if isinstance(metadata, dict) else {}
+                return KnowledgeImportOutcome(
+                    success_count=_operation_count(counts, "successCount"),
+                    failure_count=_operation_count(counts, "failureCount"),
+                    total_count=_operation_count(counts, "totalCount"),
+                    completed="error" not in payload,
+                )
             time.sleep(10)
-        return False
+        raise RuntimeError("knowledge import did not finish within the bounded wait")
+
+    def read_index_status(self, expected_document_ids: Sequence[str]) -> KnowledgeIndexStatus:
+        context = self.context
+        parent = (
+            f"projects/{context.project_id}/locations/{context.location}/collections/"
+            f"default_collection/dataStores/{context.data_store_id}/branches/default_branch"
+        )
+        payload = self._request(
+            "GET",
+            f"https://discoveryengine.googleapis.com/v1/{parent}/documents?pageSize=100",
+        )
+        raw_documents = payload.get("documents")
+        documents = raw_documents if isinstance(raw_documents, list) else []
+        observed_ids: set[str] = set()
+        indexed_count = 0
+        error_count = 0
+        for raw_document in documents:
+            if not isinstance(raw_document, dict):
+                continue
+            raw_id = raw_document.get("id")
+            if isinstance(raw_id, str):
+                observed_ids.add(raw_id.lower())
+            if isinstance(raw_document.get("indexTime"), str):
+                indexed_count += 1
+            index_status = raw_document.get("indexStatus")
+            status = index_status if isinstance(index_status, dict) else {}
+            error_samples = status.get("errorSamples")
+            if isinstance(error_samples, list) and error_samples:
+                error_count += 1
+        expected = {document_id.lower() for document_id in expected_document_ids}
+        return KnowledgeIndexStatus(
+            document_count=len(documents),
+            indexed_count=indexed_count,
+            error_count=error_count,
+            exact_document_set=observed_ids == expected and "nextPageToken" not in payload,
+        )
 
     def search(self, request: SearchKnowledgeInput) -> list[KnowledgeHit]:
         context = self.context
@@ -741,9 +862,24 @@ def run_agent_search_smoke(environment: str, root: Path | None = None) -> Knowle
     if os.environ.get("OPSPILOT_KNOWLEDGE_SMOKE_ENABLED") != "true":
         raise RuntimeError("Agent Search smoke gate is disabled")
     cases = load_smoke_cases(root)
+    documents = load_corpus(root)
     client = GcloudKnowledgeClient(_cloud_context(environment))
+    index_status = client.read_index_status(
+        [document.metadata.document_id for document in documents]
+    )
+    if not index_status.ready:
+        return KnowledgeSmokeResult(
+            backend="agent-search",
+            query_count=len(cases),
+            executed_query_count=0,
+            passed_count=0,
+            backend_ready=False,
+            citation_metadata_complete=False,
+            untrusted_content_flagged=False,
+        )
     failed: list[str] = []
     citation_complete = True
+    untrusted_content_flagged = False
     for case in cases:
         hits = client.search(
             SearchKnowledgeInput(
@@ -755,15 +891,22 @@ def run_agent_search_smoke(environment: str, root: Path | None = None) -> Knowle
         )
         if case.expected_document_id not in {hit.document_id for hit in hits}:
             failed.append(case.case_id)
+        if case.expected_document_id == "SEC-001":
+            untrusted_content_flagged = any(
+                hit.document_id == "SEC-001" and "UNTRUSTED_INSTRUCTION_CONTENT" in hit.safety_flags
+                for hit in hits
+            )
         citation_complete = citation_complete and all(
             hit.document_id and hit.title and hit.uri and hit.section for hit in hits
         )
     return KnowledgeSmokeResult(
         backend="agent-search",
         query_count=len(cases),
+        executed_query_count=len(cases),
         passed_count=len(cases) - len(failed),
         failed_case_ids=failed,
         citation_metadata_complete=citation_complete,
+        untrusted_content_flagged=untrusted_content_flagged,
     )
 
 
