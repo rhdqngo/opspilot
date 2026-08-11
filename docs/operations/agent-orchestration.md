@@ -78,14 +78,21 @@ Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
 ```
 
 All suites have a 200-second aggregate deadline. Keep the gate process-scoped and remove it in a
-`finally` path. Do not store raw model requests or responses. Approval 5 authorizes only one new
-`m6-rca` Vertex execution; `m6-safety` and `m6-core` remain fake-only until a later approval. Agent
-Runtime deployment and Gemini Enterprise registration remain M7 work.
+`finally` path. Do not store raw model requests or responses. No additional Vertex execution is
+authorized by Approval 6; `m6-rca`, `m6-safety`, and `m6-core` remain fake-only until a later
+approval. Agent Runtime deployment and Gemini Enterprise registration remain M7 work.
 
 Each case result records only safe acceptance facts: report status, root-cause code, citation
 coverage, hypothesis and recommendation counts, unauthorized-action count, approval-flag result,
 trajectory result, request counts, and allowlisted failure codes. It never records prompt, response,
 evidence body, transport detail, URL, credential, or cloud identifier.
+
+Approval 6 adds monotonic, content-free phase observations to that safe result. Each model node can
+advance through `request_validated`, `response_received`, and `node_output_emitted`; a successful
+workflow finishes at `graph_completed`. A bounded timeout is classified only from the last observed
+phase as `model_response_pending`, `structured_output_pending`, `graph_completion_pending`,
+`acceptance_deadline`, or `unknown`. Durations are bounded integer milliseconds. Wall-clock time,
+prompt, response, exception text, and provider identifiers are not retained.
 
 ## Root-cause taxonomy boundary
 
@@ -130,3 +137,8 @@ request but produced no successful response before the 20-second node timeout. T
 only `AGENT_TIMEOUT`, category `timeout`, and `retryable=false`; prompt, output, and total token counts
 were all zero. The live gate was removed and no composer request, retry, safety run, taxonomy change,
 or M7 action followed. The status remains `M6-model-deployed / live-acceptance-blocked`.
+
+Approval 6 implemented and validated the safe timeout phase contract without a Vertex, Search, or
+live-evidence request. The 20-second node, 60-second graph, and 200-second acceptance limits remain
+unchanged. The checkpoint is `timeout-observability-ready / RCA-rerun-not-approved`; a future RCA
+rerun requires a separate approval and must use the new phase evidence before any timeout change.

@@ -56,6 +56,23 @@ class AgentErrorCategory(StrEnum):
     INTERNAL = "internal"
 
 
+class ModelExecutionPhase(StrEnum):
+    NOT_STARTED = "not_started"
+    REQUEST_VALIDATED = "request_validated"
+    RESPONSE_RECEIVED = "response_received"
+    NODE_OUTPUT_EMITTED = "node_output_emitted"
+    GRAPH_COMPLETED = "graph_completed"
+
+
+class ModelTimeoutOrigin(StrEnum):
+    NONE = "none"
+    MODEL_RESPONSE_PENDING = "model_response_pending"
+    STRUCTURED_OUTPUT_PENDING = "structured_output_pending"
+    GRAPH_COMPLETION_PENDING = "graph_completion_pending"
+    ACCEPTANCE_DEADLINE = "acceptance_deadline"
+    UNKNOWN = "unknown"
+
+
 class AgentRunError(BaseModel):
     code: str
     category: AgentErrorCategory
@@ -204,6 +221,16 @@ class ReportNarrativeDraft(BaseModel):
     recommendations: list[RecommendationDraft] = Field(default_factory=list, max_length=3)
 
 
+class ModelNodeTiming(BaseModel):
+    node_name: Literal["rca_analyst", "report_composer"]
+    last_phase: ModelExecutionPhase = ModelExecutionPhase.NOT_STARTED
+    request_to_response_ms: int | None = Field(default=None, ge=0, le=200_000)
+    response_to_output_ms: int | None = Field(default=None, ge=0, le=200_000)
+    total_elapsed_ms: int = Field(default=0, ge=0, le=200_000)
+    completed: bool = False
+    timeout_seconds: float = Field(default=20.0, ge=0.001, le=200.0)
+
+
 class ModelBudgetUsage(BaseModel):
     model_calls: int = Field(default=0, ge=0, le=3)
     attempted_model_calls: int = Field(default=0, ge=0, le=3)
@@ -216,6 +243,9 @@ class ModelBudgetUsage(BaseModel):
     max_request_input_bytes: int = Field(default=0, ge=0, le=64 * 1024)
     truncated: bool = False
     deadline_seconds: int = 60
+    node_timings: list[ModelNodeTiming] = Field(default_factory=list, max_length=2)
+    graph_elapsed_ms: int = Field(default=0, ge=0, le=200_000)
+    timeout_origin: ModelTimeoutOrigin = ModelTimeoutOrigin.NONE
 
 
 class AgentRunResult(BaseModel):
@@ -275,6 +305,10 @@ class AgentDiagnosticResult(BaseModel):
     model_id_allowed: bool = False
     location_global: bool = False
     standard_paygo: bool = True
+    node_timeout_seconds: float = Field(default=20.0, ge=0.001, le=200.0)
+    graph_timeout_seconds: int = Field(default=60, ge=1, le=200)
+    acceptance_timeout_seconds: int = Field(default=200, ge=1, le=600)
+    phase_observability_ready: bool = False
     generate_content_calls: int = Field(default=0, ge=0, le=0)
     missing_permissions: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
@@ -326,6 +360,7 @@ class AgentAcceptanceResult(BaseModel):
     request_input_bytes: int = Field(default=0, ge=0, le=9 * 64 * 1024)
     max_request_input_bytes: int = Field(default=0, ge=0, le=64 * 1024)
     deadline_seconds: int = 200
+    timeout_origin: ModelTimeoutOrigin = ModelTimeoutOrigin.NONE
     passed: bool = False
     cases: list[AgentAcceptanceCaseResult] = Field(default_factory=list, max_length=3)
     errors: list[AgentRunError] = Field(default_factory=list)

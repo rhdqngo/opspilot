@@ -14,7 +14,13 @@ from opspilot.access_check import (
     run_access_check,
 )
 from opspilot.agent.contracts import AgentDiagnosticResult
-from opspilot.agent.models import DEFAULT_MODEL_ID, MODEL_LOCATION
+from opspilot.agent.models import (
+    DEFAULT_MODEL_ID,
+    M6_ACCEPTANCE_DEADLINE_SECONDS,
+    MODEL_DEADLINE_SECONDS,
+    MODEL_LOCATION,
+    MODEL_NODE_TIMEOUT_SECONDS,
+)
 
 M6_MODEL_PERMISSIONS = (
     "aiplatform.endpoints.predict",
@@ -52,6 +58,10 @@ def run_agent_diagnostic(
         model_id_allowed=DEFAULT_MODEL_ID == "gemini-3.5-flash",
         location_global=MODEL_LOCATION == "global",
         standard_paygo=True,
+        node_timeout_seconds=MODEL_NODE_TIMEOUT_SECONDS,
+        graph_timeout_seconds=MODEL_DEADLINE_SECONDS,
+        acceptance_timeout_seconds=M6_ACCEPTANCE_DEADLINE_SECONDS,
+        phase_observability_ready=True,
         generate_content_calls=0,
     )
     project_result = runner(("config", "get-value", "project"))
@@ -109,6 +119,7 @@ def run_agent_diagnostic(
             diagnostic.model_id_allowed,
             diagnostic.location_global,
             diagnostic.standard_paygo,
+            diagnostic.phase_observability_ready,
             diagnostic.generate_content_calls == 0,
             not diagnostic.errors,
         )
@@ -123,6 +134,13 @@ def render_agent_diagnostic(result: AgentDiagnosticResult) -> str:
         for name, value in fields.items()
         if isinstance(value, bool)
     ]
+    lines.extend(
+        (
+            f"node_timeout_seconds={result.node_timeout_seconds:g}",
+            f"graph_timeout_seconds={result.graph_timeout_seconds}",
+            f"acceptance_timeout_seconds={result.acceptance_timeout_seconds}",
+        )
+    )
     lines.append(f"generate_content_calls={result.generate_content_calls}")
     if result.missing_permissions:
         lines.append("missing_permissions=" + ",".join(result.missing_permissions))

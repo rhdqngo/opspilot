@@ -8,7 +8,8 @@ import logging
 import os
 import shutil
 import subprocess
-from collections.abc import Sequence
+import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -31,12 +32,17 @@ from opspilot.agent.contracts import (
     AgentRunStatus,
     ModelBackend,
     ModelBudgetUsage,
+    ModelExecutionPhase,
+    ModelNodeTiming,
+    ModelTimeoutOrigin,
 )
 from opspilot.agent.models import (
     DEFAULT_MODEL_ID,
+    M6_ACCEPTANCE_DEADLINE_SECONDS,
     MAX_MODEL_INPUT_BYTES,
     MODEL_CALL_LIMIT,
     MODEL_DEADLINE_SECONDS,
+    MODEL_NODE_TIMEOUT_SECONDS,
 )
 from opspilot.agent.workflow import create_root_agent
 from opspilot.domain import IncidentReport, ReportStatus, SourceType
@@ -51,7 +57,8 @@ from opspilot.fixtures import load_scenario_fixture
 from opspilot.reporting import render_markdown
 
 APP_NAME = "opspilot"
-MODEL_NODE_NAMES = frozenset({"rca_analyst", "report_composer"})
+MODEL_NODE_ORDER = ("rca_analyst", "report_composer")
+MODEL_NODE_NAMES = frozenset(MODEL_NODE_ORDER)
 EXPECTED_TRAJECTORY = (
     "prepare_bounded_evidence",
     "rca_analyst",
@@ -66,7 +73,6 @@ M6_ACCEPTANCE_SCENARIOS = {
     AgentAcceptanceSuite.SAFETY: ("SCN-006", "SCN-007"),
     AgentAcceptanceSuite.CORE: ("SCN-001", "SCN-006", "SCN-007"),
 }
-M6_ACCEPTANCE_DEADLINE_SECONDS = 200
 EXPECTED_ROOT_CAUSES = {
     "SCN-001": "PAYMENT_DB_POOL_EXHAUSTION",
     "SCN-002": "PAYMENT_UPSTREAM_TIMEOUT",
@@ -185,7 +191,22 @@ def _prepare_vertex_environment() -> str:
 
 
 @dataclass
+class _MutableNodeTiming:
+    node_name: str
+    request_at: float
+    last_phase: ModelExecutionPhase = ModelExecutionPhase.REQUEST_VALIDATED
+    response_at: float | None = None
+    output_at: float | None = None
+
+
+def _bounded_elapsed_ms(end: float, start: float) -> int:
+    return min(200_000, max(0, round((end - start) * 1_000)))
+
+
+@dataclass
 class _RequestBudgetTracker:
+    clock: Callable[[], float] = time.monotonic
+    node_timeout_seconds: float = MODEL_NODE_TIMEOUT_SECONDS
     attempted_model_calls: int = 0
     successful_model_calls: int = 0
     prompt_tokens: int = 0
@@ -194,18 +215,65 @@ class _RequestBudgetTracker:
     request_input_bytes: int = 0
     max_request_input_bytes: int = 0
     successful_nodes: set[str] = field(default_factory=set)
+    node_states: dict[str, _MutableNodeTiming] = field(default_factory=dict)
+    timeout_origin: ModelTimeoutOrigin = ModelTimeoutOrigin.NONE
+    graph_started_at: float = field(init=False)
+    graph_completed_at: float | None = None
 
-    def observe_request(self, size: int) -> None:
+    def __post_init__(self) -> None:
+        self.graph_started_at = self.clock()
+
+    def observe_request(self, node_name: str, size: int) -> None:
+        if node_name not in MODEL_NODE_NAMES:
+            raise ValueError("model node is not allowlisted")
         if self.attempted_model_calls >= MODEL_CALL_LIMIT:
             raise ValueError("model request count exceeds the fixed call budget")
         self.attempted_model_calls += 1
         self.request_input_bytes += size
         self.max_request_input_bytes = max(self.max_request_input_bytes, size)
+        self.node_states[node_name] = _MutableNodeTiming(
+            node_name=node_name,
+            request_at=self.clock(),
+        )
 
-    def observe_response(self, node_name: str) -> None:
+    def observe_model_response(self, node_name: str) -> None:
+        state = self.node_states.get(node_name)
+        if state is None:
+            raise ValueError("model response preceded request validation")
+        if state.response_at is None:
+            state.response_at = self.clock()
+        state.last_phase = ModelExecutionPhase.RESPONSE_RECEIVED
+
+    def observe_node_output(self, node_name: str) -> None:
+        state = self.node_states.get(node_name)
+        if state is None:
+            raise ValueError("model output preceded request validation")
+        if state.output_at is None:
+            state.output_at = self.clock()
+        state.last_phase = ModelExecutionPhase.NODE_OUTPUT_EMITTED
         if node_name not in self.successful_nodes:
             self.successful_nodes.add(node_name)
             self.successful_model_calls += 1
+
+    def observe_graph_completed(self) -> None:
+        self.graph_completed_at = self.clock()
+        for state in self.node_states.values():
+            state.last_phase = ModelExecutionPhase.GRAPH_COMPLETED
+
+    def observe_timeout(self, *, acceptance_deadline: bool = False) -> None:
+        if acceptance_deadline:
+            self.timeout_origin = ModelTimeoutOrigin.ACCEPTANCE_DEADLINE
+            return
+        if not self.node_states:
+            self.timeout_origin = ModelTimeoutOrigin.UNKNOWN
+            return
+        state = max(self.node_states.values(), key=lambda item: item.request_at)
+        origins = {
+            ModelExecutionPhase.REQUEST_VALIDATED: ModelTimeoutOrigin.MODEL_RESPONSE_PENDING,
+            ModelExecutionPhase.RESPONSE_RECEIVED: ModelTimeoutOrigin.STRUCTURED_OUTPUT_PENDING,
+            ModelExecutionPhase.NODE_OUTPUT_EMITTED: ModelTimeoutOrigin.GRAPH_COMPLETION_PENDING,
+        }
+        self.timeout_origin = origins.get(state.last_phase, ModelTimeoutOrigin.UNKNOWN)
 
     def observe_usage(self, usage: types.GenerateContentResponseUsageMetadata) -> None:
         self.prompt_tokens += int(usage.prompt_token_count or 0)
@@ -213,6 +281,33 @@ class _RequestBudgetTracker:
         self.total_tokens += int(usage.total_token_count or 0)
 
     def budget(self, input_bytes: int = 0) -> ModelBudgetUsage:
+        now = self.clock()
+        graph_end = self.graph_completed_at if self.graph_completed_at is not None else now
+        node_timings: list[ModelNodeTiming] = []
+        for node_name in MODEL_NODE_ORDER:
+            state = self.node_states.get(node_name)
+            if state is None:
+                continue
+            node_end = state.output_at if state.output_at is not None else now
+            node_timings.append(
+                ModelNodeTiming(
+                    node_name=node_name,
+                    last_phase=state.last_phase,
+                    request_to_response_ms=(
+                        _bounded_elapsed_ms(state.response_at, state.request_at)
+                        if state.response_at is not None
+                        else None
+                    ),
+                    response_to_output_ms=(
+                        _bounded_elapsed_ms(state.output_at, state.response_at)
+                        if state.response_at is not None and state.output_at is not None
+                        else None
+                    ),
+                    total_elapsed_ms=_bounded_elapsed_ms(node_end, state.request_at),
+                    completed=state.output_at is not None,
+                    timeout_seconds=self.node_timeout_seconds,
+                )
+            )
         return ModelBudgetUsage(
             model_calls=self.successful_model_calls,
             attempted_model_calls=self.attempted_model_calls,
@@ -225,6 +320,9 @@ class _RequestBudgetTracker:
             max_request_input_bytes=self.max_request_input_bytes,
             truncated=False,
             deadline_seconds=MODEL_DEADLINE_SECONDS,
+            node_timings=node_timings,
+            graph_elapsed_ms=_bounded_elapsed_ms(graph_end, self.graph_started_at),
+            timeout_origin=self.timeout_origin,
         )
 
 
@@ -246,6 +344,7 @@ async def _execute_graph(
         model_id=model_id,
         use_fake_model=model_backend == ModelBackend.FAKE,
         request_observer=tracker.observe_request,
+        model_response_observer=tracker.observe_model_response,
     )
     runner = InMemoryRunner(node=workflow, app_name=APP_NAME)
     user_id = "local-operator"
@@ -275,7 +374,7 @@ async def _execute_graph(
             if not trajectory or trajectory[-1] != name:
                 trajectory.append(name)
             if name in MODEL_NODE_NAMES and event.content is not None:
-                tracker.observe_response(name)
+                tracker.observe_node_output(name)
             usage = event.usage_metadata
             if usage is not None:
                 tracker.observe_usage(usage)
@@ -289,6 +388,7 @@ async def _execute_graph(
         adk_logger.setLevel(previous_level)
     if report is None:
         raise ValueError("agent graph did not produce a report")
+    tracker.observe_graph_completed()
     return (
         report,
         trajectory,
@@ -362,13 +462,16 @@ async def run_agent_investigation(
             budget=budget,
         )
     except Exception as error:  # safe public boundary
+        safe_error = _safe_error(error)
+        if safe_error.category == AgentErrorCategory.TIMEOUT:
+            tracker.observe_timeout()
         return AgentRunResult(
             status=AgentRunStatus.FAILED,
             succeeded=False,
             backend=backend,
             model_backend=model_backend,
             budget=tracker.budget(context_input_bytes),
-            errors=[_safe_error(error)],
+            errors=[safe_error],
         )
 
 
@@ -523,6 +626,7 @@ async def run_agent_acceptance(
     call_limit = len(scenarios) * MODEL_CALL_LIMIT
     cases: list[AgentAcceptanceCaseResult] = []
     top_level_errors: list[AgentRunError] = []
+    timeout_origin = ModelTimeoutOrigin.NONE
     try:
         async with asyncio.timeout(M6_ACCEPTANCE_DEADLINE_SECONDS):
             for scenario_id in scenarios:
@@ -537,9 +641,19 @@ async def run_agent_acceptance(
                     break
     except TimeoutError as error:
         top_level_errors.append(_safe_error(error))
+        timeout_origin = ModelTimeoutOrigin.ACCEPTANCE_DEADLINE
     attempted = sum(case.budget.attempted_model_calls for case in cases)
     successful = sum(case.budget.successful_model_calls for case in cases)
     passed_count = sum(case.passed for case in cases)
+    if timeout_origin == ModelTimeoutOrigin.NONE:
+        timeout_origin = next(
+            (
+                case.budget.timeout_origin
+                for case in cases
+                if case.budget.timeout_origin != ModelTimeoutOrigin.NONE
+            ),
+            ModelTimeoutOrigin.NONE,
+        )
     return AgentAcceptanceResult(
         suite=suite,
         model_backend=model_backend,
@@ -555,6 +669,7 @@ async def run_agent_acceptance(
             (case.budget.max_request_input_bytes for case in cases), default=0
         ),
         deadline_seconds=M6_ACCEPTANCE_DEADLINE_SECONDS,
+        timeout_origin=timeout_origin,
         passed=(
             len(cases) == len(scenarios)
             and passed_count == len(scenarios)
@@ -572,6 +687,8 @@ def render_agent_summary(result: AgentRunResult) -> str:
         f"backend: {result.backend.value}",
         f"model_backend: {result.model_backend.value}",
         f"model_calls: {result.budget.model_calls}",
+        f"timeout_origin: {result.budget.timeout_origin.value}",
+        f"graph_elapsed_ms: {result.budget.graph_elapsed_ms}",
         "trajectory: " + ",".join(result.trajectory),
     ]
     if result.report is not None:
@@ -640,6 +757,19 @@ def _acceptance_case_summary_lines(case: AgentAcceptanceCaseResult) -> list[str]
         f"{prefix}_trajectory_matches: {'pass' if case.trajectory_matches else 'fail'}",
         f"{prefix}_attempted_model_calls: {case.budget.attempted_model_calls}",
         f"{prefix}_successful_model_calls: {case.budget.successful_model_calls}",
+        f"{prefix}_timeout_origin: {case.budget.timeout_origin.value}",
+        f"{prefix}_graph_elapsed_ms: {case.budget.graph_elapsed_ms}",
+        *[
+            f"{prefix}_{timing.node_name}_{field}: {value}"
+            for timing in case.budget.node_timings
+            for field, value in (
+                ("phase", timing.last_phase.value),
+                ("request_to_response_ms", timing.request_to_response_ms),
+                ("response_to_output_ms", timing.response_to_output_ms),
+                ("total_elapsed_ms", timing.total_elapsed_ms),
+                ("completed", "yes" if timing.completed else "no"),
+            )
+        ],
         f"{prefix}_failure_codes: {failure_codes}",
     ]
 
@@ -658,6 +788,7 @@ def render_agent_acceptance(result: AgentAcceptanceResult, output_format: str) -
         f"prompt_tokens: {result.prompt_tokens}",
         f"output_tokens: {result.output_tokens}",
         f"total_tokens: {result.total_tokens}",
+        f"timeout_origin: {result.timeout_origin.value}",
     ]
     for case in result.cases:
         lines.extend(_acceptance_case_summary_lines(case))

@@ -511,20 +511,40 @@ def create_root_agent(
     *,
     model_id: str | None = None,
     use_fake_model: bool = False,
-    request_observer: Callable[[int], None] | None = None,
+    request_observer: Callable[[str, int], None] | None = None,
+    model_response_observer: Callable[[str], None] | None = None,
 ) -> Workflow:
     """Build the deployment-compatible deterministic ADK graph."""
 
     configured_model = model_id or os.environ.get("OPSPILOT_MODEL_ID", DEFAULT_MODEL_ID)
 
-    def validate_and_observe(
-        callback_context: Context, llm_request: LlmRequest
-    ) -> LlmResponse | None:
-        del callback_context
-        size = _validated_model_request_bytes(llm_request)
-        if request_observer is not None:
-            request_observer(size)
-        return None
+    def callbacks_for(
+        node_name: str,
+    ) -> tuple[
+        Callable[[Context, LlmRequest], LlmResponse | None],
+        Callable[[Context, LlmResponse], LlmResponse | None],
+    ]:
+        def validate_and_observe(
+            callback_context: Context, llm_request: LlmRequest
+        ) -> LlmResponse | None:
+            del callback_context
+            size = _validated_model_request_bytes(llm_request)
+            if request_observer is not None:
+                request_observer(node_name, size)
+            return None
+
+        def observe_model_response(
+            callback_context: Context, llm_response: LlmResponse
+        ) -> LlmResponse | None:
+            del callback_context, llm_response
+            if model_response_observer is not None:
+                model_response_observer(node_name)
+            return None
+
+        return validate_and_observe, observe_model_response
+
+    rca_before_model, rca_after_model = callbacks_for("rca_analyst")
+    composer_before_model, composer_after_model = callbacks_for("report_composer")
 
     rca_agent = Agent(
         name="rca_analyst",
@@ -538,7 +558,8 @@ def create_root_agent(
         mode="single_turn",
         timeout=MODEL_NODE_TIMEOUT_SECONDS,
         generate_content_config=_generation_config(0.0),
-        before_model_callback=validate_and_observe,
+        before_model_callback=rca_before_model,
+        after_model_callback=rca_after_model,
     )
     composer_agent = Agent(
         name="report_composer",
@@ -552,7 +573,8 @@ def create_root_agent(
         mode="single_turn",
         timeout=MODEL_NODE_TIMEOUT_SECONDS,
         generate_content_config=_generation_config(0.1),
-        before_model_callback=validate_and_observe,
+        before_model_callback=composer_before_model,
+        after_model_callback=composer_after_model,
     )
     return Workflow(
         name="opspilot_incident_commander",

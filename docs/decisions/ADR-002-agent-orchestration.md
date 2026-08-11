@@ -55,3 +55,8 @@ preventing an LLM from constructing executable resource queries or action payloa
   one attempt, zero successful responses, zero reported tokens, and safe code `AGENT_TIMEOUT`. The
   timeout is non-retryable under the current contract, so the taxonomy was not exercised live and
   M6 remains blocked without another request.
+- Approval 6 preserves all model and timeout settings and adds content-free monotonic observations
+  at the public before-model, after-model, runner-event, and graph-completion boundaries. Timeout
+  origin is derived only from the last observed phase; missing evidence remains `unknown`.
+- Approval 6 is zero-call and zero-cloud-change. It prepares a separately approved RCA rerun but
+  does not authorize one, run the safety suite, or begin M7.

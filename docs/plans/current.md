@@ -58,6 +58,14 @@ updated: 2026-08-11
   every preflight but stopped on its first model node with `AGENT_TIMEOUT`: one attempt, zero
   successful responses, zero reported tokens, and no composer request. The gate was removed and no
   retry was made.
+- M6 Approval 6 keeps the fixed model, prompts, schemas, taxonomy, trajectory, and 20/60/200-second
+  limits. Public ADK callbacks and runner events now retain only bounded monotonic phase timing for
+  request validation, response receipt, node output, and graph completion.
+- Timeout origin is derived from the last observed phase as response pending, structured-output
+  pending, graph-completion pending, acceptance deadline, or unknown. No prompt, response, raw
+  exception, wall-clock time, URL, credential, or cloud identifier enters the result.
+- Approval 6 authorizes no Vertex, Search, or live-evidence request and no cloud change. The active
+  checkpoint is `timeout-observability-ready / RCA-rerun-not-approved`; M6 remains blocked.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -142,6 +150,7 @@ updated: 2026-08-11
 | M6 Approval 3: deterministic review recovery | blocked | SCN-001 used 2/2 successful calls but failed semantic acceptance; no retry |
 | M6 Approval 4: safe RCA checkpoint | blocked | Exact two-call run failed only `root_cause_mismatch`; no retry or contract change |
 | M6 Approval 5: strict RCA taxonomy | blocked | Alias validated offline; one bounded run stopped at 1 attempt / 0 success with `AGENT_TIMEOUT`; no retry |
+| M6 Approval 6: timeout observability | complete | Content-free phase timing and timeout-origin classification validated offline; no Vertex request |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -175,6 +184,12 @@ updated: 2026-08-11
   zero-drift gates passed. The RCA node timed out before a successful response; the safe result was
   `AGENT_TIMEOUT`, non-retryable, with one attempt and zero reported tokens. The composer and safety
   cases were not called.
+- Added backward-compatible model-node timing and timeout-origin contracts using monotonic elapsed
+  time and public before/after-model plus runner-event boundaries. Fake RCA, safety, core, and full
+  evaluation retain their existing call budgets and complete phases.
+- Added zero-generation diagnostic visibility for the unchanged 20-second node, 60-second graph,
+  and 200-second acceptance limits. Approval 6 issued no live model or evidence request and made no
+  infrastructure change.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -266,7 +281,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 137 pytest tests, including strict taxonomy, fixed acceptance suites, safe predicate diagnostics, deterministic reviewer, graph, eval, citation, injection, failure, budget, and redaction contracts |
+| Tests | pass | 142 pytest tests, including timeout phase/origin, strict taxonomy, fixed acceptance suites, deterministic reviewer, citation, injection, failure, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -314,6 +329,7 @@ updated: 2026-08-11
 | M6 Approval 4 RCA acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,893 prompt, 764 output, 3,657 total tokens; only `root_cause_mismatch`; no retry |
 | M6 Approval 5 taxonomy | pass | Exact alias, canonical pass-through, wrong-service, insufficient-source, unknown/case-variant, and composer-boundary contracts validated offline |
 | M6 Approval 5 Vertex acceptance | blocked | SCN-001: 1 attempted / 0 successful; `AGENT_TIMEOUT`; 0 prompt/output/total tokens; no retry |
+| M6 Approval 6 timeout observability | pass | Public phase callbacks, bounded monotonic timings, safe timeout origins, and backward-compatible payload defaults; live calls 0 |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -327,12 +343,11 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Prepare a separate timeout-diagnostic plan before any additional model request. Preserve the
-  strict taxonomy and determine whether the 20-second node limit expired before provider response,
-  during structured-output parsing, or at the graph boundary using zero-generation/local timing
-  evidence first.
+- Approval 7 may authorize exactly one unchanged `m6-rca` execution with at most two requests. It
+  must use the new phase evidence to distinguish response wait, structured-output processing, or
+  graph completion before proposing any timeout change.
 - Do not retry `m6-rca`, run `m6-safety`, increase timeouts, alter prompts or schemas, expand the
-  alias set, relax acceptance, substitute a model, expand IAM, or begin M7 without a separate
+  alias set, relax acceptance, substitute a model, expand IAM, or begin M7 without that separate
   approval.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.

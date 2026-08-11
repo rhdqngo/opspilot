@@ -172,3 +172,13 @@ Future work must not add any cost-bearing resource without a separate plan and a
   Provider usage exposed through the bounded result was zero prompt, output, and total tokens; no
   billing amount is inferred from that metadata. The second RCA node and safety suite were not
   called.
+
+## M6 Approval 6 boundary
+
+- Timeout phase contracts, monotonic timing, fake-model regression, and static CI are local-only.
+- The model, prompts, schemas, 20/60/200-second limits, request ceilings, and Standard PayGo
+  configuration are unchanged.
+- Approval 6 authorizes zero Vertex generation, Search, live-evidence, import, image, deployment,
+  IAM, Terraform, or hosted model workflow calls, so its incremental cloud cost is zero.
+- A later RCA diagnostic execution remains a separate approval with its own maximum request and
+  cost boundary.

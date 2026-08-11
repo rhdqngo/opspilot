@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Sequence
 from typing import cast
@@ -20,7 +21,10 @@ from opspilot.agent.contracts import (
     HypothesisReview,
     HypothesisReviewBatch,
     ModelBackend,
+    ModelBudgetUsage,
     ModelEvidence,
+    ModelExecutionPhase,
+    ModelTimeoutOrigin,
     ReviewInput,
 )
 from opspilot.agent.diagnostics import render_agent_diagnostic, run_agent_diagnostic
@@ -31,6 +35,7 @@ from opspilot.agent.models import (
 )
 from opspilot.agent.runner import (
     _acceptance_case,
+    _RequestBudgetTracker,
     _safe_error,
     render_agent_acceptance,
     render_agent_result,
@@ -90,6 +95,18 @@ async def test_M6_fake_agent_runs_two_model_nodes_and_keeps_citations_grounded()
     assert result.budget.request_input_bytes > 0
     assert result.budget.max_request_input_bytes <= MAX_MODEL_INPUT_BYTES
     assert result.budget.input_bytes <= MAX_MODEL_INPUT_BYTES
+    assert result.budget.timeout_origin == ModelTimeoutOrigin.NONE
+    assert result.budget.graph_elapsed_ms >= 0
+    assert [timing.node_name for timing in result.budget.node_timings] == [
+        "rca_analyst",
+        "report_composer",
+    ]
+    assert all(
+        timing.last_phase == ModelExecutionPhase.GRAPH_COMPLETED
+        and timing.completed
+        and timing.timeout_seconds == MODEL_NODE_TIMEOUT_SECONDS
+        for timing in result.budget.node_timings
+    )
     assert result.report is not None
     assert result.report.audit["root_cause_code"] == "PAYMENT_DB_POOL_EXHAUSTION"
     assert result.report.audit["citation_coverage"] == 1.0
@@ -135,7 +152,90 @@ async def test_M6_acceptance_suites_have_fixed_cases_and_call_budgets(
     assert result.attempted_model_calls == model_calls
     assert result.successful_model_calls == model_calls
     assert all(case.budget.attempted_model_calls == 2 for case in result.cases)
+    assert all(
+        timing.last_phase == ModelExecutionPhase.GRAPH_COMPLETED
+        for case in result.cases
+        for timing in case.budget.node_timings
+    )
     assert f"attempted_model_calls: {model_calls}" in render_agent_acceptance(result, "summary")
+
+
+def test_M6_model_budget_timing_contract_is_backward_compatible() -> None:
+    usage = ModelBudgetUsage.model_validate(
+        {
+            "model_calls": 1,
+            "attempted_model_calls": 1,
+            "successful_model_calls": 1,
+        }
+    )
+
+    assert usage.node_timings == []
+    assert usage.graph_elapsed_ms == 0
+    assert usage.timeout_origin == ModelTimeoutOrigin.NONE
+
+
+@pytest.mark.parametrize(
+    ("phase", "expected_origin"),
+    [
+        (ModelExecutionPhase.REQUEST_VALIDATED, ModelTimeoutOrigin.MODEL_RESPONSE_PENDING),
+        (ModelExecutionPhase.RESPONSE_RECEIVED, ModelTimeoutOrigin.STRUCTURED_OUTPUT_PENDING),
+        (ModelExecutionPhase.NODE_OUTPUT_EMITTED, ModelTimeoutOrigin.GRAPH_COMPLETION_PENDING),
+    ],
+)
+def test_M6_timeout_origin_is_derived_only_from_last_observed_phase(
+    phase: ModelExecutionPhase,
+    expected_origin: ModelTimeoutOrigin,
+) -> None:
+    now = [10.0]
+    tracker = _RequestBudgetTracker(clock=lambda: now[0])
+    now[0] = 11.0
+    tracker.observe_request("rca_analyst", 512)
+    if phase in {ModelExecutionPhase.RESPONSE_RECEIVED, ModelExecutionPhase.NODE_OUTPUT_EMITTED}:
+        now[0] = 12.0
+        tracker.observe_model_response("rca_analyst")
+    if phase == ModelExecutionPhase.NODE_OUTPUT_EMITTED:
+        now[0] = 13.0
+        tracker.observe_node_output("rca_analyst")
+    now[0] = 14.0
+    tracker.observe_timeout()
+
+    usage = tracker.budget(256)
+
+    assert usage.timeout_origin == expected_origin
+    assert usage.node_timings[0].last_phase == phase
+    assert usage.node_timings[0].total_elapsed_ms == (
+        2_000 if phase == ModelExecutionPhase.NODE_OUTPUT_EMITTED else 3_000
+    )
+    assert usage.node_timings[0].request_to_response_ms == (
+        None if phase == ModelExecutionPhase.REQUEST_VALIDATED else 1_000
+    )
+    assert usage.node_timings[0].response_to_output_ms == (
+        1_000 if phase == ModelExecutionPhase.NODE_OUTPUT_EMITTED else None
+    )
+
+
+@pytest.mark.asyncio
+async def test_M6_acceptance_deadline_has_a_distinct_safe_origin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import opspilot.agent.runner as agent_runner
+
+    async def stalled_investigation(**_kwargs: object) -> None:
+        await asyncio.sleep(0.01)
+
+    monkeypatch.setattr(agent_runner, "M6_ACCEPTANCE_DEADLINE_SECONDS", 0)
+    monkeypatch.setattr(agent_runner, "run_agent_investigation", stalled_investigation)
+
+    result = await agent_runner.run_agent_acceptance(
+        model_backend=ModelBackend.FAKE,
+        suite=AgentAcceptanceSuite.RCA,
+    )
+
+    assert not result.passed
+    assert result.executed_case_count == 0
+    assert result.timeout_origin == ModelTimeoutOrigin.ACCEPTANCE_DEADLINE
+    assert result.errors[0].code == "AGENT_TIMEOUT"
+    assert "timeout_origin: acceptance_deadline" in render_agent_acceptance(result, "summary")
 
 
 @pytest.mark.asyncio
@@ -522,6 +622,10 @@ def test_M6_diagnostic_is_zero_generation_and_redacted() -> None:
 
     assert result.model_ready
     assert result.generate_content_calls == 0
+    assert result.phase_observability_ready
+    assert result.node_timeout_seconds == MODEL_NODE_TIMEOUT_SECONDS
+    assert result.graph_timeout_seconds == MODEL_DEADLINE_SECONDS
+    assert result.acceptance_timeout_seconds == 200
     output = result.model_dump_json() + render_agent_diagnostic(result)
     assert "secret-project" not in output
     assert "secret-token" not in output
