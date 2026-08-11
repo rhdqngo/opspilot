@@ -1,0 +1,62 @@
+# M6 Agent Orchestration Runbook
+
+Status: Approval 1 code complete; live model calls not approved
+
+## Purpose
+
+M6 attaches bounded ADK reasoning to the M5 typed evidence layer. It does not expose raw cloud
+clients to a model and does not execute remediation.
+
+## Offline validation
+
+Install the optional dependency and run the deterministic path:
+
+```powershell
+uv sync --frozen --extra agent
+uv run --extra agent opspilot agent run --backend fixture --scenario SCN-001 --model fake --format summary
+uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
+```
+
+Expected evaluation result is seven executed fixtures, seven passes, and twenty-one fake model
+calls. The single-run trajectory is:
+
+```text
+prepare_bounded_evidence
+rca_analyst
+prepare_review
+evidence_reviewer
+verify_and_score
+report_composer
+finalize_report
+```
+
+## Fixed execution budget
+
+- three model calls maximum
+- 20 seconds per model node; 60 seconds total
+- 64 KiB total model input view
+- 2,048 output tokens per model node
+- one graph execution at a time
+- no model tools, retry, pagination, or remediation
+
+Evidence is collected before the graph. A source failure produces a partial report when sufficient
+independent evidence remains. Complete failure or invalid model output returns a redacted error and
+exit code 2.
+
+## Security contract
+
+- Evidence titles, summaries, and knowledge chunks are untrusted data, not instructions.
+- The model sees logical `opspilot://evidence/...` citations only.
+- Project IDs, URLs, resource names, credentials, raw filters, request IDs, trace IDs, and source
+  records are excluded from model inputs and public errors.
+- The reviewer cannot make a citation trusted. A deterministic node checks each reference against
+  immutable collected evidence and computes support scores in code.
+- Suggested actions containing commands, URLs, resource paths, unknown services, or unknown
+  citations are discarded. Surviving recommendations always require human approval.
+
+## Live-model boundary
+
+`--model vertex` is fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true` is set in the current
+process. Do not enable it during Approval 1. Approval 2 must first confirm model access, region,
+quota, pricing, redaction, and a fixed request budget, then run a separately approved bounded eval.
+Agent Runtime deployment and Gemini Enterprise registration remain M7 work.

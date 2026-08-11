@@ -109,6 +109,21 @@ def build_parser() -> argparse.ArgumentParser:
     evidence_smoke.add_argument("--scenario", choices=("SCN-001",), default="SCN-001")
     evidence_smoke.add_argument("--env", choices=("dev",), default="dev")
     evidence_smoke.add_argument("--format", choices=("json", "summary"), default="summary")
+    agent = subcommands.add_parser("agent", help="Run bounded ADK incident reasoning")
+    agent_commands = agent.add_subparsers(dest="agent_command", required=True)
+    agent_run = agent_commands.add_parser("run", help="Run one fixture or gated live agent case")
+    agent_run.add_argument("--backend", choices=("fixture", "live"), default="fixture")
+    agent_run.add_argument(
+        "--scenario",
+        choices=tuple(f"SCN-{index:03d}" for index in range(1, 8)),
+        default="SCN-001",
+    )
+    agent_run.add_argument("--model", choices=("fake", "vertex"), default="fake")
+    agent_run.add_argument("--format", choices=("json", "markdown", "summary"), default="summary")
+    agent_eval = agent_commands.add_parser("eval", help="Run the seven-case agent fixture suite")
+    agent_eval.add_argument("--suite", choices=("fixture",), default="fixture")
+    agent_eval.add_argument("--model", choices=("fake", "vertex"), default="fake")
+    agent_eval.add_argument("--format", choices=("json", "summary"), default="summary")
     return parser
 
 
@@ -227,4 +242,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(render_evidence_summary(evidence_result), end="")
         return 0 if evidence_result.succeeded else 2
+    if args.command == "agent":
+        try:
+            from opspilot.agent.contracts import AgentBackend, ModelBackend
+            from opspilot.agent.runner import (
+                render_agent_eval,
+                render_agent_result,
+                run_agent_eval,
+                run_agent_investigation,
+            )
+        except ImportError:
+            print("The agent extra is required: uv sync --extra agent")
+            return 2
+        if args.agent_command == "run":
+            agent_result = asyncio.run(
+                run_agent_investigation(
+                    backend=AgentBackend(str(args.backend)),
+                    scenario_id=str(args.scenario),
+                    model_backend=ModelBackend(str(args.model)),
+                )
+            )
+            print(render_agent_result(agent_result, str(args.format)), end="")
+            return 0 if agent_result.succeeded else 2
+        if args.agent_command == "eval":
+            eval_result = asyncio.run(run_agent_eval(model_backend=ModelBackend(str(args.model))))
+            print(render_agent_eval(eval_result, str(args.format)), end="")
+            return 0 if eval_result.passed else 2
     raise AssertionError("unreachable command")

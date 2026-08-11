@@ -21,21 +21,23 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - name: Verify lockfile and install
-        run: uv sync --frozen
+        run: uv sync --frozen --extra agent
       - name: Check formatting
         run: uv run ruff format --check .
       - name: Lint
         run: uv run ruff check .
       - name: Type check
-        run: uv run mypy src tests
+        run: uv run --extra agent mypy src tests
       - name: Test
-        run: uv run pytest
+        run: uv run --extra agent pytest
       - name: Validate synthetic knowledge corpus
         run: uv run opspilot knowledge validate --format summary
       - name: Run deterministic knowledge smoke
         run: uv run opspilot knowledge smoke --backend local --env dev --format summary
       - name: Run fixture evidence smoke
         run: uv run opspilot evidence smoke --backend fixture --scenario SCN-001 --env dev --format summary
+      - name: Run deterministic ADK agent evaluation
+        run: uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
       - name: Build
         run: uv build
 

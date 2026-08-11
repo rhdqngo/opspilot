@@ -71,6 +71,24 @@ The live backend is disabled by default. It accepts no project, URL, token, reso
 Logging filter, or Monitoring filter argument. Google Cloud IAM and live evidence acceptance are a
 separate Approval 2.
 
+## Bounded ADK orchestration
+
+M6 Approval 1 adds Google ADK 2.5 as an optional dependency and keeps the default installation
+lightweight. The offline fake model executes the same typed seven-node graph as the future Vertex
+path without a network call or credential:
+
+```powershell
+uv sync --frozen --extra agent
+uv run --extra agent opspilot agent run --backend fixture --scenario SCN-001 --model fake --format summary
+uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
+```
+
+The graph performs bounded evidence preparation, RCA drafting, independent citation review,
+deterministic scoring, and report composition. Model nodes receive normalized evidence only, have
+no tools, and cannot assign support scores or execute recommendations. The Vertex model path is
+fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true`; Approval 1 does not enable that gate or make
+any model request.
+
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
 `/ready`. The identifier-free operator diagnostic is:
@@ -84,8 +102,8 @@ uv run opspilot route-check --account-alias Edu_687 --format summary
 ```powershell
 uv run ruff format --check .
 uv run ruff check .
-uv run mypy src tests
-uv run pytest
+uv run --extra agent mypy src tests
+uv run --extra agent pytest
 uv build
 ```
 
@@ -137,3 +155,5 @@ See `docs/operations/demo-services.md` for the workload runbook and
   separate Search apply, import, and live smoke approval completes.
 - M5 hosted plans additionally require `TF_M5_LIVE_EVIDENCE_READY=true`; it is enabled after the
   investigator IAM apply and bounded live acceptance passed.
+- M6 model calls are default-off. Offline CI uses the deterministic fake model, and the optional
+  Vertex path requires a process-scoped gate plus a separate live-model approval.

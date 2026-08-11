@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M5-complete / M6-ready-for-planning
+phase: M6-code-complete / M6-ready-for-model-approval
 updated: 2026-08-11
 
 ## Objective
@@ -18,6 +18,18 @@ updated: 2026-08-11
 - Optional work cannot enter an MVP acceptance gate or Terraform plan without a separate approval.
 
 ## Active scope
+
+- M6 Approval 1 implements a fixed Google ADK 2.5 graph over the existing typed evidence boundary.
+  Three tool-free model nodes draft hypotheses, review citations, and compose report prose; four
+  deterministic nodes bound inputs, preserve trusted evidence, calculate scores, and finalize the
+  existing `IncidentReport` contract.
+- ADK remains an optional package extra. The default fake model makes no network call and passes
+  all seven scenario contracts with exactly three model calls per case. Vertex use is fail-closed
+  behind `OPSPILOT_LIVE_MODEL_ENABLED=true` and remains unapproved.
+- Model nodes receive no cloud client, credential, identifier, raw filter, URL, request/trace ID,
+  or executable tool. Inputs are capped at 64 KiB; node outputs at 2,048 tokens; node timeout is
+  20 seconds and total graph deadline 60 seconds. Recommendations remain approval-required data.
+- M6 Approval 1 changes no Terraform, IAM, image, workload, Search corpus, or Google Cloud state.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -97,9 +109,20 @@ updated: 2026-08-11
 | M4 Approval 3: hosted validation | complete | Live Search accepted; Approval 4 added one quota-consumption permission and hosted plan returned `No changes` |
 | M5 Approval 1: live evidence boundary | complete | Typed collectors, fixture smoke, redaction, default-off two-resource IAM graph |
 | M5 Approval 2: investigator IAM and live acceptance | complete | Bootstrap 1-update, dev 3-create, one bounded SCN-001 evidence batch, hosted zero drift |
-| UI Foundation | not-applicable | M5 is API, CLI, evidence tooling, and infrastructure only |
+| M6 Approval 1: ADK orchestration | complete | Optional ADK 2.5 graph, fake model, seven-case offline evaluation, no cloud/model call |
+| M6 Approval 2: live model acceptance | pending approval | Bounded Vertex evaluation only; no runtime deployment or IAM expansion |
+| UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
+
+- Added a deployment-discoverable ADK root workflow with a fixed seven-node trajectory and three
+  schema-constrained, tool-free reasoning nodes.
+- Added a deterministic fake ADK model that infers from bounded evidence rather than fixture ground
+  truth; all seven scenario root-cause contracts pass with twenty-one total offline model calls.
+- Added deterministic citation validation, source-diversity and contradiction scoring, unsafe
+  recommendation filtering, prompt-injection isolation, and logical evidence URI normalization.
+- Added redacted agent run/eval CLI commands, partial-evidence handling, fail-closed Vertex gating,
+  optional dependency locking, offline CI evaluation, runbook, ADR, and threat-model coverage.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -191,7 +214,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 111 pytest tests, including M5 evidence/error/redaction contracts, safe Search diagnostics, seven scenario contracts, and bounded SCN-001 execution |
+| Tests | pass | 121 pytest tests, including M6 graph, eval, citation, injection, failure, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -230,6 +253,10 @@ updated: 2026-08-11
 | M5 cloud/IAM apply | pass | Bootstrap exact 1-update; dev exact 3-create; 31 managed / 32 addresses |
 | M5 live evidence | pass | One SCN-001; 4 logical sources / 6 API calls; timeout count 6; metrics, neutral revision, runbook and citations accepted |
 | M5 hosted plan | pass | WIF read-only; one redacted text artifact; `No changes`; identifier/credential/binary leaks 0 |
+| M6 optional install | pass | `uv sync --frozen --extra agent`; ADK 2.5 lock resolved |
+| M6 fake agent run | pass | SCN-001 exact seven-node trajectory; three model calls; citation coverage 100% |
+| M6 offline evaluation | pass | Seven fixtures passed; twenty-one fake model calls; zero cloud/model requests |
+| M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -242,11 +269,12 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Plan M6 ADK orchestration over the existing typed evidence protocol.
-- Keep raw cloud clients, project/resource identifiers, tool filters, and credentials outside model
-  inputs. The model may reason only over bounded normalized evidence and logical citations.
-- Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, or add
-  remediation until their separate milestone approvals.
+- Approval 2 must verify current Vertex model availability, quota, pricing, account gates, and a
+  fixed request budget before enabling the process-scoped live-model gate.
+- Run only the separately approved bounded seven-case or reduced acceptance batch, compare model
+  output with deterministic fixture expectations, and restore the gate to false on any blocker.
+- Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
+  sessions, or add remediation until their separate milestone approvals.
 
 ## Related artifacts
 
@@ -258,6 +286,8 @@ updated: 2026-08-11
 - Scenario runbook: `docs/operations/scenarios.md`
 - Knowledge runbook: `docs/operations/knowledge.md`
 - Live evidence runbook: `docs/operations/live-evidence.md`
+- Agent orchestration runbook: `docs/operations/agent-orchestration.md`
+- Threat model: `docs/security/threat-model.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`
 - Cost model: `docs/cost-model.md`

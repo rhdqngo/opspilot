@@ -105,3 +105,11 @@ plan. Dev state contains 31 managed resources and 32 total addresses. The operat
 short-lived investigator token path for acceptance; no key, broad predefined project role, public
 principal, runtime project role, or extra leaf invoker was created. Operator and hosted plans are
 zero drift.
+
+## M6 agent boundary
+
+M6 Approval 1 changes no principal, role, binding, API, workload, or Terraform resource. The ADK
+graph consumes only the already-normalized `EvidenceCollectionResult`; model nodes receive no
+Google Cloud client, token provider, tool, project identifier, URL, filter, or runtime identity.
+The fake model is the only enabled CI path. A later Vertex evaluation may reuse operator ADC only
+behind a process-scoped gate and separate approval; it does not expand investigator IAM.

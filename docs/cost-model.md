@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M5 complete
+Status: M6 Approval 1 code complete
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -109,3 +109,13 @@ Future work must not add any cost-bearing resource without a separate plan and a
 5. Migrate bootstrap state away from GCS before any state bucket cleanup.
 6. Remove WIF and CI identities only after no workflow depends on them.
 7. Verify remaining budget alerts, APIs, images, objects, and state versions.
+
+## M6 Approval 1 impact
+
+- ADK orchestration, its fake model, and the seven-case evaluation run locally and in static CI.
+- The default package stays unchanged; ADK 2.5 is installed only through the optional `agent` extra.
+- Approval 1 performs zero Vertex model calls, Cloud API reads, deployments, IAM changes, or
+  Terraform changes.
+- A future live run is capped at three model calls with bounded input/output and requires the
+  explicit process gate plus a separate approval. Actual Gemini pricing and quota must be checked
+  immediately before that approval.

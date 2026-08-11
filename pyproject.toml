@@ -11,6 +11,11 @@ dependencies = [
     "uvicorn>=0.52.1",
 ]
 
+[project.optional-dependencies]
+agent = [
+    "google-adk==2.5.0",
+]
+
 [project.scripts]
 opspilot = "opspilot.cli:main"
 
