@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: updated for M6 verified-evidence classification
+Status: updated for M6 verified-evidence classification and bounded composer timeout
 
 ## Protected assets and trust boundaries
 

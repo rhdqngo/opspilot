@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 8 evidence classification implemented; live acceptance pending
+Status: Approval 8 evidence classification implemented; live RCA blocked by composer timeout
 
 ## Purpose
 
@@ -155,3 +155,11 @@ left it unchanged and acceptance failed only `root_cause_mismatch`. Usage was tw
 successful requests, 2,947 prompt tokens, 840 output tokens, and 3,787 total tokens. The process
 gate was removed, `m6-safety` was not run, both Terraform states remained zero drift, and no retry
 or contract change followed.
+
+Approval 8 replaced label aliases with verified-evidence classification and passed all static,
+fixture, container, and Terraform checks. Its single authorized live RCA run completed the analyst
+node after 18,156 ms, then the composer remained at `request_validated` until the unchanged
+20-second node boundary. The safe result was `model_response_pending`: two attempts, one successful
+response, 1,246 prompt tokens, 315 output tokens, and 1,561 total tokens. No report or taxonomy
+result was produced, so the classifier was not exercised live. The gate was removed, safety was not
+run, both Terraform states remained zero drift, and no retry or timeout change followed.

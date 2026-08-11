@@ -201,3 +201,6 @@ Future work must not add any cost-bearing resource without a separate plan and a
   safety suite. The total ceiling is six Standard PayGo requests with no retry.
 - The model, prompt, schemas, 20/60/200-second limits, input/output bounds, and monthly KRW 50,000
   alert remain unchanged. Actual bounded token usage is recorded after execution.
+- The single live RCA run stopped before safety after two attempts and one successful response.
+  Reported usage was 1,246 prompt tokens, 315 output tokens, and 1,561 total tokens, approximately
+  USD 0.0047 at the same documented list rates used for prior checkpoints. No retry was issued.

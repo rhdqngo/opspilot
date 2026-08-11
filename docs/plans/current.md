@@ -72,14 +72,20 @@ updated: 2026-08-12
   `DB_CONNECTION_POOL_EXHAUSTION`, which is not the canonical code or sole approved alias, so the
   verifier preserved it and returned only `root_cause_mismatch`.
 - The live gate was removed, safety issued zero requests, both Terraform states remained zero
-  drift, and no retry, timeout increase, taxonomy expansion, or cloud change was made. The active
-  checkpoint is `RCA-taxonomy-blocked / safety-not-approved`.
+  drift, and no retry, timeout increase, taxonomy expansion, or cloud change was made. That run
+  established the former `RCA-taxonomy-blocked / safety-not-approved` checkpoint.
 - M6 Approval 8 replaces the brittle model-label alias with synthetic-only canonical evidence
   rules after deterministic citation and direction validation. Payment-pool and prompt-injection
   rules use only verified service, source-type, and quality-flag facts.
 - Model labels remain audit data. Scenario IDs, fixture answers, evidence prose, fuzzy matching,
   contradictory/neutral/uncited evidence, and ambiguous matches cannot choose a canonical code.
   Public CLI/schema, model, prompts, graph, budgets, IAM, and cloud resources are unchanged.
+- Approval 8 static CI passed, but its one live RCA run completed only the analyst response. The
+  composer stayed at `request_validated` until the 20-second boundary, producing
+  `model_response_pending` with two attempts and one successful response.
+- The classifier was not reached in a completed live report. The gate was removed, safety issued
+  zero requests, Terraform remained zero drift, and no retry or timeout change was made. The active
+  checkpoint is `evidence-classifier-ready / RCA-composer-timeout / safety-not-run`.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -166,7 +172,7 @@ updated: 2026-08-12
 | M6 Approval 5: strict RCA taxonomy | blocked | Alias validated offline; one bounded run stopped at 1 attempt / 0 success with `AGENT_TIMEOUT`; no retry |
 | M6 Approval 6: timeout observability | complete | Content-free phase timing and timeout-origin classification validated offline; no Vertex request |
 | M6 Approval 7: final live acceptance | blocked | RCA completed 2/2 calls without timeout but failed only `root_cause_mismatch`; safety was not run |
-| M6 Approval 8: evidence classification | in-progress | Synthetic verified-evidence rules implemented; live RCA and safety acceptance pending |
+| M6 Approval 8: evidence classification | blocked | Classifier and static CI passed; live RCA stopped at composer response timeout and safety was not run |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -210,6 +216,12 @@ updated: 2026-08-12
   ms, the full trajectory and all non-taxonomy RCA predicates passed, and the exact taxonomy
   boundary rejected the unapproved `DB_CONNECTION_POOL_EXHAUSTION` label without coercion. Safety
   was not called.
+- Replaced model-label aliases with fixed verified-evidence rules for payment-pool and prompt-
+  injection classification. All 142 tests, seven fixtures, fake acceptance suites, container E2E,
+  and Terraform static checks passed without a cloud change.
+- Ran the one Approval 8 live RCA checkpoint. The analyst completed in 18,156 ms; the composer
+  response exceeded the unchanged node boundary. The run stopped at 2 attempts / 1 success and
+  safety was not called.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -351,6 +363,8 @@ updated: 2026-08-12
 | M6 Approval 5 Vertex acceptance | blocked | SCN-001: 1 attempted / 0 successful; `AGENT_TIMEOUT`; 0 prompt/output/total tokens; no retry |
 | M6 Approval 6 timeout observability | pass | Public phase callbacks, bounded monotonic timings, safe timeout origins, and backward-compatible payload defaults; live calls 0 |
 | M6 Approval 7 RCA acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,947 prompt, 840 output, 3,787 total tokens; only `root_cause_mismatch`; safety calls 0 |
+| M6 Approval 8 evidence classifier | pass | Verified service/source/quality rules; model labels and evidence prose excluded; all offline contracts pass |
+| M6 Approval 8 Vertex acceptance | blocked | SCN-001: 2 attempted / 1 successful; composer `model_response_pending`; 1,246 prompt, 315 output, 1,561 total tokens; safety calls 0 |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -364,10 +378,11 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- After Approval 8 static CI passes, run one bounded `m6-rca` suite. Run one bounded `m6-safety`
-  suite only if RCA passes; the combined ceiling is six requests with no retry.
-- Do not run live `m6-core`, Search, live evidence, Terraform workflow, or alter the model, prompt,
-  schema, timeout, acceptance predicates, IAM, or cloud resources.
+- A separate Approval 9 must review the measured composer `model_response_pending` phase before
+  authorizing any timeout adjustment and another bounded RCA run.
+- Do not retry RCA, run safety or live `m6-core`, Search, live evidence, Terraform workflow, or
+  alter the model, prompt, schema, timeout, acceptance predicates, IAM, or cloud resources before
+  that approval.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

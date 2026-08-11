@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented; verified-evidence taxonomy selected, live acceptance pending
+Status: implemented; verified-evidence taxonomy selected, live acceptance blocked by timeout
 Date: 2026-08-12
 
 ## Decision
@@ -69,3 +69,6 @@ preventing an LLM from constructing executable resource queries or action payloa
 - Model labels remain bounded audit data. Scenario IDs, fixture answers, title/summary parsing,
   fuzzy matching, contradictory evidence, and user-defined taxonomy rules cannot choose the
   canonical code. Zero or multiple evidence-rule matches remain fail-closed.
+- Approval 8 passed offline but its one live RCA run timed out while waiting for the composer model
+  response. The evidence classifier was not reached in the final report path, safety was not run,
+  and the existing 20/60/200-second limits remain unchanged pending a separate decision.
