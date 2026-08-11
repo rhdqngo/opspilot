@@ -88,11 +88,11 @@ uv run opspilot route-check --account-alias Edu_687 --format summary
 The updated diagnostic calls `/health`. See `cloud-run-mvp-recovery.md` for the new-image rollout
 and acceptance sequence.
 
-## M3 handoff
+## M3 Approval 1 handoff
 
-1. Reuse the three private M2 roles as the synthetic workload boundary.
-2. Keep normal M2 traffic healthy; add reproducible incident behavior only through the separately
-   approved M3 fixture contract.
-3. Preserve scale-to-zero, distinct runtime identities, and the two leaf invoker grants.
+The seven offline scenario contracts are complete. SCN-001 uses a strict request-scoped context
+and fixed 5/10/5 baseline, incident, and recovery phases; no service configuration is mutated by a
+scenario run. The Terraform switch defaults to false, so the current remote workload remains zero
+drift. See `scenarios.md` for commands and the separate live Approval 2 boundary.
 
 Do not destroy, expose, or broaden the deployed resources while planning M3.

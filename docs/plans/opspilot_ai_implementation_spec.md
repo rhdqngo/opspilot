@@ -2788,6 +2788,11 @@ IncidentReport에 위 버전을 저장해 재현성을 확보한다.
 
 ## M3. 장애 주입과 관측성
 
+MVP 구현 결정: 먼저 7개 offline ground-truth fixture를 완성하고 `SCN-001`만 strict
+request-scoped fault context로 실제 workload에서 검증한다. 별도 fault-injector 서비스,
+Cloud Run Job, 영구 fault flag, custom metric, dashboard와 alert는 MVP 이후 별도 승인으로
+검토한다. M3 MVP 완료는 SCN-001 live 3회 재현과 각 실행의 baseline 자동 복구를 요구한다.
+
 ### 작업
 
 - 7개 시나리오 injector 구현

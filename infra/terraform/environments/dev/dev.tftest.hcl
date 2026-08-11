@@ -173,3 +173,35 @@ run "m2_deploy_ready_contract" {
     error_message = "The controlled MVP refresh marker must create only new service revisions."
   }
 }
+
+run "m3_scenario_gate_contract" {
+  command = plan
+
+  variables {
+    project_id                = "example-project"
+    billing_account_id        = "000000-000000-000000"
+    budget_notification_email = "operator@example.invalid"
+    deploy_demo               = true
+    enable_scenarios          = true
+    demo_image_uri            = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for service in google_cloud_run_v2_service.demo_leaf : contains([for item in service.template[0].containers[0].env : "${item.name}=${item.value}"], "OPSPILOT_SCENARIOS_ENABLED=true")],
+      [contains([for item in google_cloud_run_v2_service.demo_order[0].template[0].containers[0].env : "${item.name}=${item.value}"], "OPSPILOT_SCENARIOS_ENABLED=true")],
+    ))
+    error_message = "M3 scenario behavior must remain behind the explicit environment gate."
+  }
+
+  assert {
+    condition = (
+      length(google_project_service.m1) == 12 &&
+      length(google_service_account.demo) == 3 &&
+      length(google_cloud_run_v2_service.demo_leaf) == 2 &&
+      length(google_cloud_run_v2_service.demo_order) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2
+    )
+    error_message = "M3 Approval 1 must not add cloud resources or IAM bindings."
+  }
+}

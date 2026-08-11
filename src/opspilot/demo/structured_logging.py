@@ -64,6 +64,37 @@ def emit_request_log(
     print(json.dumps(payload, separators=(",", ":"), ensure_ascii=True), flush=True)
 
 
+def emit_scenario_log(
+    settings: DemoSettings,
+    *,
+    request_id: str,
+    trace_id: str | None,
+    scenario_id: str,
+    scenario_run_id: str,
+    scenario_step: int,
+) -> None:
+    payload: dict[str, str | int] = {
+        "severity": "ERROR",
+        "message": "synthetic payment pool acquisition timed out",
+        "service": f"{settings.service.value}-service",
+        "environment": settings.environment,
+        "revision": settings.revision,
+        "request_id": request_id,
+        "trace_id": trace_id or "",
+        "event_type": "database_timeout",
+        "error_code": "DB_POOL_TIMEOUT",
+        "latency_ms": 250,
+        "scenario_id": scenario_id,
+        "scenario_run_id": scenario_run_id,
+        "scenario_step": scenario_step,
+    }
+    if trace_id and settings.project_id:
+        payload["logging.googleapis.com/trace"] = (
+            f"projects/{settings.project_id}/traces/{trace_id}"
+        )
+    print(json.dumps(payload, separators=(",", ":"), ensure_ascii=True), flush=True)
+
+
 def install_request_logging(app: FastAPI, settings: DemoSettings) -> None:
     @app.middleware("http")
     async def request_logging(request: Request, call_next: RequestResponseEndpoint) -> Response:

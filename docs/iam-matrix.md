@@ -44,3 +44,11 @@ reviewed custom-role update separately from the exact dev 10-create plan. Servic
 `allUsers`, broad project roles, and automated apply remain prohibited. Safe-path recovery changed
 only the three service images and probes; runtime keys, project runtime roles, and public principals
 remain zero. The manual hosted plan gate is enabled with the unchanged read-only identity.
+
+## M3 scenario boundary
+
+M3 Approval 1 adds no principal, role, IAM binding, service, or job. The local operator runner uses
+the existing developer ID-token path only in the separately approved live phase. The order runtime
+identity retains only its two leaf `roles/run.invoker` grants. Scenario context is strict,
+request-scoped synthetic data and does not authorize a request or grant access; Cloud Run IAM
+continues to enforce service invocation.

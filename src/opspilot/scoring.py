@@ -15,6 +15,7 @@ SCORE_WEIGHTS: dict[str, int] = {
     "runbook_symptom_match": 8,
     "cross_service_causal_chain": 7,
     "reproduction_match": 10,
+    "capacity_ceiling_match": 25,
 }
 
 

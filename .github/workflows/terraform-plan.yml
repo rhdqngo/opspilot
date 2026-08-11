@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   dev-plan:
-    if: ${{ vars.TF_PLAN_ENABLED == 'true' && vars.TF_M2_IMAGE_READY == 'true' }}
+    if: ${{ vars.TF_PLAN_ENABLED == 'true' && vars.TF_M2_IMAGE_READY == 'true' && vars.TF_M3_IMAGE_READY == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -20,6 +20,7 @@ jobs:
       TF_VAR_budget_notification_email: ${{ secrets.GCP_BUDGET_NOTIFICATION_EMAIL }}
       TF_VAR_deploy_demo: "true"
       TF_VAR_demo_image_uri: ${{ vars.GCP_DEMO_IMAGE_URI }}
+      TF_VAR_enable_scenarios: "true"
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       OPSPILOT_REDACT_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       OPSPILOT_REDACT_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}

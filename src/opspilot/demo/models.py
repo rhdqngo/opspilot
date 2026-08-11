@@ -66,3 +66,23 @@ class LoadSummary(BaseModel):
     request_ids: int = Field(ge=0)
     latency_p50_ms: int = Field(ge=0)
     latency_p95_ms: int = Field(ge=0)
+
+
+class ScenarioPhaseSummary(BaseModel):
+    attempted: int = Field(ge=1)
+    fulfilled: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    request_ids: int = Field(ge=0)
+    latency_p50_ms: int = Field(ge=0)
+    latency_p95_ms: int = Field(ge=0)
+
+
+class ScenarioRunSummary(BaseModel):
+    scenario_id: Literal["SCN-001"]
+    run_id: str = Field(pattern=r"^RUN-SCN-001-[A-Z0-9]{12}$")
+    baseline: ScenarioPhaseSummary
+    incident: ScenarioPhaseSummary
+    recovery: ScenarioPhaseSummary
+    trace_count: int = Field(ge=0)
+    recovered: bool
+    ground_truth_matched: bool

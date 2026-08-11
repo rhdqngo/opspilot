@@ -1,0 +1,33 @@
+{
+  "scenario_id": "SCN-002",
+  "incident_id": "INC-2026-0002",
+  "title": "external payment provider timeout",
+  "expected_root_cause": "External payment provider exceeded the dependency timeout",
+  "root_cause_code": "PAYMENT_UPSTREAM_TIMEOUT",
+  "primary_service": "payment-service",
+  "expected_report_status": "IDENTIFIED",
+  "mechanism": "The upstream simulator delayed responses beyond the payment dependency timeout while database signals remained normal.",
+  "impact_summary": "Synthetic payment authorizations timed out and checkout requests failed.",
+  "required_evidence_types": ["LOG", "METRIC", "CHANGE", "KNOWLEDGE"],
+  "next_checks": ["Compare provider latency with the configured dependency timeout."],
+  "expected_tools_any_order": ["query_logs", "query_metric_series", "list_cloud_run_revisions", "search_knowledge"],
+  "forbidden_tools": ["execute_rollback"],
+  "expected_action": "ESCALATE_UPSTREAM",
+  "must_request_approval": true,
+  "action": {
+    "title": "Propose upstream timeout mitigation",
+    "description": "Prepare an approval request to isolate or temporarily bypass the synthetic upstream dependency.",
+    "expected_effect": "Restore bounded payment authorization latency.",
+    "verification_steps": ["Verify provider latency and checkout success for ten minutes."]
+  },
+  "expected_timeline": [
+    {"offset_minutes": 0, "event_type": "METRIC", "description": "Provider latency rises without a deployment."},
+    {"offset_minutes": 1, "event_type": "LOG", "description": "Outbound timeout errors begin."}
+  ],
+  "evidence": [
+    {"evidence_id":"EV-LOG-0002","source_type":"LOG","title":"Upstream authorization timeout","service":"payment-service","environment":"dev","observed_at":"2026-08-10T05:01:00Z","summary":"Synthetic outbound provider request exceeded three seconds.","direction":"SUPPORTS","source_uri":"fixture://SCN-002/log/1","source_record_id":"log-synthetic-002","raw_excerpt_hash":"sha256:fixture-log-002","quality_flags":["direct_error_signature_match","reproduction_match"]},
+    {"evidence_id":"EV-MET-0002","source_type":"METRIC","title":"Provider latency increased while DB wait stayed normal","service":"payment-service","environment":"dev","period_start":"2026-08-10T05:00:00Z","period_end":"2026-08-10T05:15:00Z","summary":"Synthetic upstream latency rose while database pool wait remained flat.","direction":"SUPPORTS","source_uri":"fixture://SCN-002/metric/1","source_record_id":"metric-synthetic-002","raw_excerpt_hash":"sha256:fixture-metric-002","quality_flags":["metric_log_agreement","cross_service_causal_chain"]},
+    {"evidence_id":"EV-CHG-0002","source_type":"CHANGE","title":"No recent payment deployment","service":"payment-service","environment":"dev","observed_at":"2026-08-10T05:00:00Z","summary":"No revision or configuration change occurred in the incident window.","direction":"CONTRADICTS","source_uri":"fixture://SCN-002/change/1","source_record_id":"revision-none-002","raw_excerpt_hash":"sha256:fixture-change-002","quality_flags":[]},
+    {"evidence_id":"EV-KNW-0002","source_type":"KNOWLEDGE","title":"Upstream timeout runbook","service":"payment-service","environment":"dev","observed_at":"2026-08-10T05:04:00Z","summary":"The runbook distinguishes upstream latency from database pool wait.","direction":"SUPPORTS","source_uri":"fixture://SCN-002/knowledge/RB-PAY-002","source_record_id":"RB-PAY-002","raw_excerpt_hash":"sha256:fixture-knowledge-002","retrieval_score":0.91,"quality_flags":["runbook_symptom_match","prior_rca_match"]}
+  ]
+}

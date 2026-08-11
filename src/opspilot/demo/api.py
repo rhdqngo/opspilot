@@ -20,7 +20,16 @@ from opspilot.demo.models import (
     PaymentAuthorizationRequest,
     PaymentAuthorizationResponse,
 )
-from opspilot.demo.structured_logging import install_request_logging
+from opspilot.demo.scenario_context import (
+    ScenarioContext,
+    ScenarioContextError,
+    parse_scenario_context,
+)
+from opspilot.demo.structured_logging import (
+    emit_scenario_log,
+    extract_trace_id,
+    install_request_logging,
+)
 
 DOWNSTREAM_TIMEOUT_SECONDS = 3.0
 ORDER_TIMEOUT_SECONDS = 5.0
@@ -39,6 +48,7 @@ async def _safe_call(
     url: str,
     payload: dict[str, object],
     request: Request,
+    scenario: ScenarioContext | None,
 ) -> dict[str, Any] | DependencyCallError:
     try:
         return await client.post_json(
@@ -46,6 +56,7 @@ async def _safe_call(
             payload,
             request_id=_request_id(request),
             trace_context=_trace_context(request),
+            scenario_headers=scenario.headers() if scenario else None,
             timeout_seconds=DOWNSTREAM_TIMEOUT_SECONDS,
         )
     except DependencyCallError as exc:
@@ -78,7 +89,24 @@ def create_app(
         )
         async def authorize(
             payload: PaymentAuthorizationRequest, request: Request
-        ) -> PaymentAuthorizationResponse:
+        ) -> PaymentAuthorizationResponse | JSONResponse:
+            try:
+                scenario = parse_scenario_context(
+                    request.headers, scenarios_enabled=runtime.scenarios_enabled
+                )
+            except ScenarioContextError as exc:
+                return JSONResponse(status_code=400, content={"error_code": str(exc)})
+            if scenario is not None and scenario.inject_payment_failure:
+                await asyncio.sleep(0.25)
+                emit_scenario_log(
+                    runtime,
+                    request_id=_request_id(request),
+                    trace_id=extract_trace_id(_trace_context(request)),
+                    scenario_id=scenario.scenario_id,
+                    scenario_run_id=scenario.run_id,
+                    scenario_step=scenario.step,
+                )
+                return JSONResponse(status_code=503, content={"error_code": "DB_POOL_TIMEOUT"})
             return PaymentAuthorizationResponse(
                 authorization_id=f"pay_{uuid4().hex[:16]}",
                 request_id=_request_id(request),
@@ -93,7 +121,11 @@ def create_app(
         )
         async def reserve(
             payload: InventoryReservationRequest, request: Request
-        ) -> InventoryReservationResponse:
+        ) -> InventoryReservationResponse | JSONResponse:
+            try:
+                parse_scenario_context(request.headers, scenarios_enabled=runtime.scenarios_enabled)
+            except ScenarioContextError as exc:
+                return JSONResponse(status_code=400, content={"error_code": str(exc)})
             return InventoryReservationResponse(
                 reservation_id=f"res_{uuid4().hex[:16]}",
                 request_id=_request_id(request),
@@ -112,6 +144,12 @@ def create_app(
         async def create_order(
             payload: OrderCreateRequest, request: Request
         ) -> OrderResponse | JSONResponse:
+            try:
+                scenario = parse_scenario_context(
+                    request.headers, scenarios_enabled=runtime.scenarios_enabled
+                )
+            except ScenarioContextError as exc:
+                return JSONResponse(status_code=400, content={"error_code": str(exc)})
             order_id = f"ord_{uuid4().hex[:16]}"
             try:
                 async with asyncio.timeout(ORDER_TIMEOUT_SECONDS):
@@ -121,6 +159,7 @@ def create_app(
                             f"{payment_url}/v1/payments/authorizations",
                             {"order_id": order_id, "amount_krw": payload.amount_krw},
                             request,
+                            scenario,
                         ),
                         _safe_call(
                             client,
@@ -131,6 +170,7 @@ def create_app(
                                 "quantity": payload.quantity,
                             },
                             request,
+                            scenario,
                         ),
                     )
             except TimeoutError:

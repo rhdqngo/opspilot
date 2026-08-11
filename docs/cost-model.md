@@ -49,6 +49,16 @@ drift and scale to zero after validation.
   is active. Both hosted Terraform plan gates are enabled only for the manual read-only workflow.
 Future work must not add any cost-bearing resource without a separate plan and approval.
 
+## M3 Approval 1 impact
+
+- Seven scenario fixtures and SCN-001 execution are local code only.
+- The scenario profile is capped at 20 requests per run; local CI repeats it three times.
+- `enable_scenarios=false` is the Terraform default and `TF_M3_IMAGE_READY` is not configured.
+- No image was pushed and no Cloud Run, Logging, Monitoring, IAM, metric, alert, or state resource
+  changed.
+- Approval 2 may generate only three short live runs, for at most 60 scenario orders plus bounded
+  health and telemetry queries, while all services retain minimum instances zero.
+
 ## Cleanup order
 
 1. Disable `TF_M2_IMAGE_READY` and the live Terraform plan gate.

@@ -27,6 +27,7 @@ class FakeDependencyClient:
         *,
         request_id: str,
         trace_context: str | None,
+        scenario_headers: Mapping[str, str] | None,
         timeout_seconds: float,
     ) -> dict[str, Any]:
         self.calls.append(
@@ -35,6 +36,7 @@ class FakeDependencyClient:
                 "payload": payload,
                 "request_id": request_id,
                 "trace_context": trace_context,
+                "scenario_headers": scenario_headers,
                 "timeout_seconds": timeout_seconds,
             }
         )
@@ -79,6 +81,7 @@ def test_M2_order_fulfills_and_propagates_request_and_trace_ids() -> None:
     assert len(dependency.calls) == 2
     assert {call["request_id"] for call in dependency.calls} == {"req_demo_0001"}
     assert {call["trace_context"] for call in dependency.calls} == {trace_context}
+    assert {call["scenario_headers"] for call in dependency.calls} == {None}
     assert {call["timeout_seconds"] for call in dependency.calls} == {3.0}
 
 
@@ -205,3 +208,101 @@ def test_M2_structured_log_is_fixed_shape_and_contains_no_payload_or_credentials
     rendered = json.dumps(records)
     assert "987654" not in rendered
     assert "secret-token-value" not in rendered
+
+
+def test_M3_order_propagates_strict_scenario_context() -> None:
+    dependency = FakeDependencyClient()
+    settings = _settings(DemoService.ORDER).model_copy(update={"scenarios_enabled": True})
+    headers = {
+        "X-Request-ID": "req_scenario_0001",
+        "X-OpsPilot-Scenario": "SCN-001",
+        "X-OpsPilot-Scenario-Run": "RUN-SCN-001-ABCDEF123456",
+        "X-OpsPilot-Scenario-Step": "3",
+    }
+    with TestClient(create_app(settings, dependency)) as client:
+        response = client.post(
+            "/v1/orders",
+            json={"sku": "SKU-001", "quantity": 1, "amount_krw": 1000},
+            headers=headers,
+        )
+
+    assert response.status_code == 201
+    assert {tuple(sorted(call["scenario_headers"].items())) for call in dependency.calls} == {
+        tuple(
+            sorted(
+                {
+                    "X-OpsPilot-Scenario": "SCN-001",
+                    "X-OpsPilot-Scenario-Run": "RUN-SCN-001-ABCDEF123456",
+                    "X-OpsPilot-Scenario-Step": "3",
+                }.items()
+            )
+        )
+    }
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"X-OpsPilot-Scenario": "SCN-001"},
+        {
+            "X-OpsPilot-Scenario": "SCN-999",
+            "X-OpsPilot-Scenario-Run": "RUN-SCN-001-ABCDEF123456",
+            "X-OpsPilot-Scenario-Step": "1",
+        },
+        {
+            "X-OpsPilot-Scenario": "SCN-001",
+            "X-OpsPilot-Scenario-Run": "RUN-SCN-001-ABCDEF123456",
+            "X-OpsPilot-Scenario-Step": "11",
+        },
+    ],
+)
+def test_M3_rejects_disabled_incomplete_or_invalid_scenario_context(
+    headers: dict[str, str],
+) -> None:
+    settings = _settings(DemoService.PAYMENT)
+    if len(headers) == 3:
+        settings = settings.model_copy(update={"scenarios_enabled": True})
+    with TestClient(create_app(settings)) as client:
+        response = client.post(
+            "/v1/payments/authorizations",
+            json={"order_id": "ord_0123456789abcdef", "amount_krw": 1000},
+            headers={"X-Request-ID": "req_scenario_0002", **headers},
+        )
+    assert response.status_code == 400
+
+
+def test_M3_payment_injects_only_the_first_six_SCN_001_steps(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    settings = _settings(DemoService.PAYMENT).model_copy(update={"scenarios_enabled": True})
+    base_headers = {
+        "X-OpsPilot-Scenario": "SCN-001",
+        "X-OpsPilot-Scenario-Run": "RUN-SCN-001-ABCDEF123456",
+    }
+    with TestClient(create_app(settings)) as client:
+        failed = client.post(
+            "/v1/payments/authorizations",
+            json={"order_id": "ord_0123456789abcdef", "amount_krw": 1000},
+            headers={
+                "X-Request-ID": "req_scenario_0003",
+                "X-OpsPilot-Scenario-Step": "6",
+                **base_headers,
+            },
+        )
+        succeeded = client.post(
+            "/v1/payments/authorizations",
+            json={"order_id": "ord_0123456789abcdef", "amount_krw": 1000},
+            headers={
+                "X-Request-ID": "req_scenario_0004",
+                "X-OpsPilot-Scenario-Step": "7",
+                **base_headers,
+            },
+        )
+
+    assert failed.status_code == 503
+    assert failed.json() == {"error_code": "DB_POOL_TIMEOUT"}
+    assert succeeded.status_code == 201
+    rendered = capsys.readouterr().out
+    assert '"event_type":"database_timeout"' in rendered
+    assert '"scenario_id":"SCN-001"' in rendered
+    assert "amount_krw" not in rendered

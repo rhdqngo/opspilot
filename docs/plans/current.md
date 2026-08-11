@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M2-complete / M3-ready-for-planning
+phase: M3-corpus-complete / SCN-001-ready-for-live-approval
 updated: 2026-08-11
 
 ## Objective
@@ -18,6 +18,13 @@ updated: 2026-08-11
 - Optional work cannot enter an MVP acceptance gate or Terraform plan without a separate approval.
 
 ## Active scope
+
+- M3 Approval 1 adds seven deterministic incident fixtures and generalizes fixture replay around
+  scenario-owned ground truth, evidence requirements, contradictions, and approval constraints.
+- SCN-001 is the only live-capable MVP scenario. It uses a strict request-scoped context and a
+  fixed baseline/incident/recovery profile with no persistent fault state or management endpoint.
+- Terraform keeps scenario execution disabled by default and adds no resource or IAM binding.
+  Image push, Cloud Run update, repository-variable changes, and live 5xx remain Approval 2 work.
 
 - R0 local investigation, M0 access verification, and the M1 foundation are complete.
 - M2 Approval 1 implements order, payment, and inventory as three isolated roles in one non-root
@@ -45,9 +52,17 @@ updated: 2026-08-11
 | M1 Dev foundation | complete | 14 managed resources; operator and hosted zero drift |
 | M2 Approval 1: local workload | complete | Three healthy containers; 10/10 normal orders; no cloud write |
 | M2 Approval 2: Cloud Run deploy | complete | Private remote E2E, telemetry, security, and hosted zero drift passed |
+| M3 Approval 1: incident corpus | complete | Seven offline contracts; bounded SCN-001 local injection; no cloud write |
 | UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
 
 ## Completed major results
+
+- Added SCN-001 through SCN-007 as validated ground-truth contracts and generalized fixture replay
+  so contradictions, insufficient evidence, and malicious knowledge are handled per scenario.
+- Added a default-off request-scoped SCN-001 path with strict context validation and deterministic
+  six-of-ten payment pool timeout behavior; baseline and recovery requests remain normal.
+- Added a bounded scenario CLI, three-run Compose CI path, fixed-shape scenario logs, and a
+  Terraform/GitHub gate that introduces no resource while Approval 2 is inactive.
 
 - Added typed synthetic order, payment authorization, and inventory reservation APIs with strict
   non-PII input contracts and safe partial downstream failures.
@@ -82,12 +97,14 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 52 pytest tests, including delayed-log readiness and generic endpoint classification |
+| Tests | pass | 61 pytest tests, including seven scenario contracts and bounded SCN-001 execution |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
 | M2 access gate | pass | Redacted deploy and telemetry-read permissions; candidate conflicts 0 |
 | Terraform static | pass | recursive fmt, validate, three mock-provider runs, TFLint 0.64.0 |
+| M3 scenario Terraform | pass | Default-off gate; existing resource/IAM graph only; no cloud write |
+| M3 default-off remote plan | blocked | User ADC requires reauthentication; static contract passed and no cloud write occurred |
 | Hosted static CI | pass | Python/container and bootstrap/dev Terraform jobs on the deployment baseline |
 | Bootstrap apply | pass | Exact `0 create / 1 update / 0 delete`; operator zero drift |
 | Dev apply | pass | Exact `10 create / 0 update / 0 delete`; 24 managed resources; operator zero drift |
@@ -110,8 +127,10 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Plan M3 reproducible incident fixtures without adding public access, VPC requirements, or
-  remediation execution to the MVP core.
+- Obtain separate M3 Approval 2 for one immutable image push, exact three-service in-place update,
+  and three bounded live SCN-001 reproductions with automatic baseline recovery.
+- Reauthenticate user ADC before the Approval 2 fresh plan; do not reuse or expose the prior
+  authentication error output.
 
 ## Related artifacts
 
@@ -120,6 +139,7 @@ updated: 2026-08-11
 - MVP endpoint recovery: `docs/operations/cloud-run-mvp-recovery.md`
 - Superseded migration contingency: `docs/plans/m2_personal_project_migration.md`
 - Bootstrap runbook: `docs/operations/bootstrap.md`
+- Scenario runbook: `docs/operations/scenarios.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`
 - Cost model: `docs/cost-model.md`

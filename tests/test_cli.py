@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from opspilot.cli import main
-from opspilot.demo.models import LoadSummary
+from opspilot.demo.models import LoadSummary, ScenarioPhaseSummary, ScenarioRunSummary
 from opspilot.route_check import CloudRunRouteCheckResult
 
 
@@ -57,4 +57,46 @@ def test_route_check_cli_returns_two_for_a_redacted_blocker(
     assert exit_code == 2
     output = capsys.readouterr().out
     assert '"blocker_code": "endpoint_not_found"' in output
+    assert "http" not in output
+
+
+def test_M3_cli_scenario_run_prints_redacted_aggregate(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    phase = ScenarioPhaseSummary(
+        attempted=5,
+        fulfilled=5,
+        failed=0,
+        request_ids=5,
+        latency_p50_ms=10,
+        latency_p95_ms=12,
+    )
+
+    async def fake_run_scenario(*, scenario_id: str, auth: str) -> ScenarioRunSummary:
+        assert (scenario_id, auth) == ("SCN-001", "local")
+        return ScenarioRunSummary(
+            scenario_id="SCN-001",
+            run_id="RUN-SCN-001-ABCDEF123456",
+            baseline=phase,
+            incident=ScenarioPhaseSummary(
+                attempted=10,
+                fulfilled=4,
+                failed=6,
+                request_ids=10,
+                latency_p50_ms=250,
+                latency_p95_ms=260,
+            ),
+            recovery=phase,
+            trace_count=20,
+            recovered=True,
+            ground_truth_matched=True,
+        )
+
+    monkeypatch.setattr("opspilot.cli.run_scenario", fake_run_scenario)
+    exit_code = main(["scenario", "run", "--format", "json"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert '"ground_truth_matched":true' in output
     assert "http" not in output

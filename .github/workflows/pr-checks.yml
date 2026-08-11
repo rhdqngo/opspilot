@@ -59,6 +59,14 @@ jobs:
           docker compose exec -T
           -e OPSPILOT_ORDER_URL=http://127.0.0.1:8080
           order opspilot demo load --orders 10 --concurrency 2 --auth local
+      - name: Replay bounded SCN-001 three times
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            docker compose exec -T \
+              -e OPSPILOT_ORDER_URL=http://127.0.0.1:8080 \
+              order opspilot scenario run --scenario SCN-001 --auth local --format json
+          done
       - name: Stop local service roles
         if: always()
         run: docker compose down --remove-orphans

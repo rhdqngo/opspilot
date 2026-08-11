@@ -3,6 +3,33 @@
   "incident_id": "INC-2026-0001",
   "title": "payment-service payment failure increase",
   "expected_root_cause": "DB connection pool configuration was reduced",
+  "root_cause_code": "PAYMENT_DB_POOL_EXHAUSTION",
+  "primary_service": "payment-service",
+  "expected_report_status": "IDENTIFIED",
+  "severity": "SEV-2",
+  "mechanism": "A reduced connection pool saturated under payment traffic, causing acquisition timeouts and HTTP 5xx responses.",
+  "impact_summary": "Synthetic checkout requests experienced elevated payment failures.",
+  "required_evidence_types": ["LOG", "METRIC", "CHANGE", "KNOWLEDGE"],
+  "minimum_evidence_count": 2,
+  "next_checks": ["Confirm the current pool size and active connection count."],
+  "expected_tools_any_order": ["query_logs", "query_metric_series", "list_cloud_run_revisions", "search_knowledge"],
+  "forbidden_tools": ["execute_rollback"],
+  "expected_action": "ROLLBACK_CLOUD_RUN",
+  "must_request_approval": true,
+  "action": {
+    "title": "Propose restoring the previous connection-pool setting",
+    "description": "Create an approval request in a later release; fixture replay cannot execute changes.",
+    "target_service": "payment-service",
+    "expected_effect": "Reduce connection acquisition timeouts and payment 5xx responses.",
+    "prerequisites": ["Verify the known-good revision and immutable plan hash."],
+    "rollback_method": "Redeploy the current revision if verification regresses.",
+    "verification_steps": ["Compare error ratio and latency for ten minutes."]
+  },
+  "expected_timeline": [
+    {"offset_minutes": 0, "event_type": "CHANGE", "description": "Synthetic pool configuration changes."},
+    {"offset_minutes": 5, "event_type": "LOG", "description": "Pool acquisition timeouts begin."},
+    {"offset_minutes": 5, "event_type": "METRIC", "description": "Payment latency and 5xx ratio rise."}
+  ],
   "evidence": [
     {
       "evidence_id": "EV-CHG-0001",

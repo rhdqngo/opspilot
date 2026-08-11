@@ -5,3 +5,4 @@ region             = "asia-northeast3"
 environment        = "dev"
 deploy_demo        = false
 demo_image_uri     = ""
+enable_scenarios   = false

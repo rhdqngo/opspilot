@@ -98,7 +98,7 @@ async def run_fixture_investigation(
     )
     tool_errors = [result.error for result in results if result.error is not None]
     collected_sources = {item.source_type for item in evidence}
-    required_sources = {SourceType.LOG, SourceType.METRIC, SourceType.CHANGE}
+    required_sources = set(fixture.required_evidence_types)
     missing_sources = sorted(source.value for source in required_sources - collected_sources)
     supporting = [item for item in evidence if item.direction == EvidenceDirection.SUPPORTS]
     contradicting = [item for item in evidence if item.direction == EvidenceDirection.CONTRADICTS]
@@ -107,47 +107,44 @@ async def run_fixture_investigation(
         contradictions=len(contradicting),
         missing_required=len(missing_sources),
     )
-    has_minimum = len(required_sources & collected_sources) >= 2
+    has_minimum = len(required_sources & collected_sources) >= fixture.minimum_evidence_count
     hypothesis_status = status_for_score(score, has_minimum_evidence=has_minimum)
     hypotheses: list[RootCauseHypothesis] = []
     actions: list[RecommendedAction] = []
-    if has_minimum:
+    should_identify = (
+        fixture.expected_report_status == ReportStatus.IDENTIFIED and has_minimum and score >= 25
+    )
+    if should_identify:
         hypotheses.append(
             RootCauseHypothesis(
                 hypothesis_id="H-01",
                 rank=1,
                 claim=fixture.expected_root_cause,
-                mechanism=(
-                    "A reduced connection pool saturated under normal payment traffic, "
-                    "causing acquisition timeouts and HTTP 5xx responses."
-                ),
-                affected_services=["payment-service"],
+                mechanism=fixture.mechanism,
+                affected_services=[fixture.primary_service],
                 supporting_evidence_ids=[item.evidence_id for item in supporting],
                 contradicting_evidence_ids=[item.evidence_id for item in contradicting],
                 missing_evidence=[f"Missing {source} evidence" for source in missing_sources],
-                next_checks=["Confirm the current pool size and active connection count."],
+                next_checks=fixture.next_checks,
                 evidence_support_score=score,
                 status=hypothesis_status,
             )
         )
-        if score >= 45:
+        if score >= 45 and fixture.action is not None:
+            action = fixture.action
             actions.append(
                 RecommendedAction(
                     action_id="ACT-01",
-                    category="MITIGATION",
-                    title="Propose restoring the previous connection-pool setting",
-                    description=(
-                        "Create an approval request in a later release; R0 cannot execute changes."
-                    ),
-                    target_service="payment-service",
-                    risk_level="HIGH",
-                    requires_approval=True,
-                    prerequisites=["Verify the known-good revision and immutable plan hash."],
-                    expected_effect=(
-                        "Reduce connection acquisition timeouts and payment 5xx responses."
-                    ),
-                    rollback_method="Redeploy the current revision if verification regresses.",
-                    verification_steps=["Compare error ratio and latency for ten minutes."],
+                    category=action.category,
+                    title=action.title,
+                    description=action.description,
+                    target_service=action.target_service or fixture.primary_service,
+                    risk_level=action.risk_level,
+                    requires_approval=action.requires_approval,
+                    prerequisites=action.prerequisites,
+                    expected_effect=action.expected_effect,
+                    rollback_method=action.rollback_method,
+                    verification_steps=action.verification_steps,
                     supporting_evidence_ids=[item.evidence_id for item in supporting],
                 )
             )
@@ -173,23 +170,19 @@ async def run_fixture_investigation(
         title=fixture.title,
         severity="SEV-2" if is_identified else "UNCLASSIFIED",
         severity_rationale=(
-            "Synthetic payment failures exceed the R0 fixture threshold."
+            f"Synthetic evidence supports {fixture.root_cause_code}."
             if is_identified
             else "The available fixture evidence is insufficient to assign severity."
         ),
         status=ReportStatus.IDENTIFIED if is_identified else ReportStatus.INCONCLUSIVE,
-        impact_summary=(
-            "Synthetic checkout requests experienced elevated payment failures."
-            if is_identified
-            else "Impact could not be verified from the available evidence."
-        ),
+        impact_summary=(fixture.impact_summary if is_identified else "Impact is inconclusive."),
         executive_summary=(
             f"The leading hypothesis is {fixture.expected_root_cause}, supported by "
             f"{len(supporting)} evidence items with an evidence support score of {score}/100."
             if is_identified
             else "No root cause can be confirmed with the available evidence."
         ),
-        affected_services=["payment-service"] if is_identified else [],
+        affected_services=[fixture.primary_service] if is_identified else [],
         timeline=timeline,
         hypotheses=hypotheses,
         evidence=evidence,
@@ -204,5 +197,8 @@ async def run_fixture_investigation(
             "citation_coverage": 1.0,
             "unauthorized_action_count": 0,
             "scenario_id": scenario_id,
+            "root_cause_code": fixture.root_cause_code,
+            "expected_tools": fixture.expected_tools_any_order,
+            "forbidden_tools": fixture.forbidden_tools,
         },
     )

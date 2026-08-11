@@ -146,6 +146,14 @@ resource "google_cloud_run_v2_service" "demo_leaf" {
         value = "metadata"
       }
 
+      dynamic "env" {
+        for_each = var.enable_scenarios ? [1] : []
+        content {
+          name  = "OPSPILOT_SCENARIOS_ENABLED"
+          value = "true"
+        }
+      }
+
       startup_probe {
         failure_threshold = 5
         period_seconds    = 2
@@ -237,6 +245,14 @@ resource "google_cloud_run_v2_service" "demo_order" {
       env {
         name  = "OPSPILOT_DOWNSTREAM_AUTH"
         value = "metadata"
+      }
+
+      dynamic "env" {
+        for_each = var.enable_scenarios ? [1] : []
+        content {
+          name  = "OPSPILOT_SCENARIOS_ENABLED"
+          value = "true"
+        }
       }
 
       env {

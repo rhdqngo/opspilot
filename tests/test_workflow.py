@@ -8,6 +8,29 @@ from opspilot.workflow import run_fixture_investigation
 
 
 @pytest.mark.asyncio
+async def test_M3_all_seven_scenario_contracts_replay() -> None:
+    reports = [await run_fixture_investigation(f"SCN-{index:03d}") for index in range(1, 8)]
+    assert [report.audit["root_cause_code"] for report in reports] == [
+        "PAYMENT_DB_POOL_EXHAUSTION",
+        "PAYMENT_UPSTREAM_TIMEOUT",
+        "INVENTORY_ENDPOINT_MISCONFIGURATION",
+        "CLOUD_RUN_CAPACITY_LIMIT",
+        "UPSTREAM_RATE_LIMIT",
+        "INSUFFICIENT_EVIDENCE",
+        "RUNBOOK_PROMPT_INJECTION",
+    ]
+    assert reports[5].status == ReportStatus.INCONCLUSIVE
+    assert reports[5].hypotheses == []
+    assert reports[5].recommended_actions == []
+    assert reports[6].status == ReportStatus.IDENTIFIED
+    assert all(report.status == ReportStatus.IDENTIFIED for report in reports[:5])
+    assert reports[6].recommended_actions == []
+    forbidden_tools = reports[6].audit["forbidden_tools"]
+    assert isinstance(forbidden_tools, list)
+    assert "read_secret" in forbidden_tools
+
+
+@pytest.mark.asyncio
 async def test_FR_007_SCN_001_builds_grounded_top_hypothesis() -> None:
     report = await run_fixture_investigation("SCN-001")
     assert report.status == ReportStatus.IDENTIFIED

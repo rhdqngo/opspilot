@@ -68,3 +68,9 @@ variable "demo_image_uri" {
     error_message = "demo_image_uri must be empty or an immutable Artifact Registry digest URI."
   }
 }
+
+variable "enable_scenarios" {
+  description = "Approval gate for bounded request-scoped M3 synthetic scenario behavior."
+  type        = bool
+  default     = false
+}

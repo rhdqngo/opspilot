@@ -30,6 +30,18 @@ Without Make, build and run `opspilot-demo:local` with `docker build --platform 
 `docker compose up -d --no-build`, and `docker compose down --remove-orphans`. The bounded load
 command is `uv run opspilot demo load --orders 10 --concurrency 2 --auth local`.
 
+M3 adds a seven-scenario offline corpus and one bounded live-capable MVP scenario. Local Compose
+enables request-scoped synthetic behavior only for the explicit scenario command:
+
+```powershell
+uv run opspilot replay --scenario SCN-007 --format markdown
+uv run opspilot scenario run --scenario SCN-001 --auth local --format summary
+```
+
+SCN-001 always runs `5 baseline → 10 incident → 5 recovery` requests at concurrency two. Six
+incident payments return the synthetic `DB_POOL_TIMEOUT`; all baseline and recovery requests must
+be fulfilled. No persistent fault flag or management endpoint exists.
+
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
 `/ready`. The identifier-free operator diagnostic is:
@@ -80,3 +92,5 @@ See `docs/operations/demo-services.md` for the workload runbook and
 - Pull requests build the Linux/amd64 image and exercise all three roles only on a local network.
 - The live Terraform plan workflow is manual, uses WIF, and has no apply or state-write identity.
 - The live plan is additionally gated by `TF_M2_IMAGE_READY=true` and remains manual/read-only.
+- M3 scenario deployment additionally requires `TF_M3_IMAGE_READY=true`; Approval 1 does not set
+  that variable, push an image, or change Google Cloud.

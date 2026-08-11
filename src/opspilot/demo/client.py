@@ -26,6 +26,7 @@ class DependencyClient(Protocol):
         *,
         request_id: str,
         trace_context: str | None,
+        scenario_headers: Mapping[str, str] | None,
         timeout_seconds: float,
     ) -> dict[str, Any]: ...
 
@@ -77,6 +78,7 @@ class UrlLibDependencyClient:
         *,
         request_id: str,
         trace_context: str | None,
+        scenario_headers: Mapping[str, str] | None,
         timeout_seconds: float,
     ) -> dict[str, Any]:
         audience = url.split("/v1/", maxsplit=1)[0]
@@ -87,6 +89,7 @@ class UrlLibDependencyClient:
             payload,
             request_id,
             trace_context,
+            scenario_headers,
             token,
             timeout_seconds,
         )
@@ -97,12 +100,15 @@ class UrlLibDependencyClient:
         payload: Mapping[str, object],
         request_id: str,
         trace_context: str | None,
+        scenario_headers: Mapping[str, str] | None,
         token: str | None,
         timeout_seconds: float,
     ) -> dict[str, Any]:
         headers = {"Content-Type": "application/json", "X-Request-ID": request_id}
         if trace_context:
             headers["X-Cloud-Trace-Context"] = trace_context
+        if scenario_headers:
+            headers.update(scenario_headers)
         if token:
             headers["Authorization"] = f"Bearer {token}"
         request = UrlRequest(

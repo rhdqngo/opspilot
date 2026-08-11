@@ -12,6 +12,7 @@ import uvicorn
 
 from opspilot.access_check import render_access_summary, run_access_check
 from opspilot.demo.load import run_load
+from opspilot.demo.scenario_runner import render_scenario_summary, run_scenario
 from opspilot.reporting import render_markdown
 from opspilot.route_check import render_route_summary, run_route_check
 from opspilot.workflow import run_fixture_investigation
@@ -47,6 +48,14 @@ def build_parser() -> argparse.ArgumentParser:
     demo_load.add_argument("--orders", type=int, default=10)
     demo_load.add_argument("--concurrency", type=int, default=2)
     demo_load.add_argument("--auth", choices=("local", "gcloud"), default="local")
+    scenario = subcommands.add_parser("scenario", help="Run bounded synthetic incidents")
+    scenario_commands = scenario.add_subparsers(dest="scenario_command", required=True)
+    scenario_run = scenario_commands.add_parser(
+        "run", help="Run baseline, incident, and recovery phases"
+    )
+    scenario_run.add_argument("--scenario", default="SCN-001")
+    scenario_run.add_argument("--auth", choices=("local", "gcloud"), default="local")
+    scenario_run.add_argument("--format", choices=("json", "summary"), default="summary")
     return parser
 
 
@@ -106,4 +115,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(json.dumps(summary.model_dump(), separators=(",", ":")))
         return 0 if summary.failed == 0 else 2
+    if args.command == "scenario" and args.scenario_command == "run":
+        scenario_result = asyncio.run(
+            run_scenario(scenario_id=str(args.scenario), auth=str(args.auth))
+        )
+        if args.format == "json":
+            print(json.dumps(scenario_result.model_dump(), separators=(",", ":")))
+        else:
+            print(render_scenario_summary(scenario_result), end="")
+        return 0 if scenario_result.ground_truth_matched and scenario_result.recovered else 2
     raise AssertionError("unreachable command")

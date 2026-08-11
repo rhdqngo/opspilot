@@ -33,6 +33,7 @@ services:
       OPSPILOT_DEMO_SERVICE: payment
       OPSPILOT_ENVIRONMENT: dev
       OPSPILOT_DOWNSTREAM_AUTH: local
+      OPSPILOT_SCENARIOS_ENABLED: "true"
     ports:
       - "127.0.0.1:8101:8080"
 
@@ -42,6 +43,7 @@ services:
       OPSPILOT_DEMO_SERVICE: inventory
       OPSPILOT_ENVIRONMENT: dev
       OPSPILOT_DOWNSTREAM_AUTH: local
+      OPSPILOT_SCENARIOS_ENABLED: "true"
     ports:
       - "127.0.0.1:8102:8080"
 
@@ -51,6 +53,7 @@ services:
       OPSPILOT_DEMO_SERVICE: order
       OPSPILOT_ENVIRONMENT: dev
       OPSPILOT_DOWNSTREAM_AUTH: local
+      OPSPILOT_SCENARIOS_ENABLED: "true"
       OPSPILOT_PAYMENT_SERVICE_URL: http://payment:8080
       OPSPILOT_INVENTORY_SERVICE_URL: http://inventory:8080
     depends_on:

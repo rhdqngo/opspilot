@@ -15,6 +15,7 @@ class DemoSettings(BaseModel):
     revision: str = Field(default="local", min_length=1, max_length=128)
     project_id: str = ""
     downstream_auth: DownstreamAuthMode = DownstreamAuthMode.LOCAL
+    scenarios_enabled: bool = False
     payment_service_url: HttpUrl | None = None
     inventory_service_url: HttpUrl | None = None
 
@@ -34,6 +35,8 @@ class DemoSettings(BaseModel):
             revision=os.environ.get("K_REVISION", "local"),
             project_id=os.environ.get("OPSPILOT_PROJECT_ID", ""),
             downstream_auth=os.environ.get("OPSPILOT_DOWNSTREAM_AUTH", "local"),
+            scenarios_enabled=os.environ.get("OPSPILOT_SCENARIOS_ENABLED", "false").lower()
+            == "true",
             payment_service_url=os.environ.get("OPSPILOT_PAYMENT_SERVICE_URL") or None,
             inventory_service_url=os.environ.get("OPSPILOT_INVENTORY_SERVICE_URL") or None,
         )
