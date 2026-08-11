@@ -34,6 +34,8 @@ jobs:
         run: uv run opspilot knowledge validate --format summary
       - name: Run deterministic knowledge smoke
         run: uv run opspilot knowledge smoke --backend local --env dev --format summary
+      - name: Run fixture evidence smoke
+        run: uv run opspilot evidence smoke --backend fixture --scenario SCN-001 --env dev --format summary
       - name: Build
         run: uv build
 

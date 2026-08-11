@@ -70,7 +70,9 @@ run "bounded_dev_foundation" {
       length(google_storage_bucket.knowledge) == 0 &&
       length(google_discovery_engine_data_store.knowledge) == 0 &&
       length(google_discovery_engine_schema.knowledge) == 0 &&
-      length(google_discovery_engine_search_engine.knowledge) == 0
+      length(google_discovery_engine_search_engine.knowledge) == 0 &&
+      length(google_project_iam_custom_role.investigator_reader) == 0 &&
+      length(google_project_iam_member.investigator_reader) == 0
     )
     error_message = "The default M2 gate must preserve the M1-only resource graph."
   }
@@ -293,5 +295,57 @@ run "m4_knowledge_apply_ready_contract" {
       length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2
     )
     error_message = "M4 must not change the existing API, runtime identity, Cloud Run, or IAM graph."
+  }
+}
+
+run "m5_live_evidence_apply_ready_contract" {
+  command = plan
+
+  variables {
+    project_id                = "example-project"
+    billing_account_id        = "000000-000000-000000"
+    budget_notification_email = "operator@example.invalid"
+    deploy_demo               = true
+    enable_scenarios          = true
+    deploy_knowledge          = true
+    search_location           = "global"
+    enable_live_evidence      = true
+    demo_image_uri            = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+
+  assert {
+    condition = (
+      length(google_project_iam_custom_role.investigator_reader) == 1 &&
+      length(google_project_iam_member.investigator_reader) == 1
+    )
+    error_message = "M5 must add exactly one investigator custom role and one binding."
+  }
+
+  assert {
+    condition = toset(google_project_iam_custom_role.investigator_reader[0].permissions) == toset([
+      "discoveryengine.servingConfigs.search",
+      "logging.logEntries.list",
+      "monitoring.timeSeries.list",
+      "resourcemanager.projects.get",
+      "run.revisions.list",
+      "run.services.get",
+      "serviceusage.services.use",
+    ])
+    error_message = "The investigator role must contain only the approved read permissions."
+  }
+
+  assert {
+    condition = (
+      length(google_project_service.m1) == 12 &&
+      length(google_service_account.demo) == 3 &&
+      length(google_cloud_run_v2_service.demo_leaf) == 2 &&
+      length(google_cloud_run_v2_service.demo_order) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2 &&
+      length(google_storage_bucket.knowledge) == 1 &&
+      length(google_discovery_engine_data_store.knowledge) == 1 &&
+      length(google_discovery_engine_schema.knowledge) == 1 &&
+      length(google_discovery_engine_search_engine.knowledge) == 1
+    )
+    error_message = "M5 must not change the existing API, workload, Search, or runtime IAM graph."
   }
 }

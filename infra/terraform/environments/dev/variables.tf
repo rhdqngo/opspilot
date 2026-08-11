@@ -91,3 +91,9 @@ variable "search_location" {
     error_message = "The M4 MVP Agent Search location must remain global."
   }
 }
+
+variable "enable_live_evidence" {
+  description = "Approval gate for the M5 investigator read-only evidence role and binding."
+  type        = bool
+  default     = false
+}

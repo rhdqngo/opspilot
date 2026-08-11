@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M4-complete / M5-ready-for-planning
+phase: M5-code-complete / M5-ready-for-live-apply-approval
 updated: 2026-08-11
 
 ## Objective
@@ -18,6 +18,16 @@ updated: 2026-08-11
 - Optional work cannot enter an MVP acceptance gate or Terraform plan without a separate approval.
 
 ## Active scope
+
+- M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
+  contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
+  deterministic output while the live adapter remains explicitly disabled.
+- Collection is capped at four concurrent sources, eight logical tool calls, ten API calls, a
+  45-second deadline, and source-specific row/byte limits. Partial failure preserves remaining
+  evidence, tool errors, data gaps, and observable budget usage.
+- The investigator custom role and binding are defined behind `enable_live_evidence=false`; no IAM
+  or other cloud resource was changed. The M5 hosted gate is not configured, and Approval 1 issued
+  no Logging, Monitoring, Run, or Search request.
 
 - M4 recovery created only the explicit schema and Standard Search engine after hardening both the
   array-item and title-key schema contracts. Remote dev state now contains 28 managed resources and
@@ -80,9 +90,19 @@ updated: 2026-08-11
 | M4 Approval 1: knowledge and IaC boundary | complete | 13 documents, 10 local retrieval contracts, guarded sync, default-off four-resource graph |
 | M4 Approval 2: Search apply/import | complete | Four resources, 13-document import, fixed probe, and live retrieval 10/10 passed |
 | M4 Approval 3: hosted validation | complete | Live Search accepted; Approval 4 added one quota-consumption permission and hosted plan returned `No changes` |
-| UI Foundation | not-applicable | M4 is API, CLI, corpus, and infrastructure only |
+| M5 Approval 1: live evidence boundary | complete | Typed collectors, fixture smoke, redaction, default-off two-resource IAM graph |
+| M5 Approval 2: investigator IAM and live acceptance | pending approval | Bootstrap 1-update, dev 2-create, one bounded SCN-001 evidence batch |
+| UI Foundation | not-applicable | M5 is API, CLI, evidence tooling, and infrastructure only |
 
 ## Completed major results
+
+- Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
+- Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
+  redaction, logical evidence URIs, response caps, and project/resource identifier suppression.
+- Added one `EvidenceClient` protocol with fixture and explicitly gated live implementations;
+  fixture smoke completes four sources with four evidence items and zero API calls.
+- Added a default-off investigator custom role and binding graph with seven read/API-use
+  permissions. Hosted refresh permissions and the M5 workflow gate are prepared but unapplied.
 
 - Added five runbooks, three prior RCAs, three architecture documents, one ownership document, and
   one malicious-instruction regression document with strict UTC metadata and logical citations.
@@ -158,7 +178,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 91 pytest tests, including safe Search diagnostics, seven scenario contracts, and bounded SCN-001 execution |
+| Tests | pass | 111 pytest tests, including M5 evidence/error/redaction contracts, safe Search diagnostics, seven scenario contracts, and bounded SCN-001 execution |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -191,6 +211,10 @@ updated: 2026-08-11
 | M4 live Search probe | pass | One fixed KQ-001 request; expected document and citation metadata present |
 | M4 live Search smoke | pass | Exact ten-query batch; 10/10 top-five; citation complete; malicious instruction not executed |
 | M4 hosted plan | pass | Exact custom-role 1-update; first manual WIF plan returned redacted `No changes`; gates enabled |
+| M5 typed evidence contracts | pass | UTC/allowlist/filter/redaction/normalization/partial-failure/call-budget tests |
+| M5 fixture evidence smoke | pass | Four sources, four evidence items, four logical calls, zero API calls |
+| M5 Terraform static | pass | Default-off existing graph; enabled graph adds one custom role and one binding only |
+| M5 cloud/IAM apply | not-run | Separate Approval 2 required; no live telemetry or Search request issued |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -203,12 +227,13 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Plan M5 as a read-only live evidence layer for bounded Cloud Logging, Monitoring, Cloud Run, and
-  knowledge retrieval. Define tool contracts, investigator IAM, redaction, quotas, and failure
-  isolation before any cloud permission or code apply.
-- Preserve the four Terraform-owned knowledge resources, 15 objects, successful snapshot,
-  28-resource remote state, and accepted live-search evidence. Do not reimport or repeat Search as
-  an M5 preparation step.
+- M5 Approval 2 must separately review and apply the bootstrap custom-role one-update and dev
+  investigator IAM two-create plans, then impersonate the investigator without a key.
+- Run one bounded live SCN-001 and exactly one log, two metric, one revision, and one Search
+  collection. Require logical citations and preserve revision evidence as neutral unless actual
+  configuration data supports a causal claim.
+- Do not reimport knowledge, deploy an image, add custom metrics, invoke a model, or enable the M5
+  hosted gate before live acceptance and operator zero drift succeed.
 
 ## Related artifacts
 
@@ -219,11 +244,13 @@ updated: 2026-08-11
 - Bootstrap runbook: `docs/operations/bootstrap.md`
 - Scenario runbook: `docs/operations/scenarios.md`
 - Knowledge runbook: `docs/operations/knowledge.md`
+- Live evidence runbook: `docs/operations/live-evidence.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`
 - Cost model: `docs/cost-model.md`
 - IaC decision: `docs/decisions/ADR-007-iac-delivery.md`
 - Agent Search decision: `docs/decisions/ADR-008-agent-search-corpus.md`
+- Live evidence decision: `docs/decisions/ADR-009-live-evidence-boundary.md`
 
 ## Update rules
 

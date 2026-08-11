@@ -160,3 +160,19 @@ def test_M4_diagnostic_and_probe_cli_print_only_redacted_aggregates(
     assert "project_id" not in combined
     assert "token" not in combined
     assert "http" not in combined
+
+
+def test_M5_cli_fixture_evidence_smoke_uses_no_live_api(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = main(
+        ["evidence", "smoke", "--backend", "fixture", "--scenario", "SCN-001", "--format", "json"]
+    )
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert '"api_calls": 0' in output
+    assert '"complete": true' in output
+    assert "project_id" not in output
+    assert "token" not in output
+    assert "http" not in output

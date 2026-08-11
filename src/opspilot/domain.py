@@ -107,6 +107,9 @@ class ToolMeta(BaseModel):
     source_location: str | None = None
     truncated: bool = False
     cache_hit: bool = False
+    api_call_count: int = Field(default=0, ge=0)
+    result_count: int = Field(default=0, ge=0)
+    response_bytes: int = Field(default=0, ge=0)
     warnings: list[str] = Field(default_factory=list)
 
 

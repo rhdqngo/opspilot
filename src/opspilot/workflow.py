@@ -2,27 +2,24 @@
 
 from __future__ import annotations
 
-import asyncio
-from datetime import UTC, datetime
-from time import perf_counter
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from opspilot.domain import (
     EvidenceDirection,
-    EvidenceItem,
     IncidentReport,
     IncidentTimelineEvent,
     RecommendedAction,
     ReportStatus,
     RootCauseHypothesis,
     SourceType,
-    ToolError,
-    ToolErrorCategory,
-    ToolMeta,
-    ToolResult,
 )
-from opspilot.fixtures import ScenarioFixture, load_scenario_fixture
-from opspilot.redaction import redact_text
+from opspilot.evidence import (
+    EvidenceCollectionRequest,
+    FixtureEvidenceClient,
+    collect_evidence,
+)
+from opspilot.fixtures import load_scenario_fixture
 from opspilot.scoring import calculate_evidence_support_score, status_for_score
 
 COLLECTOR_SOURCES = (
@@ -33,54 +30,6 @@ COLLECTOR_SOURCES = (
 )
 
 
-async def _collect_fixture_source(
-    fixture: ScenarioFixture,
-    source: SourceType,
-    fail_sources: frozenset[SourceType],
-) -> ToolResult[list[EvidenceItem]]:
-    started_at = datetime.now(UTC)
-    started_clock = perf_counter()
-    await asyncio.sleep(0)
-    request_id = f"TOOL-{uuid4().hex[:12].upper()}"
-    if source in fail_sources:
-        finished_at = datetime.now(UTC)
-        return ToolResult[list[EvidenceItem]](
-            ok=False,
-            error=ToolError(
-                code=f"FIXTURE_{source.value}_UNAVAILABLE",
-                category=ToolErrorCategory.UPSTREAM,
-                retryable=True,
-                safe_message=f"{source.value.lower()} evidence is temporarily unavailable",
-            ),
-            meta=ToolMeta(
-                tool_name=f"fixture_{source.value.lower()}",
-                request_id=request_id,
-                started_at=started_at,
-                finished_at=finished_at,
-                duration_ms=max(0, round((perf_counter() - started_clock) * 1_000)),
-                source_project="synthetic-fixture",
-            ),
-        )
-    items = [
-        item.model_copy(update={"summary": redact_text(item.summary)})
-        for item in fixture.evidence
-        if item.source_type == source
-    ]
-    finished_at = datetime.now(UTC)
-    return ToolResult[list[EvidenceItem]](
-        ok=True,
-        data=items,
-        meta=ToolMeta(
-            tool_name=f"fixture_{source.value.lower()}",
-            request_id=request_id,
-            started_at=started_at,
-            finished_at=finished_at,
-            duration_ms=max(0, round((perf_counter() - started_clock) * 1_000)),
-            source_project="synthetic-fixture",
-        ),
-    )
-
-
 async def run_fixture_investigation(
     scenario_id: str,
     *,
@@ -89,14 +38,18 @@ async def run_fixture_investigation(
     assumptions: list[str] | None = None,
 ) -> IncidentReport:
     fixture = load_scenario_fixture(scenario_id)
-    results = await asyncio.gather(
-        *(_collect_fixture_source(fixture, source, fail_sources) for source in COLLECTOR_SOURCES)
+    end_time = datetime.now(UTC)
+    collection = await collect_evidence(
+        FixtureEvidenceClient(scenario_id, fail_sources=fail_sources),
+        EvidenceCollectionRequest(
+            scenario_id=scenario_id,
+            start_time=end_time - timedelta(minutes=30),
+            end_time=end_time,
+            services=[fixture.primary_service],
+        ),
     )
-    evidence = sorted(
-        [item for result in results if result.data for item in result.data],
-        key=lambda item: item.observed_at or item.period_start or datetime.min.replace(tzinfo=UTC),
-    )
-    tool_errors = [result.error for result in results if result.error is not None]
+    evidence = collection.evidence
+    tool_errors = collection.tool_errors
     collected_sources = {item.source_type for item in evidence}
     required_sources = set(fixture.required_evidence_types)
     missing_sources = sorted(source.value for source in required_sources - collected_sources)
@@ -193,7 +146,7 @@ async def run_fixture_investigation(
         approval_status=None,
         audit={
             "execution_mode": "fixture",
-            "tool_calls": len(results),
+            "tool_calls": collection.budget.logical_tool_calls,
             "citation_coverage": 1.0,
             "unauthorized_action_count": 0,
             "scenario_id": scenario_id,

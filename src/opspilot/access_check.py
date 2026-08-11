@@ -78,8 +78,31 @@ M4_PROJECT_PERMISSIONS: tuple[str, ...] = (
     "discoveryengine.servingConfigs.search",
 )
 
+M5_OPERATOR_PROJECT_PERMISSIONS: tuple[str, ...] = (
+    "iam.roles.create",
+    "iam.roles.update",
+    "resourcemanager.projects.setIamPolicy",
+)
+
+M5_INVESTIGATOR_PERMISSIONS: tuple[str, ...] = (
+    "discoveryengine.servingConfigs.search",
+    "logging.logEntries.list",
+    "monitoring.timeSeries.list",
+    "resourcemanager.projects.get",
+    "run.revisions.list",
+    "run.services.get",
+    "serviceusage.services.use",
+)
+
 PROJECT_PERMISSIONS: tuple[str, ...] = tuple(
-    dict.fromkeys((*M1_PROJECT_PERMISSIONS, *M2_PROJECT_PERMISSIONS, *M4_PROJECT_PERMISSIONS))
+    dict.fromkeys(
+        (
+            *M1_PROJECT_PERMISSIONS,
+            *M2_PROJECT_PERMISSIONS,
+            *M4_PROJECT_PERMISSIONS,
+            *M5_OPERATOR_PROJECT_PERMISSIONS,
+        )
+    )
 )
 
 M2_CANDIDATE_SERVICES: tuple[str, ...] = (
@@ -119,6 +142,14 @@ class AccessCheckResult(BaseModel):
     m4_candidate_data_store_conflicts: int = Field(default=0, ge=0)
     m4_candidate_engine_conflicts: int = Field(default=0, ge=0)
     m4_apply_ready: bool = False
+    m5_operator_permissions_ready: bool = False
+    missing_m5_operator_permissions: list[str] = Field(default_factory=list)
+    investigator_impersonation_check_available: bool = False
+    investigator_impersonation_ready: bool = False
+    investigator_target_permission_count: int = Field(
+        default=len(M5_INVESTIGATOR_PERMISSIONS), ge=0
+    )
+    m5_apply_ready: bool = False
     gemini_enterprise_access: bool = False
     gemini_enterprise_app_exists: bool = False
     m0_ready: bool = False
@@ -252,14 +283,37 @@ def run_access_check(
         result.missing_m4_permissions = [
             permission for permission in M4_PROJECT_PERMISSIONS if permission not in granted
         ]
+        result.missing_m5_operator_permissions = [
+            permission
+            for permission in M5_OPERATOR_PROJECT_PERMISSIONS
+            if permission not in granted
+        ]
         result.api_activation_permission = "serviceusage.services.enable" in granted
         result.m1_permissions_ready = not result.missing_project_permissions
         result.m2_permissions_ready = not result.missing_m2_permissions
         result.m4_permissions_ready = not result.missing_m4_permissions
+        result.m5_operator_permissions_ready = not result.missing_m5_operator_permissions
     except RuntimeError:
         result.missing_project_permissions = list(M1_PROJECT_PERMISSIONS)
         result.missing_m2_permissions = list(M2_PROJECT_PERMISSIONS)
         result.missing_m4_permissions = list(M4_PROJECT_PERMISSIONS)
+        result.missing_m5_operator_permissions = list(M5_OPERATOR_PROJECT_PERMISSIONS)
+
+    investigator_email = f"opspilot-dev-agent@{project_id}.iam.gserviceaccount.com"
+    try:
+        impersonation = requester(
+            user_token.stdout,
+            "https://iam.googleapis.com/v1/projects/-/serviceAccounts/"
+            f"{quote(investigator_email, safe='')}:testIamPermissions",
+            {"permissions": ["iam.serviceAccounts.getAccessToken"]},
+            project_id,
+        )
+        result.investigator_impersonation_check_available = True
+        result.investigator_impersonation_ready = (
+            "iam.serviceAccounts.getAccessToken" in impersonation.get("permissions", [])
+        )
+    except RuntimeError:
+        pass
 
     candidate_filter = "metadata.name=(" + " ".join(M2_CANDIDATE_SERVICES) + ")"
     candidates = _load_json_list(
@@ -368,6 +422,13 @@ def run_access_check(
             result.m4_candidate_names_available,
         )
     )
+    result.m5_apply_ready = all(
+        (
+            result.m0_ready,
+            result.m5_operator_permissions_ready,
+            result.investigator_impersonation_ready,
+        )
+    )
     return result
 
 
@@ -386,8 +447,15 @@ def render_access_summary(result: AccessCheckResult) -> str:
         lines.append("missing_m2_permissions=" + ",".join(result.missing_m2_permissions))
     if result.missing_m4_permissions:
         lines.append("missing_m4_permissions=" + ",".join(result.missing_m4_permissions))
+    if result.missing_m5_operator_permissions:
+        lines.append(
+            "missing_m5_operator_permissions=" + ",".join(result.missing_m5_operator_permissions)
+        )
     lines.append(f"m2_candidate_service_conflicts={result.m2_candidate_service_conflicts}")
     lines.append(f"m4_candidate_bucket_conflicts={result.m4_candidate_bucket_conflicts}")
     lines.append(f"m4_candidate_data_store_conflicts={result.m4_candidate_data_store_conflicts}")
     lines.append(f"m4_candidate_engine_conflicts={result.m4_candidate_engine_conflicts}")
+    lines.append(
+        f"investigator_target_permission_count={result.investigator_target_permission_count}"
+    )
     return "\n".join(lines) + "\n"

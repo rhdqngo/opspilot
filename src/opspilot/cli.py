@@ -14,6 +14,11 @@ import uvicorn
 from opspilot.access_check import render_access_summary, run_access_check
 from opspilot.demo.load import run_load
 from opspilot.demo.scenario_runner import render_scenario_summary, run_scenario
+from opspilot.evidence import (
+    EvidenceBackend,
+    render_evidence_summary,
+    run_evidence_smoke,
+)
 from opspilot.knowledge import (
     KnowledgeSyncMode,
     render_knowledge_result,
@@ -95,6 +100,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     knowledge_probe.add_argument("--env", choices=("dev",), default="dev")
     knowledge_probe.add_argument("--format", choices=("json", "summary"), default="summary")
+    evidence = subcommands.add_parser("evidence", help="Exercise bounded evidence collectors")
+    evidence_commands = evidence.add_subparsers(dest="evidence_command", required=True)
+    evidence_smoke = evidence_commands.add_parser(
+        "smoke", help="Run fixture or explicitly gated live evidence collection"
+    )
+    evidence_smoke.add_argument("--backend", choices=("fixture", "live"), default="fixture")
+    evidence_smoke.add_argument("--scenario", choices=("SCN-001",), default="SCN-001")
+    evidence_smoke.add_argument("--env", choices=("dev",), default="dev")
+    evidence_smoke.add_argument("--format", choices=("json", "summary"), default="summary")
     return parser
 
 
@@ -200,4 +214,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(render_knowledge_result(probe), end="")
         return 0 if probe.succeeded else 2
+    if args.command == "evidence" and args.evidence_command == "smoke":
+        evidence_result = asyncio.run(
+            run_evidence_smoke(
+                backend=EvidenceBackend(str(args.backend)),
+                scenario_id=str(args.scenario),
+                environment=str(args.env),
+            )
+        )
+        if args.format == "json":
+            print(json.dumps(evidence_result.model_dump(mode="json"), indent=2))
+        else:
+            print(render_evidence_summary(evidence_result), end="")
+        return 0 if evidence_result.succeeded else 2
     raise AssertionError("unreachable command")

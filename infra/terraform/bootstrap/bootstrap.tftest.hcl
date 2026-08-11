@@ -21,6 +21,14 @@ run "secure_bootstrap_plan" {
   }
 
   assert {
+    condition = (
+      contains(google_project_iam_custom_role.ci_plan_reader.permissions, "iam.roles.get") &&
+      contains(google_project_iam_custom_role.ci_plan_reader.permissions, "resourcemanager.projects.getIamPolicy")
+    )
+    error_message = "Hosted M5 plans may read only the custom role and project IAM policy."
+  }
+
+  assert {
     condition     = google_storage_bucket.terraform_state.public_access_prevention == "enforced"
     error_message = "The Terraform state bucket must enforce public access prevention."
   }

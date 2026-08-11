@@ -7,6 +7,8 @@ from opspilot.access_check import (
     M1_PROJECT_PERMISSIONS,
     M2_PROJECT_PERMISSIONS,
     M4_PROJECT_PERMISSIONS,
+    M5_INVESTIGATOR_PERMISSIONS,
+    M5_OPERATOR_PROJECT_PERMISSIONS,
     PROJECT_PERMISSIONS,
     AccessCheckResult,
     CommandResult,
@@ -72,6 +74,9 @@ def _requester(
     if url.startswith("https://cloudresourcemanager.googleapis.com"):
         assert body is not None
         return {"permissions": list(PROJECT_PERMISSIONS)}
+    if url.startswith("https://iam.googleapis.com"):
+        assert body == {"permissions": ["iam.serviceAccounts.getAccessToken"]}
+        return {"permissions": ["iam.serviceAccounts.getAccessToken"]}
     if "/dataStores" in url:
         return {"dataStores": [{"name": "synthetic-other-data-store"}]}
     if url.startswith("https://discoveryengine.googleapis.com"):
@@ -177,6 +182,8 @@ def test_access_check_requires_manual_project_and_krw_confirmation() -> None:
     assert result.m1_permissions_ready is True
     assert result.m2_permissions_ready is True
     assert result.m4_permissions_ready is True
+    assert result.m5_operator_permissions_ready is True
+    assert result.investigator_impersonation_ready is True
     assert result.m2_candidate_names_available is True
     assert result.gemini_enterprise_app_exists is True
     assert result.project_confirmed is False
@@ -196,11 +203,53 @@ def test_M1_and_M2_permission_sets_stay_explicitly_separated() -> None:
     assert set(M1_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
     assert set(M2_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
     assert set(M4_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
+    assert set(M5_OPERATOR_PROJECT_PERMISSIONS).issubset(PROJECT_PERMISSIONS)
     assert "run.services.create" not in M1_PROJECT_PERMISSIONS
     assert "logging.logEntries.list" in M2_PROJECT_PERMISSIONS
     assert "monitoring.timeSeries.list" in M2_PROJECT_PERMISSIONS
     assert "discoveryengine.documents.import" in M4_PROJECT_PERMISSIONS
     assert "discoveryengine.servingConfigs.search" in M4_PROJECT_PERMISSIONS
+    assert set(M5_INVESTIGATOR_PERMISSIONS) == {
+        "discoveryengine.servingConfigs.search",
+        "logging.logEntries.list",
+        "monitoring.timeSeries.list",
+        "resourcemanager.projects.get",
+        "run.revisions.list",
+        "run.services.get",
+        "serviceusage.services.use",
+    }
+
+
+def test_M5_access_check_reports_operator_and_impersonation_without_identifiers() -> None:
+    def missing_role_update_requester(
+        token: str,
+        url: str,
+        body: dict[str, Any] | None,
+        quota_project: str,
+    ) -> dict[str, Any]:
+        response = _requester(token, url, body, quota_project)
+        if "cloudresourcemanager" in url:
+            response["permissions"] = [
+                permission for permission in PROJECT_PERMISSIONS if permission != "iam.roles.update"
+            ]
+        return response
+
+    result = run_access_check(
+        project_confirmed=True,
+        billing_currency_krw_confirmed=True,
+        runner=FakeRunner(),
+        requester=missing_role_update_requester,
+    )
+
+    assert result.missing_m5_operator_permissions == ["iam.roles.update"]
+    assert result.m5_operator_permissions_ready is False
+    assert result.investigator_impersonation_check_available is True
+    assert result.investigator_impersonation_ready is True
+    assert result.investigator_target_permission_count == 7
+    assert result.m5_apply_ready is False
+    summary = render_access_summary(result)
+    assert "secret-project-id" not in summary
+    assert "operator+Edu_687@example.invalid" not in summary
 
 
 def test_M4_access_check_reports_permissions_and_conflicts_without_identifiers() -> None:

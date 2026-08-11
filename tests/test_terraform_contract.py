@@ -56,6 +56,7 @@ def test_M1_ci_custom_role_is_least_privilege() -> None:
     assert {"run.services.get", "run.services.getIamPolicy", "run.services.list"}.issubset(
         permissions
     )
+    assert {"iam.roles.get", "resourcemanager.projects.getIamPolicy"}.issubset(permissions)
 
 
 def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
@@ -73,8 +74,10 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "vars.TF_M2_IMAGE_READY == 'true'" in live_plan
     assert "vars.TF_M3_IMAGE_READY == 'true'" in live_plan
     assert "vars.TF_M4_KNOWLEDGE_READY == 'true'" in live_plan
+    assert "vars.TF_M5_LIVE_EVIDENCE_READY == 'true'" in live_plan
     assert 'TF_VAR_deploy_demo: "true"' in live_plan
     assert 'TF_VAR_deploy_knowledge: "true"' in live_plan
+    assert 'TF_VAR_enable_live_evidence: "true"' in live_plan
     assert "TF_VAR_demo_image_uri" in live_plan
     assert live_plan.count("-lock=false") == 2
     assert "vars.TF_DEV_STATE_READY != 'true'" in live_plan
@@ -131,4 +134,36 @@ def test_M4_terraform_is_default_off_and_defines_only_four_knowledge_resources()
     assert "SEARCH_ADD_ON_LLM" not in dev_source
     assert 'deletion_policy   = "PREVENT"' in dev_source
     assert "google_storage_bucket_object" not in dev_source
+    assert "allUsers" not in dev_source
+
+
+def test_M5_terraform_is_default_off_and_defines_only_bounded_investigator_iam() -> None:
+    dev_source = (TERRAFORM_ROOT / "environments" / "dev" / "main.tf").read_text(encoding="utf-8")
+    variables = (TERRAFORM_ROOT / "environments" / "dev" / "variables.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'variable "enable_live_evidence"' in variables
+    assert 'resource "google_project_iam_custom_role" "investigator_reader"' in dev_source
+    assert 'resource "google_project_iam_member" "investigator_reader"' in dev_source
+    role = re.search(
+        r'resource "google_project_iam_custom_role" "investigator_reader" \{(.*?)\n\}',
+        dev_source,
+        flags=re.DOTALL,
+    )
+    assert role is not None
+    permission_block = re.search(r"permissions\s*=\s*\[(.*?)\]", role.group(1), flags=re.DOTALL)
+    assert permission_block is not None
+    permissions = set(re.findall(r'"([a-zA-Z0-9.]+)"', permission_block.group(1)))
+    assert permissions == {
+        "discoveryengine.servingConfigs.search",
+        "logging.logEntries.list",
+        "monitoring.timeSeries.list",
+        "resourcemanager.projects.get",
+        "run.revisions.list",
+        "run.services.get",
+        "serviceusage.services.use",
+    }
+    prohibited = ("create", "delete", "update", "setIamPolicy", "invoke", "import")
+    assert not any(permission.endswith(prohibited) for permission in permissions)
     assert "allUsers" not in dev_source

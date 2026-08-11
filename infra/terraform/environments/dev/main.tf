@@ -236,6 +236,34 @@ resource "google_service_account" "investigator" {
   depends_on = [google_project_service.m1]
 }
 
+resource "google_project_iam_custom_role" "investigator_reader" {
+  count = var.enable_live_evidence ? 1 : 0
+
+  project     = var.project_id
+  role_id     = "opspilotInvestigatorReader"
+  title       = "OpsPilot Investigator Reader"
+  description = "Bounded read-only access for M5 live evidence collection."
+  stage       = "GA"
+
+  permissions = [
+    "discoveryengine.servingConfigs.search",
+    "logging.logEntries.list",
+    "monitoring.timeSeries.list",
+    "resourcemanager.projects.get",
+    "run.revisions.list",
+    "run.services.get",
+    "serviceusage.services.use",
+  ]
+}
+
+resource "google_project_iam_member" "investigator_reader" {
+  count = var.enable_live_evidence ? 1 : 0
+
+  project = var.project_id
+  role    = google_project_iam_custom_role.investigator_reader[0].name
+  member  = "serviceAccount:${google_service_account.investigator.email}"
+}
+
 resource "google_service_account" "demo" {
   for_each = local.demo_service_names
 

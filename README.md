@@ -58,6 +58,19 @@ aggregate Agent Search readiness, while the fixed `KQ-001` `knowledge probe` req
 process-scoped gate. Project, bucket, data-store, engine, token, query, and GCS URI values are never
 accepted as diagnostic CLI arguments or printed.
 
+## Read-only evidence layer
+
+M5 Approval 1 adds typed, bounded collectors behind a fixture/live adapter boundary. The default
+smoke is local-only and performs no Google Cloud request:
+
+```powershell
+uv run opspilot evidence smoke --backend fixture --scenario SCN-001 --env dev --format summary
+```
+
+The live backend is disabled by default. It accepts no project, URL, token, resource name, raw
+Logging filter, or Monitoring filter argument. Google Cloud IAM and live evidence acceptance are a
+separate Approval 2.
+
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
 `/ready`. The identifier-free operator diagnostic is:
@@ -80,13 +93,17 @@ uv build
 
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
-remote state contains 24 managed resources; operator and hosted read-only plans are zero drift.
+remote state contains 28 managed resources after M4; operator and hosted read-only plans are zero
+drift.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
 ignored backend files, and GitHub repository variables.
 
 M4 Terraform is default-off. Enabling it in a separately reviewed plan adds exactly one protected
 knowledge bucket, one Agent Search data store, one metadata schema, and one Standard Search engine.
 Approval 1 does not create those resources or upload a document.
+
+M5 Terraform is also default-off. Enabling it in a separately reviewed Approval 2 plan adds only
+one investigator custom role and one binding to the existing investigator identity.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform
@@ -116,3 +133,5 @@ See `docs/operations/demo-services.md` for the workload runbook and
   only after the reviewed three-service update and remains part of the manual read-only plan gate.
 - M4 hosted plans additionally require `TF_M4_KNOWLEDGE_READY=true`; it remains unset until the
   separate Search apply, import, and live smoke approval completes.
+- M5 hosted plans additionally require `TF_M5_LIVE_EVIDENCE_READY=true`; Approval 1 does not create
+  or set this variable.

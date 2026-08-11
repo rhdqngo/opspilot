@@ -1,13 +1,13 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M4 applied and hosted zero drift
+Status: M1-M4 applied and hosted zero drift; M5 IAM prepared but not applied
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
 | --- | --- | --- | --- |
 | Developer / `Edu_687` operator | Current dev project | Local read checks, completed M1-M3 applies, bounded private invocation, approved M4 apply/import, one probe, and ten-query acceptance | Destroy, repeated Search smoke, unapproved import, billing model changes, unreviewed IAM broadening |
 | GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, applied Search data store/schema/engine get/list, service usage consumption, state object read | Search/import, API enable/disable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
-| Investigator identity | Dev project | Identity exists with no project role and no user-managed key | Logging, Monitoring, Run, Deploy, Secret, IAM, remediation writes |
+| Investigator identity | Dev project | Identity exists with no project role and no user-managed key; M5 read-only role is default-off | All reads until Approval 2, plus every Logging/Monitoring/Run/Search write, IAM, Secret, remediation operation |
 | Order runtime identity | Payment and inventory services | `roles/run.invoker` on the two leaf services only | Project roles, keys, secrets, IAM, remediation, arbitrary Cloud Run invocation |
 | Payment / inventory runtime identities | Their own Cloud Run revisions | No IAM role or user-managed key | Cross-service invocation, project roles, secrets, IAM, remediation writes |
 | Remediation identity | Not created | None | All execution permissions until M8 |
@@ -75,3 +75,21 @@ operator FULL import, one fixed probe, and one ten-query acceptance batch succee
 plan identity has the six Search get/list permissions plus the minimum service-usage consumption
 permission required by Google APIs. The corrected manual plan returned zero drift. Existing Search
 assets are not attached, imported, renamed, or modified.
+
+## M5 live evidence boundary
+
+Approval 1 defines, but does not apply, an investigator custom role with exactly:
+
+- `discoveryengine.servingConfigs.search`
+- `logging.logEntries.list`
+- `monitoring.timeSeries.list`
+- `resourcemanager.projects.get`
+- `run.revisions.list`
+- `run.services.get`
+- `serviceusage.services.use`
+
+The binding is gated by `enable_live_evidence=false`. Private-log access, invoke, update, IAM,
+import, Storage read, token creation, and every write permission remain excluded. The hosted plan
+role source adds only `iam.roles.get` and `resourcemanager.projects.getIamPolicy` so a future
+read-only plan can refresh the custom role and binding; that bootstrap change is not applied in
+Approval 1.
