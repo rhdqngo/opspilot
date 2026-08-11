@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: updated for M6 Approval 2 controls
+Status: updated after blocked M6 Approval 2 acceptance
 
 ## Protected assets and trust boundaries
 
@@ -21,6 +21,7 @@ approval cross those boundaries.
 | Unbounded cost or latency | Three calls per case, 64 KiB per request, 2,048 tokens per node, 60-second graph and 200-second three-case deadline; attempted calls are counted before transport | Provider-side token accounting is accepted only from bounded usage metadata |
 | Unauthorized remediation | No tools or write endpoint; unsafe action text is dropped; all retained actions require approval | M8 needs a separate action-policy threat review |
 | Unsafe failure leakage | Exceptions normalize to fixed error categories and ADK internal trace logging is suppressed at the public boundary | Local debug mode must never be enabled in hosted output |
+| Lost failure classification | Acceptance summary now emits only the case's fixed error code; raw provider details remain suppressed | The first live failure category was not retained and requires separately approved reproduction |
 
 ## Deferred reviews
 

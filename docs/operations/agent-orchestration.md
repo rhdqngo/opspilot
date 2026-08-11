@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 2 controls implemented; live acceptance pending
+Status: Approval 2 live acceptance blocked after the single approved run
 
 ## Purpose
 
@@ -78,3 +78,13 @@ Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
 The complete batch permits at most nine attempted model calls and has a 200-second aggregate
 deadline. Keep the gate process-scoped and remove it in a `finally` path. Do not store raw model
 requests or responses. Agent Runtime deployment and Gemini Enterprise registration remain M7 work.
+
+## Current live result
+
+The approved batch was run once on 2026-08-11. SCN-001 stopped during the reviewer model node after
+two attempted requests and one successful response. Provider usage metadata reported 1,229 prompt,
+275 output, and 1,504 total tokens. The gate was removed and the batch was not retried.
+
+The first summary format did not render the normalized error stored on the failed case. That output
+contract is corrected locally and covered by tests, but the missing category cannot be reconstructed
+without another model request. Any reproduction or retry requires a separate approval and budget.

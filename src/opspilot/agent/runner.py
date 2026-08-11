@@ -577,6 +577,9 @@ def render_agent_acceptance(result: AgentAcceptanceResult, output_format: str) -
     lines.extend(
         f"{case.scenario_id}: {'pass' if case.passed else 'fail'}" for case in result.cases
     )
+    lines.extend(
+        f"{case.scenario_id}_error: {error.code}" for case in result.cases for error in case.errors
+    )
     lines.extend(f"error: {error.code}" for error in result.errors)
     return "\n".join(lines) + "\n"
 

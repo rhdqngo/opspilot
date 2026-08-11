@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented with bounded live-acceptance controls
+Status: implemented; first live acceptance blocked
 Date: 2026-08-11
 
 ## Decision
@@ -31,3 +31,5 @@ preventing an LLM from constructing executable resource queries or action payloa
   `gemini-3.5-flash` and `global`.
 - The only live batch is the sequential `m6-core` suite (SCN-001, SCN-006, SCN-007), capped at nine
   attempted requests and 200 seconds with no retry. The seven-case evaluation remains fake-only.
+- The first approved live batch stopped at the SCN-001 reviewer node after two attempts and one
+  success. No automatic retry or model substitution is permitted; M6 remains incomplete.

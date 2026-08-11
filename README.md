@@ -92,6 +92,10 @@ fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true`. The live acceptance path 
 SCN-001, SCN-006, and SCN-007, stops on first failure, and permits at most nine model requests.
 The diagnostic performs no generation request and emits only redacted readiness fields.
 
+The first approved Vertex batch stopped safely during SCN-001 after two attempted calls and was not
+retried. M6 remains blocked pending a separately approved failure-classification run; M7 deployment
+has not started.
+
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
 `/ready`. The identifier-free operator diagnostic is:

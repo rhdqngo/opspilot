@@ -130,6 +130,7 @@ async def test_M6_core_acceptance_stops_after_first_failed_case_without_calls(
     assert result.executed_case_count == 1
     assert result.attempted_model_calls == 0
     assert result.cases[0].errors[0].code == "AGENT_GATE_DISABLED"
+    assert "SCN-001_error: AGENT_GATE_DISABLED" in render_agent_acceptance(result, "summary")
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 Approval 2 controls implemented; live usage pending
+Status: M6 Approval 2 live batch stopped within budget
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -130,3 +130,7 @@ Future work must not add any cost-bearing resource without a separate plan and a
   USD 1.06. Actual usage is recorded from provider usage metadata.
 - IAM, Terraform, Cloud Run, corpus, import, image, runtime, and GitHub credential state remain
   unchanged.
+- The single approved live run stopped during SCN-001 after two attempted requests and one
+  successful response. Reported usage was 1,229 prompt tokens and 275 output tokens, about USD
+  0.0044 at list price. Even treating both attempts at their full byte/token caps stays below about
+  USD 0.24. No retry or additional model request was made.

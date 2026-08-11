@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M6-live-controls-complete / M6-live-acceptance-pending
+phase: M6-model-deployed / live-acceptance-blocked
 updated: 2026-08-11
 
 ## Objective
@@ -35,6 +35,12 @@ updated: 2026-08-11
   attempted requests, and rejects any model other than `gemini-3.5-flash` in `global`.
 - Request attempts and byte limits are enforced before transport. The seven-case evaluation is
   fake-only, while live errors are reduced to fixed redacted categories without raw provider data.
+- The approved Vertex batch was executed exactly once. SCN-001 stopped during its second model
+  node with two attempted calls, one successful response, and 1,504 reported tokens. No retry was
+  made and the process-scoped live gate was removed.
+- The original acceptance summary omitted the case-level normalized error code, so the precise
+  safe category was not retained. The summary contract now includes case error codes; another
+  Vertex request requires a separate corrective approval.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -115,7 +121,7 @@ updated: 2026-08-11
 | M5 Approval 1: live evidence boundary | complete | Typed collectors, fixture smoke, redaction, default-off two-resource IAM graph |
 | M5 Approval 2: investigator IAM and live acceptance | complete | Bootstrap 1-update, dev 3-create, one bounded SCN-001 evidence batch, hosted zero drift |
 | M6 Approval 1: ADK orchestration | complete | Optional ADK 2.5 graph, fake model, seven-case offline evaluation, no cloud/model call |
-| M6 Approval 2: live model acceptance | in progress | Controls and fake 3-case acceptance pass; zero-call diagnostic and Vertex batch remain |
+| M6 Approval 2: live model acceptance | blocked | One approved batch stopped in SCN-001 after 2 attempts / 1 success; no retry |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -131,6 +137,8 @@ updated: 2026-08-11
 - Added zero-generation Vertex readiness checks, fixed three-case `m6-core` acceptance, pre-request
   attempt and byte accounting, a 200-second aggregate deadline, model allowlisting, and safe
   provider-error normalization. The fake acceptance passes all three cases with nine calls.
+- Ran the approved Vertex acceptance once. It stopped on the SCN-001 reviewer stage after one
+  successful response; the live gate was removed and all infrastructure remained unchanged.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -265,6 +273,7 @@ updated: 2026-08-11
 | M6 fake agent run | pass | SCN-001 exact seven-node trajectory; three model calls; citation coverage 100% |
 | M6 offline evaluation | pass | Seven fixtures passed; twenty-one fake model calls; zero cloud/model requests |
 | M6 live controls | pass | Zero-call diagnostic contract; fake core acceptance 3/3 with nine attempted and successful calls |
+| M6 Vertex acceptance | blocked | SCN-001 stopped at call 2; 2 attempted / 1 successful; 1,229 prompt, 275 output, 1,504 total tokens; no retry |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -278,10 +287,10 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Reconfirm the zero-generation diagnostic, clean/synced main, operator Terraform zero drift, and
-  the approved Standard PayGo model before enabling the process-scoped live-model gate.
-- Run the fixed three-case acceptance batch exactly once, record only aggregate token/call results,
-  and remove the process gate on success or failure without retry or model substitution.
+- Prepare a separate corrective approval that first reproduces the normalized SCN-001 reviewer
+  failure with one bounded run or another zero-generation diagnostic when possible.
+- Do not rerun the three-case batch, substitute a model, expand IAM, or begin M7 until the failure
+  is classified and a new request budget is explicitly approved.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 
