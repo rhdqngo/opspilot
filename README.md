@@ -30,6 +30,13 @@ Without Make, build and run `opspilot-demo:local` with `docker build --platform 
 `docker compose up -d --no-build`, and `docker compose down --remove-orphans`. The bounded load
 command is `uv run opspilot demo load --orders 10 --concurrency 2 --auth local`.
 
+The three private Cloud Run services are deployed, but remote invocation is currently blocked
+before the container by an inherited route policy. The identifier-free operator diagnostic is:
+
+```powershell
+uv run opspilot route-check --account-alias Edu_687 --format summary
+```
+
 ## Validation
 
 ```powershell
@@ -43,9 +50,9 @@ uv build
 ## Infrastructure
 
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
-GCS backend. M2 Cloud Run resources are defined behind `deploy_demo=false`; no image has been
-pushed and no demo workload has been applied. A read-only plan with the gate disabled has zero
-resource and output changes.
+GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
+remote state contains 24 managed resources and the operator plan is zero drift; hosted planning
+remains disabled until the private route passes remote smoke validation.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
 ignored backend files, and GitHub repository variables.
 
@@ -59,7 +66,8 @@ terraform -chdir=infra/terraform/environments/dev validate
 terraform -chdir=infra/terraform/environments/dev test
 ```
 
-See `docs/operations/demo-services.md` for the local workflow and separate Approval 2 boundary.
+See `docs/operations/demo-services.md` for the workload runbook and
+`docs/operations/cloud-run-route-recovery.md` for the administrator checkpoint.
 
 ## Safety boundary
 
@@ -71,5 +79,5 @@ See `docs/operations/demo-services.md` for the local workflow and separate Appro
 - Pull requests run static Terraform checks without cloud credentials.
 - Pull requests build the Linux/amd64 image and exercise all three roles only on a local network.
 - The live Terraform plan workflow is manual, uses WIF, and has no apply or state-write identity.
-- The live plan is additionally gated by `TF_M2_IMAGE_READY=true`; that variable is not configured
-  in Approval 1. Future image push and cloud apply remain local and separately approved.
+- The live plan is additionally gated by `TF_M2_IMAGE_READY=true`; it remains disabled while the
+  inherited route restriction blocks remote acceptance.

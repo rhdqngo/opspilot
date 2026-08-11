@@ -13,6 +13,7 @@ import uvicorn
 from opspilot.access_check import render_access_summary, run_access_check
 from opspilot.demo.load import run_load
 from opspilot.reporting import render_markdown
+from opspilot.route_check import render_route_summary, run_route_check
 from opspilot.workflow import run_fixture_investigation
 
 
@@ -32,6 +33,11 @@ def build_parser() -> argparse.ArgumentParser:
     access_check.add_argument("--confirm-project", action="store_true")
     access_check.add_argument("--confirm-billing-currency-krw", action="store_true")
     access_check.add_argument("--format", choices=("json", "summary"), default="summary")
+    route_check = subcommands.add_parser(
+        "route-check", help="Run redacted read-only Cloud Run route diagnostics"
+    )
+    route_check.add_argument("--account-alias", default="Edu_687")
+    route_check.add_argument("--format", choices=("json", "summary"), default="summary")
     demo = subcommands.add_parser("demo", help="Run or exercise synthetic demo services")
     demo_commands = demo.add_subparsers(dest="demo_command", required=True)
     demo_serve = demo_commands.add_parser("serve", help="Serve the configured demo role")
@@ -73,6 +79,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(render_access_summary(result), end="")
         return 0 if result.m0_ready else 2
+    if args.command == "route-check":
+        route_result = run_route_check(account_alias=str(args.account_alias))
+        if args.format == "json":
+            print(json.dumps(route_result.model_dump(), indent=2))
+        else:
+            print(render_route_summary(route_result), end="")
+        return 0 if route_result.route_ready else 2
     if args.command == "demo" and args.demo_command == "serve":
         port = int(args.port) if args.port is not None else int(os.environ.get("PORT", "8080"))
         uvicorn.run(

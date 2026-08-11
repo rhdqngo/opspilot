@@ -66,11 +66,23 @@ authorization headers, account identifiers, or tokens.
   can detect the parent organization but cannot read its access-policy perimeter configuration.
 - `TF_PLAN_ENABLED=false` remains set. `TF_M2_IMAGE_READY` and `GCP_DEMO_IMAGE_URI` remain absent,
   so hosted plan cannot run prematurely.
+- The current Cloud Run inventory contains only the three managed M2 candidates. An earlier note
+  about one non-candidate service was based on an incorrect local JSON-array count and is retired.
+
+Run the repeatable redacted diagnostic without supplying a project identifier:
+
+```powershell
+uv run opspilot route-check --account-alias Edu_687 --format summary
+```
+
+The current blocked contract exits `2` with `blocker_code=route_restricted`. See
+`cloud-run-route-recovery.md` for the administrator checklist and the acceptance sequence.
 
 ## Resume procedure
 
-1. Have the organization administrator confirm whether the project or caller is inside a VPC
-   Service Controls perimeter or another inherited Cloud Run ingress restriction.
+1. Follow `cloud-run-route-recovery.md` and have the organization administrator confirm whether
+   the project or caller is inside a VPC Service Controls perimeter or another inherited route
+   restriction.
 2. Restore authenticated access without adding `allUsers` or broadening runtime IAM.
 3. Repeat unauthenticated-denial and authenticated 10-order smoke checks.
 4. Verify request/trace logs and request-count/latency metrics, then set the private image variable

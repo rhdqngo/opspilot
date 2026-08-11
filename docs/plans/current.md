@@ -19,6 +19,8 @@ updated: 2026-08-11
   10-create dev plan. Remote state now contains 24 managed resources and is zero drift.
 - Three private Cloud Run services are Ready, but their default URLs and the authenticated Cloud
   Run proxy return a pre-container 404. Remote E2E, request telemetry, and hosted plan remain gated.
+- A repeatable `route-check` CLI now reduces the fixed-service route state to identifier-free
+  counts, booleans, HTTP status classes, and one bounded blocker code.
 
 ## Milestones
 
@@ -49,6 +51,8 @@ updated: 2026-08-11
   order-only invoker access to payment and inventory.
 - Kept `TF_PLAN_ENABLED=false`; neither `TF_M2_IMAGE_READY` nor the private digest variable is
   configured while remote invocation is blocked.
+- Corrected the Cloud Run inventory: the current project contains the three managed M2 candidates
+  and no additional non-candidate service.
 
 ## Verification state
 
@@ -57,7 +61,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 43 pytest tests |
+| Tests | pass | 50 pytest tests, including redaction and route blocker classification |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -67,6 +71,7 @@ updated: 2026-08-11
 | Bootstrap apply | pass | Exact `0 create / 1 update / 0 delete`; operator zero drift |
 | Dev apply | pass | Exact `10 create / 0 update / 0 delete`; 24 managed resources; operator zero drift |
 | Runtime security | pass | Three Ready private services; digest match; keys/project roles/public principals 0 |
+| Route diagnostic | pass | Redacted CLI exits 2 with three pre-container 404s and `route_restricted` |
 | Remote smoke | blocked | Google frontend 404 before container; request logs and metrics absent |
 | Hosted plan | gated | Plan gate false; image-ready and digest variables absent |
 | UI render / input | not-applicable | No end-user UI |
@@ -76,13 +81,15 @@ updated: 2026-08-11
 - The organization-level access-policy perimeter cannot be read by the current operator. An
   administrator must confirm inherited VPC Service Controls or Cloud Run route restrictions.
 - Do not add `allUsers`, broad runtime IAM, or unplanned operator bindings to bypass the blocker.
-- The existing non-candidate Cloud Run service remained outside Terraform scope.
+- The administrator checklist requests only a network/access-level exception for the operator and
+  a method-limited Cloud Run Admin API read path for the GitHub plan identity.
 - Real account, project, billing, state, service URL, image URI, repository numeric, and credential
   identifiers must not enter tracked files or artifacts.
 
 ## Next checkpoint
 
-- Resolve the inherited Cloud Run route restriction, then run authenticated 10-order E2E,
+- Obtain the administrator's identifier-free `route exception active` confirmation, rerun the
+  redacted route check, then run authenticated 10-order E2E,
   request/trace and latency metrics checks, configure the private GitHub image variables, and run
   hosted read-only zero drift before marking M2 complete.
 
@@ -90,6 +97,7 @@ updated: 2026-08-11
 
 - Master plan: `docs/plans/opspilot_ai_implementation_spec.md`
 - Demo runbook: `docs/operations/demo-services.md`
+- Route recovery runbook: `docs/operations/cloud-run-route-recovery.md`
 - Bootstrap runbook: `docs/operations/bootstrap.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`

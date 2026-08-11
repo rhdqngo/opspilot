@@ -41,7 +41,9 @@ unverified until a real threshold is reached.
   min 0, max 2, concurrency 20, and a 10-second request timeout.
 - There is no scheduled load, Firestore, custom metric, alert policy, fault injector, or VPC.
 - The three revisions use one immutable Artifact Registry digest. No background demo window is
-  active, and both hosted Terraform plan gates remain disabled until remote smoke succeeds.
+active, and both hosted Terraform plan gates remain disabled until remote smoke succeeds.
+The administrator route exception must not add a proxy, connector, NAT path, minimum instance, or
+other cost-bearing resource without a separate plan and approval.
 
 ## Cleanup order
 
