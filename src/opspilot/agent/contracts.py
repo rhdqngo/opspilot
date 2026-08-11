@@ -165,10 +165,14 @@ class ReportNarrativeDraft(BaseModel):
 
 class ModelBudgetUsage(BaseModel):
     model_calls: int = Field(default=0, ge=0, le=3)
+    attempted_model_calls: int = Field(default=0, ge=0, le=3)
+    successful_model_calls: int = Field(default=0, ge=0, le=3)
     prompt_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
     total_tokens: int = Field(default=0, ge=0)
     input_bytes: int = Field(default=0, ge=0, le=64 * 1024)
+    request_input_bytes: int = Field(default=0, ge=0, le=3 * 64 * 1024)
+    max_request_input_bytes: int = Field(default=0, ge=0, le=64 * 1024)
     truncated: bool = False
     deadline_seconds: int = 60
 
@@ -213,3 +217,53 @@ class AgentEvalResult(BaseModel):
     @property
     def passed(self) -> bool:
         return self.executed_case_count == 7 and self.passed_case_count == 7
+
+
+class AgentDiagnosticResult(BaseModel):
+    account_alias: str = Field(pattern=r"^[A-Za-z0-9_-]{3,32}$")
+    account_alias_match: bool = False
+    user_credentials: bool = False
+    application_default_credentials: bool = False
+    default_project_configured: bool = False
+    project_active: bool = False
+    billing_enabled: bool = False
+    billing_currency_krw_confirmed: bool = False
+    vertex_api_enabled: bool = False
+    predict_permission: bool = False
+    service_usage_permission: bool = False
+    model_id_allowed: bool = False
+    location_global: bool = False
+    standard_paygo: bool = True
+    generate_content_calls: int = Field(default=0, ge=0, le=0)
+    missing_permissions: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    model_ready: bool = False
+
+
+class AgentAcceptanceCaseResult(BaseModel):
+    scenario_id: str = Field(pattern=r"^SCN-\d{3}$")
+    passed: bool
+    status: AgentRunStatus
+    actual_root_cause_code: str | None = None
+    citation_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
+    recommended_action_count: int = Field(default=0, ge=0)
+    budget: ModelBudgetUsage = Field(default_factory=ModelBudgetUsage)
+    errors: list[AgentRunError] = Field(default_factory=list)
+
+
+class AgentAcceptanceResult(BaseModel):
+    suite: Literal["m6-core"] = "m6-core"
+    model_backend: ModelBackend
+    executed_case_count: int = Field(default=0, ge=0, le=3)
+    passed_case_count: int = Field(default=0, ge=0, le=3)
+    attempted_model_calls: int = Field(default=0, ge=0, le=9)
+    successful_model_calls: int = Field(default=0, ge=0, le=9)
+    prompt_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    total_tokens: int = Field(default=0, ge=0)
+    request_input_bytes: int = Field(default=0, ge=0, le=9 * 64 * 1024)
+    max_request_input_bytes: int = Field(default=0, ge=0, le=64 * 1024)
+    deadline_seconds: int = 200
+    passed: bool = False
+    cases: list[AgentAcceptanceCaseResult] = Field(default_factory=list, max_length=3)
+    errors: list[AgentRunError] = Field(default_factory=list)

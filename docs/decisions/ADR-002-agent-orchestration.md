@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented for offline M6
+Status: implemented with bounded live-acceptance controls
 Date: 2026-08-11
 
 ## Decision
@@ -27,4 +27,7 @@ preventing an LLM from constructing executable resource queries or action payloa
 - Recommendations remain advisory records with `requires_approval=true`; no remediation endpoint or
   write tool is connected.
 - The fixture fake model is the CI default. Vertex use remains behind
-  `OPSPILOT_LIVE_MODEL_ENABLED=true` and a separate approval.
+  `OPSPILOT_LIVE_MODEL_ENABLED=true`; the approved model and location are fixed to
+  `gemini-3.5-flash` and `global`.
+- The only live batch is the sequential `m6-core` suite (SCN-001, SCN-006, SCN-007), capped at nine
+  attempted requests and 200 seconds with no retry. The seven-case evaluation remains fake-only.

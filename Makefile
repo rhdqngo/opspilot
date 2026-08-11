@@ -1,4 +1,4 @@
-.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run access-check knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
+.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run access-check knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-diagnose agent-accept demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
 
 TERRAFORM ?= terraform
 TFLINT_IMAGE ?= ghcr.io/terraform-linters/tflint:v0.64.0
@@ -55,6 +55,12 @@ agent-run:
 
 agent-eval:
 	uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
+
+agent-diagnose:
+	uv run --extra agent opspilot agent diagnose --account-alias Edu_687 --format summary
+
+agent-accept:
+	uv run --extra agent opspilot agent accept --suite m6-core --model fake --format summary
 
 image-build:
 	docker build --platform linux/amd64 -t $(DEMO_IMAGE) .

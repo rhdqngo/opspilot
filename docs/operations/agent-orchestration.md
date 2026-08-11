@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 1 code complete; live model calls not approved
+Status: Approval 2 controls implemented; live acceptance pending
 
 ## Purpose
 
@@ -57,6 +57,24 @@ exit code 2.
 ## Live-model boundary
 
 `--model vertex` is fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true` is set in the current
-process. Do not enable it during Approval 1. Approval 2 must first confirm model access, region,
-quota, pricing, redaction, and a fixed request budget, then run a separately approved bounded eval.
-Agent Runtime deployment and Gemini Enterprise registration remain M7 work.
+process. Only `gemini-3.5-flash` in `global` is accepted; an environment override to another model
+fails before a request. The seven-case `agent eval` command is fake-only.
+
+Run the zero-generation preflight before enabling the process gate:
+
+```powershell
+uv run --extra agent opspilot agent diagnose --account-alias Edu_687 --format summary
+```
+
+The approved live batch uses fixture evidence and exactly three fixed cases in this order:
+SCN-001, SCN-006, and SCN-007. It stops after the first failed case and never retries.
+
+```powershell
+$env:OPSPILOT_LIVE_MODEL_ENABLED='true'
+uv run --extra agent opspilot agent accept --suite m6-core --model vertex --format json
+Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
+```
+
+The complete batch permits at most nine attempted model calls and has a 200-second aggregate
+deadline. Keep the gate process-scoped and remove it in a `finally` path. Do not store raw model
+requests or responses. Agent Runtime deployment and Gemini Enterprise registration remain M7 work.

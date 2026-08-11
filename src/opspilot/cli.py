@@ -124,6 +124,17 @@ def build_parser() -> argparse.ArgumentParser:
     agent_eval.add_argument("--suite", choices=("fixture",), default="fixture")
     agent_eval.add_argument("--model", choices=("fake", "vertex"), default="fake")
     agent_eval.add_argument("--format", choices=("json", "summary"), default="summary")
+    agent_diagnose = agent_commands.add_parser(
+        "diagnose", help="Run zero-generation Vertex model readiness checks"
+    )
+    agent_diagnose.add_argument("--account-alias", default="Edu_687")
+    agent_diagnose.add_argument("--format", choices=("json", "summary"), default="summary")
+    agent_accept = agent_commands.add_parser(
+        "accept", help="Run the fixed three-case M6 model acceptance suite"
+    )
+    agent_accept.add_argument("--suite", choices=("m6-core",), default="m6-core")
+    agent_accept.add_argument("--model", choices=("fake", "vertex"), default="fake")
+    agent_accept.add_argument("--format", choices=("json", "summary"), default="summary")
     return parser
 
 
@@ -245,9 +256,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "agent":
         try:
             from opspilot.agent.contracts import AgentBackend, ModelBackend
+            from opspilot.agent.diagnostics import (
+                render_agent_diagnostic,
+                run_agent_diagnostic,
+            )
             from opspilot.agent.runner import (
+                render_agent_acceptance,
                 render_agent_eval,
                 render_agent_result,
+                run_agent_acceptance,
                 run_agent_eval,
                 run_agent_investigation,
             )
@@ -265,7 +282,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(render_agent_result(agent_result, str(args.format)), end="")
             return 0 if agent_result.succeeded else 2
         if args.agent_command == "eval":
-            eval_result = asyncio.run(run_agent_eval(model_backend=ModelBackend(str(args.model))))
+            if str(args.model) != "fake":
+                print("Vertex evaluation is limited to: agent accept --suite m6-core")
+                return 2
+            eval_result = asyncio.run(run_agent_eval(model_backend=ModelBackend.FAKE))
             print(render_agent_eval(eval_result, str(args.format)), end="")
             return 0 if eval_result.passed else 2
+        if args.agent_command == "diagnose":
+            agent_diagnostic = run_agent_diagnostic(account_alias=str(args.account_alias))
+            if args.format == "json":
+                print(json.dumps(agent_diagnostic.model_dump(mode="json"), indent=2))
+            else:
+                print(render_agent_diagnostic(agent_diagnostic), end="")
+            return 0 if agent_diagnostic.model_ready else 2
+        if args.agent_command == "accept":
+            acceptance = asyncio.run(
+                run_agent_acceptance(model_backend=ModelBackend(str(args.model)))
+            )
+            print(render_agent_acceptance(acceptance, str(args.format)), end="")
+            return 0 if acceptance.passed else 2
     raise AssertionError("unreachable command")

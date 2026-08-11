@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import cast
 
 import pytest
@@ -8,6 +9,7 @@ from google.adk.agents.context import Context
 from google.adk.models.llm_request import LlmRequest
 from google.genai import types
 
+from opspilot.access_check import AccessCheckResult, CommandResult
 from opspilot.agent.contracts import (
     AgentBackend,
     AgentErrorCategory,
@@ -17,13 +19,17 @@ from opspilot.agent.contracts import (
     HypothesisReviewBatch,
     ModelBackend,
 )
+from opspilot.agent.diagnostics import render_agent_diagnostic, run_agent_diagnostic
 from opspilot.agent.models import (
     MAX_MODEL_INPUT_BYTES,
     MODEL_DEADLINE_SECONDS,
     MODEL_NODE_TIMEOUT_SECONDS,
 )
 from opspilot.agent.runner import (
+    _safe_error,
+    render_agent_acceptance,
     render_agent_result,
+    run_agent_acceptance,
     run_agent_eval,
     run_agent_investigation,
 )
@@ -72,6 +78,10 @@ async def test_M6_fake_agent_runs_three_model_nodes_and_keeps_citations_grounded
     assert result.succeeded
     assert result.trajectory == EXPECTED_TRAJECTORY
     assert result.budget.model_calls == 3
+    assert result.budget.attempted_model_calls == 3
+    assert result.budget.successful_model_calls == 3
+    assert result.budget.request_input_bytes > 0
+    assert result.budget.max_request_input_bytes <= MAX_MODEL_INPUT_BYTES
     assert result.budget.input_bytes <= MAX_MODEL_INPUT_BYTES
     assert result.report is not None
     assert result.report.audit["root_cause_code"] == "PAYMENT_DB_POOL_EXHAUSTION"
@@ -92,6 +102,34 @@ async def test_M6_offline_eval_passes_all_seven_fixtures() -> None:
     assert result.executed_case_count == 7
     assert result.passed_case_count == 7
     assert result.model_calls == 21
+
+
+@pytest.mark.asyncio
+async def test_M6_core_acceptance_is_fixed_to_three_cases_and_nine_calls() -> None:
+    result = await run_agent_acceptance(model_backend=ModelBackend.FAKE)
+
+    assert result.passed
+    assert [case.scenario_id for case in result.cases] == ["SCN-001", "SCN-006", "SCN-007"]
+    assert result.executed_case_count == 3
+    assert result.passed_case_count == 3
+    assert result.attempted_model_calls == 9
+    assert result.successful_model_calls == 9
+    assert all(case.budget.attempted_model_calls == 3 for case in result.cases)
+    assert "attempted_model_calls: 9" in render_agent_acceptance(result, "summary")
+
+
+@pytest.mark.asyncio
+async def test_M6_core_acceptance_stops_after_first_failed_case_without_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPSPILOT_LIVE_MODEL_ENABLED", raising=False)
+
+    result = await run_agent_acceptance(model_backend=ModelBackend.VERTEX)
+
+    assert not result.passed
+    assert result.executed_case_count == 1
+    assert result.attempted_model_calls == 0
+    assert result.cases[0].errors[0].code == "AGENT_GATE_DISABLED"
 
 
 @pytest.mark.asyncio
@@ -150,6 +188,26 @@ async def test_M6_vertex_backend_is_fail_closed_without_live_gate(
     assert "project" not in result.errors[0].safe_message.casefold()
 
 
+@pytest.mark.asyncio
+async def test_M6_vertex_backend_rejects_unapproved_model_before_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPSPILOT_LIVE_MODEL_ENABLED", "true")
+    monkeypatch.setenv("OPSPILOT_MODEL_ID", "gemini-unapproved")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "secret-project")
+
+    result = await run_agent_investigation(
+        backend=AgentBackend.FIXTURE,
+        scenario_id="SCN-001",
+        model_backend=ModelBackend.VERTEX,
+    )
+
+    assert not result.succeeded
+    assert result.budget.attempted_model_calls == 0
+    assert result.errors[0].code == "AGENT_MODEL_NOT_ALLOWED"
+    assert "secret-project" not in render_agent_result(result, "json")
+
+
 def test_M6_model_request_rejects_cloud_identifiers_and_oversized_input() -> None:
     cloud_request = LlmRequest(
         contents=[types.Content(parts=[types.Part(text="projects/example/locations/global")])]
@@ -162,6 +220,79 @@ def test_M6_model_request_rejects_cloud_identifiers_and_oversized_input() -> Non
     )
     with pytest.raises(ValueError, match="fixed byte budget"):
         validate_model_request(cast(Context, object()), oversized)
+
+
+def test_M6_vertex_errors_are_classified_without_raw_details() -> None:
+    class VertexFailure(RuntimeError):
+        def __init__(self, status_code: int, message: str) -> None:
+            super().__init__(message)
+            self.status_code = status_code
+
+    expected = {
+        401: "AGENT_AUTH",
+        403: "AGENT_AUTH",
+        404: "AGENT_MODEL_NOT_FOUND",
+        429: "AGENT_QUOTA",
+        500: "AGENT_UPSTREAM",
+        503: "AGENT_UPSTREAM",
+    }
+    for status, code in expected.items():
+        error = _safe_error(VertexFailure(status, "projects/secret token raw upstream detail"))
+        assert error.code == code
+        serialized = error.model_dump_json().casefold()
+        assert "projects/" not in serialized
+        assert "token" not in serialized
+
+    safety = _safe_error(RuntimeError("response blocked by safety filters"))
+    assert safety.code == "AGENT_SAFETY_BLOCKED"
+
+
+def test_M6_diagnostic_is_zero_generation_and_redacted() -> None:
+    access = AccessCheckResult(
+        account_alias_match=True,
+        user_credentials=True,
+        application_default_credentials=True,
+        default_project_configured=True,
+        project_active=True,
+        project_confirmed=True,
+        billing_enabled=True,
+        billing_currency_krw_confirmed=True,
+    )
+
+    def access_checker(**_kwargs: object) -> AccessCheckResult:
+        return access
+
+    def runner(arguments: Sequence[str]) -> CommandResult:
+        if arguments[:3] == ("config", "get-value", "project"):
+            return CommandResult(0, "secret-project")
+        if arguments[:3] == ("auth", "print-access-token"):
+            return CommandResult(0, "secret-token")
+        if arguments[:3] == ("services", "list", "--enabled"):
+            return CommandResult(0, "aiplatform.googleapis.com")
+        return CommandResult(1, "")
+
+    def requester(
+        token: str, url: str, body: dict[str, object] | None, quota_project: str
+    ) -> dict[str, object]:
+        assert token == "secret-token"
+        assert "secret-project" in url
+        assert quota_project == "secret-project"
+        assert body is not None
+        return {"permissions": ["aiplatform.endpoints.predict", "serviceusage.services.use"]}
+
+    result = run_agent_diagnostic(
+        account_alias="Edu_687",
+        access_checker=access_checker,
+        runner=runner,
+        requester=requester,
+    )
+
+    assert result.model_ready
+    assert result.generate_content_calls == 0
+    output = result.model_dump_json() + render_agent_diagnostic(result)
+    assert "secret-project" not in output
+    assert "secret-token" not in output
+    assert "googleapis.com" not in output
 
 
 def test_M6_deterministic_verifier_rejects_forged_evidence() -> None:

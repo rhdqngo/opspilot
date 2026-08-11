@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 Approval 1 code complete
+Status: M6 Approval 2 controls implemented; live usage pending
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -119,3 +119,14 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - A future live run is capped at three model calls with bounded input/output and requires the
   explicit process gate plus a separate approval. Actual Gemini pricing and quota must be checked
   immediately before that approval.
+
+## M6 Approval 2 boundary
+
+- The fixed live suite contains three fixture cases and at most nine attempted model requests.
+- The model is `gemini-3.5-flash` on the `global` Standard PayGo endpoint. No provisioned
+  throughput, grounding, tool call, Search request, or live telemetry read is part of this batch.
+- At the documented rates of USD 1.50 per million input tokens and USD 9.00 per million output
+  tokens, the conservative 64-KiB-per-request and 2,048-output-token limits cap the batch at about
+  USD 1.06. Actual usage is recorded from provider usage metadata.
+- IAM, Terraform, Cloud Run, corpus, import, image, runtime, and GitHub credential state remain
+  unchanged.

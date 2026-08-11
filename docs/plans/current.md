@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M6-code-complete / M6-ready-for-model-approval
+phase: M6-live-controls-complete / M6-live-acceptance-pending
 updated: 2026-08-11
 
 ## Objective
@@ -30,6 +30,11 @@ updated: 2026-08-11
   or executable tool. Inputs are capped at 64 KiB; node outputs at 2,048 tokens; node timeout is
   20 seconds and total graph deadline 60 seconds. Recommendations remain approval-required data.
 - M6 Approval 1 changes no Terraform, IAM, image, workload, Search corpus, or Google Cloud state.
+- M6 Approval 2 now has a zero-generation readiness diagnostic and a fixed sequential acceptance
+  suite for SCN-001, SCN-006, and SCN-007. The suite stops on first failure, permits at most nine
+  attempted requests, and rejects any model other than `gemini-3.5-flash` in `global`.
+- Request attempts and byte limits are enforced before transport. The seven-case evaluation is
+  fake-only, while live errors are reduced to fixed redacted categories without raw provider data.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -110,7 +115,7 @@ updated: 2026-08-11
 | M5 Approval 1: live evidence boundary | complete | Typed collectors, fixture smoke, redaction, default-off two-resource IAM graph |
 | M5 Approval 2: investigator IAM and live acceptance | complete | Bootstrap 1-update, dev 3-create, one bounded SCN-001 evidence batch, hosted zero drift |
 | M6 Approval 1: ADK orchestration | complete | Optional ADK 2.5 graph, fake model, seven-case offline evaluation, no cloud/model call |
-| M6 Approval 2: live model acceptance | pending approval | Bounded Vertex evaluation only; no runtime deployment or IAM expansion |
+| M6 Approval 2: live model acceptance | in progress | Controls and fake 3-case acceptance pass; zero-call diagnostic and Vertex batch remain |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -123,6 +128,9 @@ updated: 2026-08-11
   recommendation filtering, prompt-injection isolation, and logical evidence URI normalization.
 - Added redacted agent run/eval CLI commands, partial-evidence handling, fail-closed Vertex gating,
   optional dependency locking, offline CI evaluation, runbook, ADR, and threat-model coverage.
+- Added zero-generation Vertex readiness checks, fixed three-case `m6-core` acceptance, pre-request
+  attempt and byte accounting, a 200-second aggregate deadline, model allowlisting, and safe
+  provider-error normalization. The fake acceptance passes all three cases with nine calls.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -214,7 +222,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 121 pytest tests, including M6 graph, eval, citation, injection, failure, budget, and redaction contracts |
+| Tests | pass | 126 pytest tests, including M6 graph, eval, acceptance, diagnosis, citation, injection, failure, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -256,6 +264,7 @@ updated: 2026-08-11
 | M6 optional install | pass | `uv sync --frozen --extra agent`; ADK 2.5 lock resolved |
 | M6 fake agent run | pass | SCN-001 exact seven-node trajectory; three model calls; citation coverage 100% |
 | M6 offline evaluation | pass | Seven fixtures passed; twenty-one fake model calls; zero cloud/model requests |
+| M6 live controls | pass | Zero-call diagnostic contract; fake core acceptance 3/3 with nine attempted and successful calls |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -269,10 +278,10 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Approval 2 must verify current Vertex model availability, quota, pricing, account gates, and a
-  fixed request budget before enabling the process-scoped live-model gate.
-- Run only the separately approved bounded seven-case or reduced acceptance batch, compare model
-  output with deterministic fixture expectations, and restore the gate to false on any blocker.
+- Reconfirm the zero-generation diagnostic, clean/synced main, operator Terraform zero drift, and
+  the approved Standard PayGo model before enabling the process-scoped live-model gate.
+- Run the fixed three-case acceptance batch exactly once, record only aggregate token/call results,
+  and remove the process gate on success or failure without retry or model substitution.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

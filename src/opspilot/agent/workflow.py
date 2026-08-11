@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from google.adk import Agent, Workflow
@@ -331,6 +331,13 @@ def validate_model_request(
     """Fail closed before any model call can receive unsafe scope or tools."""
 
     del callback_context
+    _validated_model_request_bytes(llm_request)
+    return None
+
+
+def _validated_model_request_bytes(llm_request: LlmRequest) -> int:
+    """Return the serialized byte count after enforcing the model boundary."""
+
     if llm_request.tools_dict or llm_request.config.tools:
         raise ValueError("M6 model nodes cannot receive tools")
     serialized = json.dumps(
@@ -342,7 +349,7 @@ def validate_model_request(
         raise ValueError("M6 model input exceeds the fixed byte budget")
     if MODEL_INPUT_LEAK_PATTERN.search(serialized):
         raise ValueError("M6 model input contains a prohibited cloud identifier")
-    return None
+    return len(serialized.encode("utf-8"))
 
 
 RCA_INSTRUCTION = """
@@ -385,10 +392,25 @@ def _model(stage: str, model_id: str, use_fake_model: bool) -> str | BaseLlm:
     return model_id
 
 
-def create_root_agent(*, model_id: str | None = None, use_fake_model: bool = False) -> Workflow:
+def create_root_agent(
+    *,
+    model_id: str | None = None,
+    use_fake_model: bool = False,
+    request_observer: Callable[[int], None] | None = None,
+) -> Workflow:
     """Build the deployment-compatible deterministic ADK graph."""
 
     configured_model = model_id or os.environ.get("OPSPILOT_MODEL_ID", DEFAULT_MODEL_ID)
+
+    def validate_and_observe(
+        callback_context: Context, llm_request: LlmRequest
+    ) -> LlmResponse | None:
+        del callback_context
+        size = _validated_model_request_bytes(llm_request)
+        if request_observer is not None:
+            request_observer(size)
+        return None
+
     rca_agent = Agent(
         name="rca_analyst",
         description="Drafts evidence-cited root-cause hypotheses.",
@@ -401,7 +423,7 @@ def create_root_agent(*, model_id: str | None = None, use_fake_model: bool = Fal
         mode="single_turn",
         timeout=MODEL_NODE_TIMEOUT_SECONDS,
         generate_content_config=_generation_config(0.0),
-        before_model_callback=validate_model_request,
+        before_model_callback=validate_and_observe,
     )
     reviewer_agent = Agent(
         name="evidence_reviewer",
@@ -415,7 +437,7 @@ def create_root_agent(*, model_id: str | None = None, use_fake_model: bool = Fal
         mode="single_turn",
         timeout=MODEL_NODE_TIMEOUT_SECONDS,
         generate_content_config=_generation_config(0.0),
-        before_model_callback=validate_model_request,
+        before_model_callback=validate_and_observe,
     )
     composer_agent = Agent(
         name="report_composer",
@@ -429,7 +451,7 @@ def create_root_agent(*, model_id: str | None = None, use_fake_model: bool = Fal
         mode="single_turn",
         timeout=MODEL_NODE_TIMEOUT_SECONDS,
         generate_content_config=_generation_config(0.1),
-        before_model_callback=validate_model_request,
+        before_model_callback=validate_and_observe,
     )
     return Workflow(
         name="opspilot_incident_commander",

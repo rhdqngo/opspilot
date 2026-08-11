@@ -81,13 +81,16 @@ path without a network call or credential:
 uv sync --frozen --extra agent
 uv run --extra agent opspilot agent run --backend fixture --scenario SCN-001 --model fake --format summary
 uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
+uv run --extra agent opspilot agent diagnose --account-alias Edu_687 --format summary
+uv run --extra agent opspilot agent accept --suite m6-core --model fake --format summary
 ```
 
 The graph performs bounded evidence preparation, RCA drafting, independent citation review,
 deterministic scoring, and report composition. Model nodes receive normalized evidence only, have
 no tools, and cannot assign support scores or execute recommendations. The Vertex model path is
-fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true`; Approval 1 does not enable that gate or make
-any model request.
+fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true`. The live acceptance path is fixed to
+SCN-001, SCN-006, and SCN-007, stops on first failure, and permits at most nine model requests.
+The diagnostic performs no generation request and emits only redacted readiness fields.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
