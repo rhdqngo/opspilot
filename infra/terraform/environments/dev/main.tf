@@ -122,7 +122,6 @@ resource "google_discovery_engine_schema" "knowledge" {
         type               = "string"
         keyPropertyMapping = "title"
         retrievable        = true
-        searchable         = true
       }
       canonical_uri = {
         type               = "string"

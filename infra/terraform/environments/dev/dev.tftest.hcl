@@ -276,6 +276,16 @@ run "m4_knowledge_apply_ready_contract" {
 
   assert {
     condition = (
+      jsondecode(google_discovery_engine_schema.knowledge[0].json_schema).properties.title.keyPropertyMapping == "title" &&
+      jsondecode(google_discovery_engine_schema.knowledge[0].json_schema).properties.title.retrievable == true &&
+      !can(jsondecode(google_discovery_engine_schema.knowledge[0].json_schema).properties.title.searchable) &&
+      !can(jsondecode(google_discovery_engine_schema.knowledge[0].json_schema).properties.title.indexable)
+    )
+    error_message = "The title key property must not carry searchable or indexable annotations."
+  }
+
+  assert {
+    condition = (
       length(google_project_service.m1) == 12 &&
       length(google_service_account.demo) == 3 &&
       length(google_cloud_run_v2_service.demo_leaf) == 2 &&
