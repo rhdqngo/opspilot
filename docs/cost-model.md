@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M3 complete; M4 local corpus prepared with cloud resources still disabled
+Status: M3 complete; M4 Search resources and corpus applied, live smoke blocked
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -69,13 +69,16 @@ Future work must not add any cost-bearing resource without a separate plan and a
   repository-only data and generate no Google Cloud charge.
 - `deploy_knowledge=false` is the Terraform default. No knowledge bucket, data store, schema,
   engine, object, import operation, or billable Search query was created in Approval 1.
-- Approval 2 is paused after the protected empty bucket and dedicated data store were created.
-  Schema and engine creation did not complete; object uploads, imports, and billable Search queries
-  remain zero. The preserved resources stay within the existing KRW 50,000 budget boundary while
-  a separate two-create recovery approval is prepared.
+- The recovery approval completed the protected schema and Standard Search engine without changing
+  Cloud Run, IAM, budget, network, or existing Search assets. Dev state now has 28 managed resources.
+- The dedicated bucket contains thirteen text objects, one manifest, and one current snapshot.
+  One FULL import completed with 13 successes and zero failures.
+- Index readiness passed, but the first live Standard Search request returned HTTP 400. No retry
+  was made, so observed M4 live Search usage is one request rather than the planned ten-request
+  acceptance run.
 - Approval 2 is restricted to General pay-as-you-go Standard Search. Enterprise Search, AI
   Overview, LLM add-ons, configurable pricing subscriptions, OCR, and layout parsing are excluded.
-- The planned corpus is far below the documented 10 GiB index free allowance. Ten Standard Search
+- The applied corpus is far below the documented 10 GiB index free allowance. Ten Standard Search
   smoke requests have a maximum list price of USD 0.015 before any shared free-query allowance;
   actual billing must still be checked because existing project Search usage can share allowances.
 - The existing KRW 50,000 alert remains the project guardrail. A configurable subscription or an

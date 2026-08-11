@@ -1,20 +1,20 @@
 # Synthetic Knowledge and Agent Search Runbook
 
-Status: M4 partial apply preserved; recovery approval required
+Status: M4 search deployed; live smoke blocked
 
-## Partial apply record
+## Recovery and import record
 
 - The bootstrap read-only custom role update completed and is zero drift.
-- The dev apply created the planned protected empty bucket and dedicated data store, then stopped
-  when the API rejected annotations attached to the array rather than its scalar item schema.
-- Remote dev state contains 26 managed resources. Schema and engine are absent; bucket objects,
-  imports, and Search queries remain zero.
-- The schema source is corrected and statically tested. A fresh recovery plan must contain only the
-  remaining schema and engine creates before a separate apply approval.
-- A fresh read-only recovery plan has confirmed exactly those two creates with no update, delete,
-  or replacement. Its binary plan is diagnostic evidence only and must not be reused for apply.
-- Do not destroy, repeat the prior apply, upload corpus objects, import documents, or enable hosted
-  gates while this status is active.
+- The recovery apply created only the explicit schema and Standard Search engine. Remote dev state
+  contains 28 managed resources and 29 total state addresses with operator zero drift.
+- The schema regression tests now keep array annotations on scalar items and prohibit searchable
+  or indexable annotations on the title key property.
+- One FULL import completed with 13 successes and zero failures. The bucket contains thirteen text
+  objects, one manifest, and one current snapshot; the following sync plan is a no-op.
+- Index readiness passed, but the first live Search request returned a safe HTTP 400 before any hit
+  was normalized. No second Search request was made and the hosted gates remain disabled.
+- Do not repeat the smoke, modify the corpus, reimport, destroy, or broaden IAM under the completed
+  recovery approval. A separate live-smoke recovery plan must diagnose the request contract first.
 
 ## Local validation
 
@@ -41,7 +41,8 @@ The safe default only computes the difference against the remote snapshot:
 uv run opspilot knowledge sync --env dev --mode plan --format summary
 ```
 
-Approval 2 must explicitly enable `OPSPILOT_KNOWLEDGE_APPLY_ENABLED=true` before `--mode apply`.
+Any future approved apply must explicitly enable `OPSPILOT_KNOWLEDGE_APPLY_ENABLED=true` before
+`--mode apply`.
 Apply uploads only changed stable document objects, writes one JSONL import manifest, requests one
 FULL reconciliation import, waits for successful completion, and writes the new snapshot last.
 Failed imports leave the prior snapshot unchanged. Runtime GCS URIs exist only in temporary or
@@ -51,14 +52,14 @@ Agent Search smoke is independently gated by `OPSPILOT_KNOWLEDGE_SMOKE_ENABLED=t
 exactly the ten versioned queries, never paginates, caps top-k at eight and returned chunk text at
 24 KiB, and emits only synthetic IDs and aggregate results.
 
-## Approval 2 hard gates
+## Live-smoke recovery gates
 
 - intended `Edu_687` default project, KRW billing, and General pay-as-you-go confirmed
-- current dev state still has 24 managed resources
-- candidate bucket, data store, and engine conflicts remain zero
-- bootstrap plan is exactly one read-only custom-role update
-- dev plan is exactly four creates with no update, delete, replacement, IAM, network, or workload
+- current dev state has 28 managed resources and 29 total state addresses with zero drift
+- the dedicated bucket, data store, schema, and engine are Terraform-owned
+- sync plan is a no-op and the imported document set remains exactly thirteen
+- hosted gates remain false until a successful bounded live smoke
 - existing Search data stores and engine remain untouched
 
 Stop without cleanup or retry if a configurable subscription, add-on, broader IAM, different
-resource graph, import failure, or unexpected cost boundary appears.
+resource graph, corpus drift, or unexpected cost boundary appears.

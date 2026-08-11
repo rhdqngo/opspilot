@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M4-partial-apply / recovery-approval-required
+phase: M4-search-deployed / live-smoke-blocked
 updated: 2026-08-11
 
 ## Objective
@@ -19,15 +19,14 @@ updated: 2026-08-11
 
 ## Active scope
 
-- M4 Approval 2 stopped at its explicit partial-failure boundary. The bootstrap read-only custom
-  role update succeeded and is zero drift. The dev apply created only the protected empty knowledge
-  bucket and dedicated data store before Google rejected array-level schema annotations; schema,
-  engine, import, and live Search were not created or executed.
-- Remote dev state now contains 26 managed resources and 27 total state addresses. The bucket has
-  zero objects, the candidate data store exists, and the candidate engine does not exist.
-- The schema source is corrected so array annotations live on the scalar item definition, matching
-  the Agent Search schema contract. Reapplying the remaining two creates requires a new recovery
-  approval; destroy, automatic retry, import, and query remain prohibited until then.
+- M4 recovery created only the explicit schema and Standard Search engine after hardening both the
+  array-item and title-key schema contracts. Remote dev state now contains 28 managed resources and
+  29 total state addresses with operator zero drift.
+- One FULL import completed with 13 successes and zero failures. The protected bucket contains
+  thirteen document objects, one manifest, and one current snapshot; sync plan is now a no-op.
+- Index readiness passed, but the first live Standard Search request returned HTTP 400 before a hit
+  could be normalized. No retry, corpus change, reimport, hosted plan, IAM broadening, or cleanup was
+  performed. Hosted M4 gates remain false and M4 completion requires a separate smoke recovery.
 
 - M4 Approval 1 is complete in the repository. Thirteen synthetic knowledge documents, a
   deterministic hash catalog, ten retrieval queries, typed Search normalization, guarded sync and
@@ -35,10 +34,8 @@ updated: 2026-08-11
 - The M4 redacted gate confirms the operator has the required permissions and the dedicated
   candidate bucket, data store, and engine have zero conflicts. This read-only check changed no
   Google Cloud resource.
-- `deploy_knowledge=false` remains the default and `TF_M4_KNOWLEDGE_READY` is unset. No knowledge
-  bucket, Search resource, document object, import operation, or billable query exists from M4.
-- Approval 2 must separately review the one-update bootstrap plan and exact four-create dev plan,
-  then perform one hash-based import and exactly ten Standard Search smoke queries.
+- `deploy_knowledge=false` remains the source default while the live environment explicitly manages
+  the four approved resources. `TF_M4_KNOWLEDGE_READY` remains unset and `TF_PLAN_ENABLED=false`.
 
 - M3 is complete. Seven deterministic incident fixtures cover grounded, contradictory,
   insufficient, and malicious evidence cases.
@@ -76,7 +73,7 @@ updated: 2026-08-11
 | M3 Approval 1: incident corpus | complete | Seven offline contracts; bounded SCN-001 local injection; no cloud write |
 | M3 Approval 2: live incident | complete | Exact three-service update; three recovered live runs; telemetry and zero drift passed |
 | M4 Approval 1: knowledge and IaC boundary | complete | 13 documents, 10 local retrieval contracts, guarded sync, default-off four-resource graph |
-| M4 Approval 2: Search apply/import | blocked | Bootstrap update complete; bucket/data store preserved; schema/engine/import/query require recovery approval |
+| M4 Approval 2: Search apply/import | blocked | Four resources and 13-document import complete; first live Search request returned HTTP 400 and was not retried |
 | UI Foundation | not-applicable | M4 is API, CLI, corpus, and infrastructure only |
 
 ## Completed major results
@@ -92,6 +89,11 @@ updated: 2026-08-11
   Standard Search engine behind `deploy_knowledge=false`; existing Search assets are untouched.
 - Extended the hosted plan identity with Search get/list only, added a false M4 workflow gate, and
   verified M4 permissions and zero candidate conflicts without identifiers or cloud mutation.
+- Applied the fresh exact schema/engine two-create recovery plan. Dev state reached 28 managed
+  resources and 29 addresses without changing IAM, Cloud Run, budget, network, or existing Search
+  assets.
+- Completed one FULL import with 13 successes, zero failures, fifteen bucket objects, and a no-op
+  follow-up sync. The first live Search request failed safely with HTTP 400 and was not retried.
 
 - Added SCN-001 through SCN-007 as validated ground-truth contracts and generalized fixture replay
   so contradictions, insufficient evidence, and malicious knowledge are handled per scenario.
@@ -142,7 +144,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 72 pytest tests, including knowledge, seven scenario contracts, and bounded SCN-001 execution |
+| Tests | pass | 75 pytest tests, including knowledge, seven scenario contracts, and bounded SCN-001 execution |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -169,9 +171,9 @@ updated: 2026-08-11
 | M4 operator default-off plan | pass | Remote state 24 managed resources; `deploy_knowledge=false`; zero drift |
 | M4 operator enabled plan | pass | Disposable read-only plan: exact `4 create / 0 update / 0 delete / 0 replacement`; plan removed |
 | M4 bootstrap apply | pass | Exact read-only custom-role `0 create / 1 update / 0 delete`; 14 managed resources; zero drift |
-| M4 dev apply | blocked | Planned bucket and data store created; schema rejected array-level annotations; 26 managed resources preserved |
-| M4 recovery plan | pass | Fresh read-only plan: exact schema/engine `2 create / 0 update / 0 delete / 0 replacement`; not applied |
-| M4 corpus import/query | blocked | Bucket objects 0; import operations 0; Search queries 0 |
+| M4 dev recovery apply | pass | Exact schema/engine `2 create / 0 update / 0 delete / 0 replacement`; 28 managed resources; operator zero drift |
+| M4 corpus import | pass | Fifteen objects; one FULL import; 13 success / 0 failure; snapshot updated; sync no-op |
+| M4 live Search smoke | blocked | Index ready; first Standard Search request returned HTTP 400; no retry; hosted gates false |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -184,12 +186,11 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Obtain a separate M4 recovery approval after static validation and a fresh read-only plan confirm
-  exactly `2 create / 0 update / 0 delete / 0 replacement` for schema and engine only.
-- Preserve the protected empty bucket, dedicated data store, 26-resource remote state, and the
-  false hosted gates. Do not destroy, retry apply, upload, import, or query under the prior approval.
-- After an approved recovery apply, resume at corpus sync plan, one FULL import, index readiness,
-  and exactly ten live Search queries.
+- Prepare a separate M4 live-smoke recovery plan that first captures a redacted Agent Search HTTP
+  error contract and validates the serving configuration without issuing another Search request.
+- Preserve the four Terraform-owned knowledge resources, 15 objects, successful snapshot, 28-resource
+  remote state, and false hosted gates. Do not reimport, repeat smoke, modify corpus, destroy, or
+  broaden IAM under the completed recovery approval.
 
 ## Related artifacts
 
