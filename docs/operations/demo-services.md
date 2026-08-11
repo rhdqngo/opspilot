@@ -54,6 +54,8 @@ authorization headers, account identifiers, or tokens.
 - Remote dev state contains 24 managed resources and the operator plan reports zero drift.
 - All three services are Ready, private, digest-pinned, scale-to-zero, and use distinct identities.
   User-managed keys, project roles for runtime identities, and public principals are all zero.
+- A reviewed same-digest refresh updated only the three service revisions. All three became Ready
+  with full traffic, but the endpoint-level `404` remained through the final propagation check.
 
 ## Active blocker
 
@@ -80,11 +82,9 @@ The current blocked contract exits `2` with `blocker_code=endpoint_not_found`. S
 
 ## Resume procedure
 
-1. Follow `cloud-run-mvp-recovery.md` and repeat the canonical endpoint and IAM checks.
-2. If the blocker persists, apply only the reviewed three-service in-place revision refresh.
-3. Repeat unauthenticated-denial and authenticated 10-order smoke checks.
-4. Verify request/trace logs and request-count/latency metrics, then set the private image variable
-   and hosted plan gates.
-5. Run the manual read-only hosted zero-drift workflow and only then mark M2 complete.
+1. Do not repeat the exhausted revision refresh or change the current private service boundary.
+2. Review `docs/plans/m2_personal_project_migration.md` as a separate approval.
+3. Keep the current project and hosted gates unchanged until a replacement passes remote smoke,
+   telemetry, security, and zero-drift acceptance.
 
 Do not destroy or blindly reapply the deployed resources while this blocker is investigated.

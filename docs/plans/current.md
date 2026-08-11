@@ -29,6 +29,8 @@ updated: 2026-08-11
   Run proxy return a pre-container 404. Remote E2E, request telemetry, and hosted plan remain gated.
 - A repeatable `route-check` CLI now reduces the fixed-service route state to identifier-free
   counts, booleans, HTTP status classes, and one bounded blocker code.
+- One reviewed `0 create / 3 update / 0 delete / 0 replacement` revision refresh completed with
+  the same image and identities. Three post-apply checks still returned `endpoint_not_found`.
 
 ## Milestones
 
@@ -41,7 +43,7 @@ updated: 2026-08-11
 | M1 Bootstrap infrastructure | complete | Protected remote state, numeric WIF, read-only plan identity |
 | M1 Dev foundation | complete | 14 managed resources; operator and hosted zero drift |
 | M2 Approval 1: local workload | complete | Three healthy containers; 10/10 normal orders; no cloud write |
-| M2 Approval 2: Cloud Run deploy | blocked after apply | Infrastructure applied; endpoint-level 404 blocks remote smoke |
+| M2 Approval 2: Cloud Run deploy | blocked after controlled refresh | Infrastructure remains private and zero drift; endpoint-level 404 blocks remote smoke |
 | UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
 
 ## Completed major results
@@ -63,6 +65,8 @@ updated: 2026-08-11
   and no additional non-candidate service.
 - Replaced the policy-specific route hypothesis with a generic endpoint diagnostic and kept
   advanced connectivity outside the active MVP implementation.
+- Applied the single permitted three-service revision refresh; managed resources remained 24,
+  the digest and identities were unchanged, and no IAM or other resource changed.
 
 ## Verification state
 
@@ -80,8 +84,9 @@ updated: 2026-08-11
 | Hosted static CI | pass | Python/container and bootstrap/dev Terraform jobs on the deployment baseline |
 | Bootstrap apply | pass | Exact `0 create / 1 update / 0 delete`; operator zero drift |
 | Dev apply | pass | Exact `10 create / 0 update / 0 delete`; 24 managed resources; operator zero drift |
+| Controlled revision refresh | pass | Exact `0 create / 3 update / 0 delete`; same image/identities; operator zero drift |
 | Runtime security | pass | Three Ready private services; digest match; keys/project roles/public principals 0 |
-| Route diagnostic | pass | Three attempts: canonical URLs 3/3; authenticated 404s; container logs 0; `endpoint_not_found` |
+| Route diagnostic | blocked | Three pre-apply and three post-apply attempts; authenticated 404s; container logs 0; `endpoint_not_found` |
 | Remote smoke | blocked | Google frontend 404 before container; request logs and metrics absent |
 | Hosted plan | gated | Plan gate false; image-ready and digest variables absent |
 | UI render / input | not-applicable | No end-user UI |
@@ -91,21 +96,22 @@ updated: 2026-08-11
 - Do not add `allUsers`, broad runtime IAM, or unplanned operator bindings to bypass the blocker.
 - A persistent `endpoint_not_found` permits one exact three-service in-place revision refresh; all
   other blocker codes stop before apply.
+- The one permitted refresh has been exhausted. Do not refresh, reapply, expose, replace, or
+  destroy the current services.
 - Real account, project, billing, state, service URL, image URI, repository numeric, and credential
   identifiers must not enter tracked files or artifacts.
 
 ## Next checkpoint
 
-- Rerun the generic route check, conditionally refresh only the three service revisions, then run
-  authenticated 10-order E2E,
-  request/trace and latency metrics checks, configure the private GitHub image variables, and run
-  hosted read-only zero drift before marking M2 complete.
+- Review and separately approve the personal-project migration plan. Preserve the current project,
+  disabled hosted gates, and versioned remote state until a replacement passes remote acceptance.
 
 ## Related artifacts
 
 - Master plan: `docs/plans/opspilot_ai_implementation_spec.md`
 - Demo runbook: `docs/operations/demo-services.md`
 - MVP endpoint recovery: `docs/operations/cloud-run-mvp-recovery.md`
+- Personal-project migration: `docs/plans/m2_personal_project_migration.md`
 - Bootstrap runbook: `docs/operations/bootstrap.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`

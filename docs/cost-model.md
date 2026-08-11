@@ -35,6 +35,10 @@ smoke request from reaching a container, so request-log and request-metric cost 
 verification window. A budget is an alert rather than a hard spending cap; email delivery remains
 unverified until a real threshold is reached.
 
+The controlled refresh created new revisions for the existing services but added no managed
+resource, image, scheduled traffic, minimum instance, or IAM grant. The services returned to zero
+drift and scale to zero after validation.
+
 ## Applied M2 controls
 
 - Three private Cloud Run services share one digest and use request-based CPU, 1 vCPU, 256 MiB,
