@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M2-safe-path-recovery / rollout-pending
+phase: M2-complete / M3-ready-for-planning
 updated: 2026-08-11
 
 ## Objective
@@ -25,13 +25,13 @@ updated: 2026-08-11
   bounded local load generator.
 - M2 Approval 2 pushed one immutable image and applied the reviewed bootstrap update and exact
   10-create dev plan. Remote state now contains 24 managed resources and is zero drift.
-- Three private Cloud Run services are Ready. The pre-container 404 is a confirmed conflict with
-  Cloud Run's reserved `z`-suffix paths, not a VPC, IAM, ingress, revision, or image failure.
+- Three private Cloud Run services are Ready and remotely accepted through Cloud Run-safe
+  `/health` and `/ready` paths. The former 404 was a reserved `z`-suffix path conflict.
 - A repeatable `route-check` CLI now reduces the fixed-service route state to identifier-free
   counts, booleans, HTTP status classes, and one bounded blocker code.
-- One reviewed `0 create / 3 update / 0 delete / 0 replacement` revision refresh completed with
-  the same image and identities. The approved recovery replaces the demo endpoints and probes with
-  `/health` and `/ready`, then updates only the same three services with a new image digest.
+- The safe-path recovery pushed one immutable image and applied an exact
+  `0 create / 3 update / 0 delete / 0 replacement` plan. Managed resources remain 24 and both
+  operator and hosted plans are zero drift.
 
 ## Milestones
 
@@ -44,7 +44,7 @@ updated: 2026-08-11
 | M1 Bootstrap infrastructure | complete | Protected remote state, numeric WIF, read-only plan identity |
 | M1 Dev foundation | complete | 14 managed resources; operator and hosted zero drift |
 | M2 Approval 1: local workload | complete | Three healthy containers; 10/10 normal orders; no cloud write |
-| M2 Approval 2: Cloud Run deploy | recovery approved | Safe-path image and exact three-service update pending |
+| M2 Approval 2: Cloud Run deploy | complete | Private remote E2E, telemetry, security, and hosted zero drift passed |
 | UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
 
 ## Completed major results
@@ -60,8 +60,8 @@ updated: 2026-08-11
   resources with no delete, replacement, public principal, runtime key, or project runtime role.
 - Verified three Ready, private, digest-pinned, scale-to-zero services with distinct identities and
   order-only invoker access to payment and inventory.
-- Kept `TF_PLAN_ENABLED=false`; neither `TF_M2_IMAGE_READY` nor the private digest variable is
-  configured while remote invocation is blocked.
+- Configured the private immutable image variable and retained `TF_PLAN_ENABLED=true` and
+  `TF_M2_IMAGE_READY=true` after hosted read-only zero-drift validation.
 - Corrected the Cloud Run inventory: the current project contains the three managed M2 candidates
   and no additional non-candidate service.
 - Replaced the policy-specific route hypothesis with a generic endpoint diagnostic and kept
@@ -70,6 +70,10 @@ updated: 2026-08-11
   the digest and identities were unchanged, and no IAM or other resource changed.
 - Confirmed the endpoint root cause against Cloud Run's reserved-path contract: `/healthz` is
   intercepted before the container while authenticated `/health` reaches FastAPI.
+- Pushed the clean safe-path image once, applied only the three reviewed service updates, and
+  verified `/health` and `/ready` as unauthenticated `403` and authenticated `200` on all roles.
+- Completed 10/10 authenticated orders with ten request IDs and traces correlated across all three
+  services; request/application 5xx and sensitive-log findings were zero.
 
 ## Verification state
 
@@ -89,23 +93,25 @@ updated: 2026-08-11
 | Dev apply | pass | Exact `10 create / 0 update / 0 delete`; 24 managed resources; operator zero drift |
 | Controlled revision refresh | pass | Exact `0 create / 3 update / 0 delete`; same image/identities; operator zero drift |
 | Runtime security | pass | Three Ready private services; digest match; keys/project roles/public principals 0 |
-| Route diagnostic | recovery pending | Diagnostic now targets the Cloud Run-safe `/health` path |
-| Remote smoke | recovery pending | New safe-path image and three-service rollout required |
-| Hosted plan | gated | Plan gate false; image-ready and digest variables absent |
+| Safe-path service update | pass | Exact `0 create / 3 update / 0 delete / 0 replacement`; 24 managed resources |
+| Route diagnostic | pass | Three unauthenticated 403, three authenticated 200; `route_ready`; no pre-container 404 |
+| Remote smoke | pass | 10/10 fulfilled; request IDs and traces correlated across three services; 5xx 0 |
+| Cloud Monitoring | pass | Request-count and latency points for all three services; 5xx points 0 |
+| Hosted plan | pass | WIF read-only run `31453115875`; redacted `No changes`; binary artifacts 0 |
 | UI render / input | not-applicable | No end-user UI |
 
-## Blockers and decisions needed
+## Active safety decisions
 
-- Do not add `allUsers`, broad runtime IAM, or unplanned operator bindings to bypass the blocker.
-- Apply only a fresh exact `0 create / 3 update / 0 delete / 0 replacement` plan that changes the
-  three service image digests and probe paths. No repeated apply or public access is permitted.
+- Do not add `allUsers`, broad runtime IAM, or unplanned operator bindings in later milestones.
+- Keep the services private, scale-to-zero, and limited to the two order-to-leaf invoker grants.
+- Do not repeat the completed recovery apply or introduce public access for later milestones.
 - Real account, project, billing, state, service URL, image URI, repository numeric, and credential
   identifiers must not enter tracked files or artifacts.
 
 ## Next checkpoint
 
-- Validate the safe-path implementation, push one immutable image, apply the exact three-service
-  plan, and complete remote smoke, telemetry, security, and hosted zero-drift acceptance.
+- Plan M3 reproducible incident fixtures without adding public access, VPC requirements, or
+  remediation execution to the MVP core.
 
 ## Related artifacts
 

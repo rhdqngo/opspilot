@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: M1 and M2 runtime boundary applied; M2 remote invocation validation blocked
+Status: M1 and M2 runtime boundary applied and remotely validated
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
@@ -41,6 +41,6 @@ repository name, owner name, actor name, branch name, or fork-provided secret.
 
 The repository defines resources but grants no automated apply identity. Approval 2 applied the
 reviewed custom-role update separately from the exact dev 10-create plan. Service-account keys,
-`allUsers`, broad project roles, and automated apply remain prohibited. The hosted plan gate is
-disabled while the private `run.app` route returns a pre-container 404. Endpoint recovery leaves
-the service IAM boundary unchanged.
+`allUsers`, broad project roles, and automated apply remain prohibited. Safe-path recovery changed
+only the three service images and probes; runtime keys, project runtime roles, and public principals
+remain zero. The manual hosted plan gate is enabled with the unchanged read-only identity.

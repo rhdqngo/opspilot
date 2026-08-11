@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M2 Cloud Run foundation applied; remote smoke validation blocked
+Status: M2 complete; private remote workload validated and scaled to zero
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -24,16 +24,17 @@ cleanup to keep the alert from becoming the only cost control.
 
 - One regional Standard GCS bucket for Terraform state with versioning and 30-day noncurrent
   object cleanup.
-- One regional Standard Docker Artifact Registry repository containing the immutable M2 demo image.
+- One regional Standard Docker Artifact Registry repository containing immutable M2 demo image
+  digests. The prior digest is retained for audit/rollback; deletion requires separate approval.
 - One email notification channel and one project-scoped KRW 50,000 budget. Budget APIs and email
   notifications have no configured runtime workload in M1.
 - IAM, service-account, API, and WIF configuration do not directly incur resource runtime costs.
 
 The investigator identity has no roles or user-managed keys. Three private Cloud Run services are
-applied with scale-to-zero and no scheduled traffic. A remote route blocker prevented the bounded
-smoke request from reaching a container, so request-log and request-metric cost remains zero in the
-verification window. A budget is an alert rather than a hard spending cap; email delivery remains
-unverified until a real threshold is reached.
+applied with scale-to-zero and no scheduled traffic. Final acceptance generated ten synthetic
+orders plus bounded endpoint checks and confirmed Logging and Monitoring telemetry. No deliberate
+failure or 5xx was generated. A budget is an alert rather than a hard spending cap; email delivery
+remains unverified until a real threshold is reached.
 
 The controlled refresh created new revisions for the existing services but added no managed
 resource, image, scheduled traffic, minimum instance, or IAM grant. The services returned to zero
@@ -44,9 +45,9 @@ drift and scale to zero after validation.
 - Three private Cloud Run services share one digest and use request-based CPU, 1 vCPU, 256 MiB,
   min 0, max 2, concurrency 20, and a 10-second request timeout.
 - There is no scheduled load, Firestore, custom metric, alert policy, or fault injector.
-- The three revisions use one immutable Artifact Registry digest. No background demo window is
-active, and both hosted Terraform plan gates remain disabled until remote smoke succeeds.
-Endpoint recovery must not add any cost-bearing resource without a separate plan and approval.
+- The three active revisions use one immutable Artifact Registry digest. No background demo window
+  is active. Both hosted Terraform plan gates are enabled only for the manual read-only workflow.
+Future work must not add any cost-bearing resource without a separate plan and approval.
 
 ## Cleanup order
 

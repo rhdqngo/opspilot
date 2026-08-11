@@ -1,6 +1,6 @@
 # M2 Synthetic Demo Services
 
-Status: safe-path revision prepared; remote validation pending
+Status: M2 complete; private remote workload validated
 
 ## Local workflow
 
@@ -57,6 +57,14 @@ authorization headers, account identifiers, or tokens.
 - A reviewed same-digest refresh updated only the three service revisions. All three became Ready
   with full traffic, but `/healthz` remained unavailable because it conflicts with a Cloud Run
   reserved path.
+- The final recovery pushed one safe-path image and applied an exact three-service in-place plan:
+  zero create/delete/replacement, 24 managed resources, and no IAM or identity change.
+- All three `/health` and `/ready` endpoints return unauthenticated `403` and authenticated `200`.
+  Remote load completed 10/10 orders, with ten request IDs and traces linked across all roles.
+- Logging and Monitoring contain request, structured application, request-count, and latency
+  evidence for all three services. Application/request 5xx and sensitive-log findings were zero.
+- Operator and hosted WIF read-only plans are zero drift; the hosted artifact contained redacted
+  `No changes` text and no binary plan.
 
 ## Confirmed root cause and recovery
 
@@ -66,8 +74,8 @@ authorization headers, account identifiers, or tokens.
   and a Ready revision. Local health probes and Cloud Run startup/liveness probes pass.
 - Authenticated `/health` reached FastAPI, proving that the URL, IAM, ingress, revision, and
   container route are functional. The replacement image exposes `/health` and `/ready` only.
-- `TF_PLAN_ENABLED=false` remains set. `TF_M2_IMAGE_READY` and `GCP_DEMO_IMAGE_URI` remain absent,
-  so hosted plan cannot run prematurely.
+- The private digest variable is configured. `TF_PLAN_ENABLED=true` and
+  `TF_M2_IMAGE_READY=true` remain enabled for the manual read-only hosted plan only.
 - The current Cloud Run inventory contains only the three managed M2 candidates. An earlier note
   about one non-candidate service was based on an incorrect local JSON-array count and is retired.
 
@@ -80,11 +88,11 @@ uv run opspilot route-check --account-alias Edu_687 --format summary
 The updated diagnostic calls `/health`. See `cloud-run-mvp-recovery.md` for the new-image rollout
 and acceptance sequence.
 
-## Resume procedure
+## M3 handoff
 
-1. Build and push the validated safe-path image once.
-2. Apply only the exact three-service in-place plan with no IAM or resource-count change.
-3. Keep the current project and hosted gates unchanged until remote smoke, telemetry, security,
-   and zero-drift acceptance pass.
+1. Reuse the three private M2 roles as the synthetic workload boundary.
+2. Keep normal M2 traffic healthy; add reproducible incident behavior only through the separately
+   approved M3 fixture contract.
+3. Preserve scale-to-zero, distinct runtime identities, and the two leaf invoker grants.
 
-Do not destroy or blindly reapply the deployed resources while this blocker is investigated.
+Do not destroy, expose, or broaden the deployed resources while planning M3.

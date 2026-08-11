@@ -1,6 +1,6 @@
 # Cloud Run MVP Safe-Path Recovery
 
-Status: confirmed root cause; exact three-service rollout pending
+Status: complete; retained as the safe-path recovery record
 
 Cloud Run reserves some paths ending in `z` and recommends avoiding all such paths. The former
 `/healthz` endpoint was intercepted before the request reached the container. The M2 demo uses
@@ -26,6 +26,9 @@ Logging ingestion latency. Output never contains account, project, URL, token, e
 request identifiers.
 
 ## Exact rollout gate
+
+The completed rollout satisfied this gate. Reuse it only as an audit checklist; do not reapply the
+saved plan.
 
 1. Keep `TF_PLAN_ENABLED` and `TF_M2_IMAGE_READY` disabled.
 2. Validate clean `main`, 24 remote-state resources, zero drift, and three Ready services.
@@ -56,3 +59,12 @@ request identifiers.
 If the exact plan differs or the safe endpoint still fails, do not repeat apply, expose, replace,
 destroy, broaden IAM, or migrate automatically. Preserve the 24 managed resources, disable the
 hosted gates, and record the remaining blocker.
+
+## Completion record
+
+- One immutable safe-path image was pushed from the validated `main` commit.
+- The applied plan was exactly three in-place Cloud Run service updates with no other action.
+- Three private `/health` and `/ready` endpoints, 10/10 remote orders, correlated logs/traces,
+  Monitoring points, runtime security, operator zero drift, and hosted zero drift all passed.
+- Managed resources remain 24; public principals, runtime keys, project runtime roles, and 5xx
+  observations remain zero.

@@ -30,9 +30,9 @@ Without Make, build and run `opspilot-demo:local` with `docker build --platform 
 `docker compose up -d --no-build`, and `docker compose down --remove-orphans`. The bounded load
 command is `uv run opspilot demo load --orders 10 --concurrency 2 --auth local`.
 
-The three private Cloud Run services are deployed. The retired `z`-suffix demo health path returns
-a Cloud Run reserved-path `404`; the demo now uses `/health` and `/ready`. The identifier-free
-operator diagnostic is:
+The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
+demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
+`/ready`. The identifier-free operator diagnostic is:
 
 ```powershell
 uv run opspilot route-check --account-alias Edu_687 --format summary
@@ -52,8 +52,7 @@ uv build
 
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
-remote state contains 24 managed resources and the operator plan is zero drift; hosted planning
-remains disabled until the safe-path revision passes remote smoke validation.
+remote state contains 24 managed resources; operator and hosted read-only plans are zero drift.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
 ignored backend files, and GitHub repository variables.
 
@@ -80,5 +79,4 @@ See `docs/operations/demo-services.md` for the workload runbook and
 - Pull requests run static Terraform checks without cloud credentials.
 - Pull requests build the Linux/amd64 image and exercise all three roles only on a local network.
 - The live Terraform plan workflow is manual, uses WIF, and has no apply or state-write identity.
-- The live plan is additionally gated by `TF_M2_IMAGE_READY=true`; it remains disabled until the
-  safe-path revision passes remote acceptance.
+- The live plan is additionally gated by `TF_M2_IMAGE_READY=true` and remains manual/read-only.

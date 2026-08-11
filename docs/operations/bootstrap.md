@@ -33,9 +33,9 @@ M2 Approval 2 applied the exact bootstrap plan with one in-place custom-role upd
 create/delete/replacement. The only additions were `run.services.get`, `run.services.list`, and
 `run.services.getIamPolicy`; the identity remains read-only.
 
-The live dev workflow also requires `TF_M2_IMAGE_READY=true`. Remote invocation validation is
-blocked, so `TF_PLAN_ENABLED=false` remains set and neither `TF_M2_IMAGE_READY` nor
-`GCP_DEMO_IMAGE_URI` has been configured.
+The live dev workflow also requires `TF_M2_IMAGE_READY=true`. After M2 private remote acceptance,
+the immutable image variable and both gates are configured. Hosted run `31453115875` used the
+read-only WIF identity and returned a redacted `No changes` artifact with no binary plan.
 
 ## Safety invariants
 
