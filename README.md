@@ -107,7 +107,9 @@ M7 deployment has not started. Approval 5 adds one deterministic, evidence-scope
 exact model code. It is normalized only after citation review when at least two supporting source
 types and the verified `payment-service` scope are present. Unknown, fuzzy, case-variant, or
 wrong-service codes remain mismatches. The model code and canonical code are reported separately;
-the composer receives only the canonical code.
+the composer receives only the canonical code. The single Approval 5 Vertex rerun attempted the RCA
+request once but returned the safe non-retryable `AGENT_TIMEOUT` category before a successful model
+response. No composer request or retry was issued, so M6 remains blocked.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and

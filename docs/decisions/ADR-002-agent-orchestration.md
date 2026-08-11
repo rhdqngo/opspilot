@@ -1,6 +1,6 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented; deterministic reviewer and strict taxonomy boundary selected, RCA rerun pending
+Status: implemented; strict taxonomy selected, live RCA blocked by bounded timeout
 Date: 2026-08-11
 
 ## Decision
@@ -51,3 +51,7 @@ preventing an LLM from constructing executable resource queries or action payloa
   model code remains a bounded diagnostic field, while the composer and public root-cause contract
   receive the canonical code. Fuzzy, case-insensitive, user-provided, and wrong-service mappings are
   prohibited.
+- The one authorized Approval 5 rerun passed every preflight but timed out on its first model node:
+  one attempt, zero successful responses, zero reported tokens, and safe code `AGENT_TIMEOUT`. The
+  timeout is non-retryable under the current contract, so the taxonomy was not exercised live and
+  M6 remains blocked without another request.

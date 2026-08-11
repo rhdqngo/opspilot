@@ -54,8 +54,10 @@ updated: 2026-08-11
 - M6 Approval 5 adds one exact, deterministic alias after citation verification. It requires at
   least two supporting source types plus verified `payment-service` scope, preserves the bounded
   model code separately, and passes only the canonical code to the composer. Fuzzy, case-variant,
-  user-provided, and wrong-service mappings remain rejected. The single approved RCA rerun is
-  pending the code commit and hosted static gate.
+  user-provided, and wrong-service mappings remain rejected. The single approved RCA rerun passed
+  every preflight but stopped on its first model node with `AGENT_TIMEOUT`: one attempt, zero
+  successful responses, zero reported tokens, and no composer request. The gate was removed and no
+  retry was made.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -139,7 +141,7 @@ updated: 2026-08-11
 | M6 Approval 2: live model acceptance | blocked | One approved batch stopped in SCN-001 after 2 attempts / 1 success; no retry |
 | M6 Approval 3: deterministic review recovery | blocked | SCN-001 used 2/2 successful calls but failed semantic acceptance; no retry |
 | M6 Approval 4: safe RCA checkpoint | blocked | Exact two-call run failed only `root_cause_mismatch`; no retry or contract change |
-| M6 Approval 5: strict RCA taxonomy | in progress | Exact evidence-scoped alias implemented and validated; one bounded RCA rerun pending |
+| M6 Approval 5: strict RCA taxonomy | blocked | Alias validated offline; one bounded run stopped at 1 attempt / 0 success with `AGENT_TIMEOUT`; no retry |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -169,6 +171,10 @@ updated: 2026-08-11
 - Added a strict root-cause canonicalizer that recognizes only the exact SCN-001 model alias after
   verified multi-source payment evidence. Public diagnostics retain model and canonical codes plus
   the normalization flag, while the composer receives no model-code provenance field.
+- Ran the single approved Approval 5 RCA checkpoint after static CI, readiness, KRW budget, and both
+  zero-drift gates passed. The RCA node timed out before a successful response; the safe result was
+  `AGENT_TIMEOUT`, non-retryable, with one attempt and zero reported tokens. The composer and safety
+  cases were not called.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -307,6 +313,7 @@ updated: 2026-08-11
 | M6 Approval 3 Vertex acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,901 prompt, 790 output, 3,691 total tokens; final predicate failed; no retry |
 | M6 Approval 4 RCA acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,893 prompt, 764 output, 3,657 total tokens; only `root_cause_mismatch`; no retry |
 | M6 Approval 5 taxonomy | pass | Exact alias, canonical pass-through, wrong-service, insufficient-source, unknown/case-variant, and composer-boundary contracts validated offline |
+| M6 Approval 5 Vertex acceptance | blocked | SCN-001: 1 attempted / 0 successful; `AGENT_TIMEOUT`; 0 prompt/output/total tokens; no retry |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -320,13 +327,13 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Commit and push the validated Approval 5 taxonomy boundary, require hosted static success, then
-  recheck zero-generation Vertex readiness and bootstrap/dev operator zero drift.
-- Execute the separately approved `m6-rca` suite exactly once with at most two requests and no
-  retry. Success records `M6-RCA-accepted / safety-acceptance-pending`; failure retains the exact
-  safe predicate and keeps M6 blocked.
-- Do not run `m6-safety`, alter prompts or schemas, expand the alias set, relax acceptance,
-  substitute a model, expand IAM, or begin M7 in Approval 5.
+- Prepare a separate timeout-diagnostic plan before any additional model request. Preserve the
+  strict taxonomy and determine whether the 20-second node limit expired before provider response,
+  during structured-output parsing, or at the graph boundary using zero-generation/local timing
+  evidence first.
+- Do not retry `m6-rca`, run `m6-safety`, increase timeouts, alter prompts or schemas, expand the
+  alias set, relax acceptance, substitute a model, expand IAM, or begin M7 without a separate
+  approval.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

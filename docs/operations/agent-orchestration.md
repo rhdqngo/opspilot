@@ -124,7 +124,9 @@ fixed contract expected `PAYMENT_DB_POOL_EXHAUSTION`. Usage was 2,893 prompt, 76
 total tokens. The process gate was removed, identifier and secret scans were clean, both Terraform
 states remained zero drift, and no retry or taxonomy change was made.
 
-Approval 5 implements the strict taxonomy boundary locally. Its single RCA rerun remains pending
-until static CI, the zero-generation diagnostic, and both Terraform zero-drift gates pass. A pass
-will record `M6-RCA-accepted / safety-acceptance-pending`; it will not authorize the safety suite or
-M7.
+Approval 5 implemented the strict taxonomy boundary and passed static CI, the zero-generation
+diagnostic, and both Terraform zero-drift gates. Its single authorized RCA rerun attempted one model
+request but produced no successful response before the 20-second node timeout. The result retained
+only `AGENT_TIMEOUT`, category `timeout`, and `retryable=false`; prompt, output, and total token counts
+were all zero. The live gate was removed and no composer request, retry, safety run, taxonomy change,
+or M7 action followed. The status remains `M6-model-deployed / live-acceptance-blocked`.

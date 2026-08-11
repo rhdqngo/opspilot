@@ -168,3 +168,7 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - The conservative ceiling matches Approval 4; actual tokens and estimated cost are recorded only
   after the bounded execution.
 - Terraform, IAM, Cloud Run, Search, live evidence, and deployment changes remain zero.
+- The single run stopped after one attempted and zero successful responses with `AGENT_TIMEOUT`.
+  Provider usage exposed through the bounded result was zero prompt, output, and total tokens; no
+  billing amount is inferred from that metadata. The second RCA node and safety suite were not
+  called.
