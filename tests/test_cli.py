@@ -4,6 +4,7 @@ import pytest
 
 from opspilot.cli import main
 from opspilot.demo.models import LoadSummary, ScenarioPhaseSummary, ScenarioRunSummary
+from opspilot.knowledge import KnowledgeDiagnosticResult, KnowledgeProbeResult
 from opspilot.route_check import CloudRunRouteCheckResult
 
 
@@ -115,3 +116,47 @@ def test_M4_cli_validates_and_smokes_local_corpus_without_cloud_identifiers(
     assert "gs://" not in smoke_output
     assert "project_id" not in smoke_output
     assert "token" not in smoke_output
+
+
+def test_M4_diagnostic_and_probe_cli_print_only_redacted_aggregates(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        "opspilot.cli.run_knowledge_diagnostic",
+        lambda _environment: KnowledgeDiagnosticResult(
+            credential_ready=True,
+            serving_config_count=1,
+            engine_serving_config_ready=True,
+            schema_ready=True,
+            filter_fields_ready=True,
+            document_count=13,
+            indexed_count=13,
+            index_error_count=0,
+            backend_ready=True,
+        ),
+    )
+    monkeypatch.setattr(
+        "opspilot.cli.run_knowledge_probe",
+        lambda _environment: KnowledgeProbeResult(
+            executed_query_count=1,
+            succeeded=False,
+            failure_code="invalid_request",
+            invalid_fields=["contentSearchSpec.searchResultMode"],
+            hit_count=0,
+            expected_document_present=False,
+            citation_metadata_complete=False,
+        ),
+    )
+
+    assert main(["knowledge", "diagnose", "--format", "json"]) == 0
+    diagnostic_output = capsys.readouterr().out
+    assert '"search_query_count": 0' in diagnostic_output
+    assert main(["knowledge", "probe", "--format", "json"]) == 2
+    probe_output = capsys.readouterr().out
+    assert '"failure_code": "invalid_request"' in probe_output
+    combined = diagnostic_output + probe_output
+    assert "gs://" not in combined
+    assert "project_id" not in combined
+    assert "token" not in combined
+    assert "http" not in combined

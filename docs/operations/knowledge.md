@@ -13,8 +13,9 @@ Status: M4 search deployed; live smoke blocked
   objects, one manifest, and one current snapshot; the following sync plan is a no-op.
 - Index readiness passed, but the first live Search request returned a safe HTTP 400 before any hit
   was normalized. No second Search request was made and the hosted gates remain disabled.
-- Do not repeat the smoke, modify the corpus, reimport, destroy, or broaden IAM under the completed
-  recovery approval. A separate live-smoke recovery plan must diagnose the request contract first.
+- Approval 3 adds a zero-query readiness diagnostic, a separately gated fixed-case probe, and
+  redacted HTTP/RPC failure classification before any bounded live-smoke recovery.
+- Do not modify the corpus, reimport, destroy, or broaden IAM during the live-smoke recovery.
 
 ## Local validation
 
@@ -60,6 +61,28 @@ exactly the ten versioned queries, never paginates, caps top-k at eight and retu
 - sync plan is a no-op and the imported document set remains exactly thirteen
 - hosted gates remain false until a successful bounded live smoke
 - existing Search data stores and engine remain untouched
+
+Run the identifier-free readiness diagnostic before enabling any query gate:
+
+```powershell
+uv run opspilot knowledge diagnose --env dev --format summary
+```
+
+It must report one engine-owned serving configuration, a filter-ready schema, thirteen indexed
+documents, zero index errors, `backend_ready=true`, and `search_query_count=0`. The diagnostic never
+accepts or prints a resource identifier.
+
+The probe always uses versioned case `KQ-001`; it does not accept raw query text:
+
+```powershell
+$env:OPSPILOT_KNOWLEDGE_PROBE_ENABLED = "true"
+uv run opspilot knowledge probe --env dev --format summary
+Remove-Item Env:OPSPILOT_KNOWLEDGE_PROBE_ENABLED
+```
+
+Only safe error categories and allowlisted request field paths may appear. A failed probe is not
+retried. The ten-query smoke remains independently gated and runs only after a successful probe or
+an explicitly allowed request-shape correction.
 
 Stop without cleanup or retry if a configurable subscription, add-on, broader IAM, different
 resource graph, corpus drift, or unexpected cost boundary appears.

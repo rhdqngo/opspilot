@@ -53,9 +53,10 @@ uv run opspilot knowledge validate --format summary
 uv run opspilot knowledge smoke --backend local --env dev --format summary
 ```
 
-`knowledge sync` defaults to plan mode. Apply and Agent Search smoke remain disabled until the
-separate M4 Approval 2 gates are set. Project, bucket, data-store, engine, token, and GCS URI values
-are never accepted as CLI arguments or printed.
+`knowledge sync` defaults to plan mode. The zero-query `knowledge diagnose` command reports only
+aggregate Agent Search readiness, while the fixed `KQ-001` `knowledge probe` requires an explicit
+process-scoped gate. Project, bucket, data-store, engine, token, query, and GCS URI values are never
+accepted as diagnostic CLI arguments or printed.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and

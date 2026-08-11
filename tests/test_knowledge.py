@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import io
+import json
 from collections.abc import Sequence
+from email.message import Message
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
 
 import pytest
 from pydantic import ValidationError
@@ -10,16 +14,22 @@ from pydantic import ValidationError
 import opspilot.knowledge as knowledge_module
 from opspilot.knowledge import (
     MAX_CHUNK_BYTES,
+    AgentSearchFailure,
+    KnowledgeDiagnosticResult,
     KnowledgeHit,
     KnowledgeImportOutcome,
     KnowledgeIndexStatus,
+    KnowledgeProbeResult,
     SearchKnowledgeInput,
+    build_agent_search_request,
     build_search_filter,
     catalog_jsonl,
     load_corpus,
     load_knowledge_document,
     normalize_search_response,
     run_agent_search_smoke,
+    run_knowledge_diagnostic,
+    run_knowledge_probe,
     run_local_smoke,
     sync_knowledge,
     validate_knowledge,
@@ -320,3 +330,264 @@ def test_M4_live_smoke_executes_exactly_ten_queries_and_flags_untrusted_content(
     assert result.executed_query_count == 10
     assert ReadyClient.search_count == 10
     assert result.untrusted_content_flagged is True
+
+
+def test_M4_agent_search_request_is_built_only_from_validated_inputs() -> None:
+    request = SearchKnowledgeInput(
+        query="database pool timeout",
+        service="payment-service",
+        document_types=["runbook"],
+        top_k=5,
+    )
+
+    assert build_agent_search_request(request) == {
+        "query": "database pool timeout",
+        "pageSize": 5,
+        "contentSearchSpec": {"searchResultMode": "CHUNKS"},
+        "relevanceScoreSpec": {"returnRelevanceScore": True},
+        "filter": 'service: ANY("payment-service") AND document_type: ANY("runbook")',
+    }
+
+
+@pytest.mark.parametrize(
+    ("status", "expected_code"),
+    [
+        (400, "invalid_request"),
+        (401, "unauthorized"),
+        (403, "forbidden"),
+        (404, "not_found"),
+        (429, "rate_limited"),
+        (503, "server_error"),
+    ],
+)
+def test_M4_http_errors_are_redacted_and_classified(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    expected_code: str,
+) -> None:
+    error_payload = {
+        "error": {
+            "code": status,
+            "status": "INVALID_ARGUMENT",
+            "message": "query and projects/secret/locations/global must never escape",
+            "details": [
+                {
+                    "fieldViolations": [
+                        {"field": "contentSearchSpec.searchResultMode", "description": "secret"},
+                        {"field": "search_request.relevance_score_spec", "description": "secret"},
+                        {"field": "projects/secret", "description": "secret"},
+                    ]
+                }
+            ],
+        }
+    }
+    body = io.BytesIO(json.dumps(error_payload).encode())
+
+    def fail_request(*_args: object, **_kwargs: object) -> object:
+        raise HTTPError("https://secret.invalid", status, "secret", Message(), body)
+
+    monkeypatch.setattr(knowledge_module, "urlopen", fail_request)
+    monkeypatch.setattr(
+        knowledge_module.GcloudKnowledgeClient,
+        "_token",
+        lambda _self: "synthetic-token",
+    )
+    client = knowledge_module.GcloudKnowledgeClient(
+        knowledge_module._CloudContext("synthetic-project", "123", "synthetic-bucket")
+    )
+
+    with pytest.raises(AgentSearchFailure) as raised:
+        client._request("POST", "https://secret.invalid", {"query": "secret"})
+
+    assert raised.value.code == expected_code
+    assert raised.value.invalid_fields == (
+        "contentSearchSpec.searchResultMode",
+        "relevanceScoreSpec",
+    )
+    safe_text = str(raised.value)
+    assert "secret" not in safe_text
+    assert "project" not in safe_text
+    assert "token" not in safe_text
+
+
+def test_M4_malformed_http_error_body_is_not_exposed(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_request(*_args: object, **_kwargs: object) -> object:
+        raise HTTPError(
+            "https://secret.invalid",
+            400,
+            "secret",
+            Message(),
+            io.BytesIO(b"not-json projects/secret token"),
+        )
+
+    monkeypatch.setattr(knowledge_module, "urlopen", fail_request)
+    monkeypatch.setattr(
+        knowledge_module.GcloudKnowledgeClient,
+        "_token",
+        lambda _self: "synthetic-token",
+    )
+    client = knowledge_module.GcloudKnowledgeClient(
+        knowledge_module._CloudContext("synthetic-project", "123", "synthetic-bucket")
+    )
+
+    with pytest.raises(AgentSearchFailure) as raised:
+        client._request("GET", "https://secret.invalid")
+
+    assert raised.value.code == "invalid_request"
+    assert raised.value.invalid_fields == ()
+    assert "not-json" not in str(raised.value)
+
+
+@pytest.mark.parametrize("failure", [URLError("offline"), TimeoutError("slow")])
+def test_M4_transport_failures_are_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+) -> None:
+    def fail_request(*_args: object, **_kwargs: object) -> object:
+        raise failure
+
+    monkeypatch.setattr(knowledge_module, "urlopen", fail_request)
+    monkeypatch.setattr(
+        knowledge_module.GcloudKnowledgeClient,
+        "_token",
+        lambda _self: "synthetic-token",
+    )
+    client = knowledge_module.GcloudKnowledgeClient(
+        knowledge_module._CloudContext("synthetic-project", "123", "synthetic-bucket")
+    )
+
+    with pytest.raises(AgentSearchFailure) as raised:
+        client._request("GET", "https://secret.invalid")
+
+    assert raised.value.code == "transport_error"
+    assert "offline" not in str(raised.value)
+    assert "slow" not in str(raised.value)
+
+
+def test_M4_malformed_success_response_is_classified_without_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class InvalidJsonResponse(io.BytesIO):
+        def __enter__(self) -> InvalidJsonResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    monkeypatch.setattr(
+        knowledge_module,
+        "urlopen",
+        lambda *_args, **_kwargs: InvalidJsonResponse(b"not-json projects/secret token"),
+    )
+    monkeypatch.setattr(
+        knowledge_module.GcloudKnowledgeClient,
+        "_token",
+        lambda _self: "synthetic-token",
+    )
+    client = knowledge_module.GcloudKnowledgeClient(
+        knowledge_module._CloudContext("synthetic-project", "123", "synthetic-bucket")
+    )
+
+    with pytest.raises(AgentSearchFailure) as raised:
+        client._request("GET", "https://secret.invalid")
+
+    assert raised.value.code == "invalid_response"
+    assert "not-json" not in str(raised.value)
+
+
+def test_M4_diagnostic_executes_zero_search_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DiagnosticClient:
+        def __init__(self, context: object) -> None:
+            del context
+
+        def diagnose(self, expected_document_ids: Sequence[str]) -> KnowledgeDiagnosticResult:
+            assert len(expected_document_ids) == 13
+            return KnowledgeDiagnosticResult(
+                credential_ready=True,
+                serving_config_count=1,
+                engine_serving_config_ready=True,
+                schema_ready=True,
+                filter_fields_ready=True,
+                document_count=13,
+                indexed_count=13,
+                index_error_count=0,
+                backend_ready=True,
+            )
+
+        def search(self, request: SearchKnowledgeInput) -> list[KnowledgeHit]:
+            raise AssertionError(f"diagnose must never search: {request.query}")
+
+    monkeypatch.setattr(knowledge_module, "_cloud_context", lambda environment: object())
+    monkeypatch.setattr(knowledge_module, "GcloudKnowledgeClient", DiagnosticClient)
+
+    result = run_knowledge_diagnostic("dev")
+
+    assert result.backend_ready is True
+    assert result.search_query_count == 0
+
+
+def test_M4_probe_requires_gate_and_executes_fixed_case_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    documents = load_corpus()
+
+    class ProbeClient:
+        search_count = 0
+
+        def __init__(self, context: object) -> None:
+            del context
+
+        def search(self, request: SearchKnowledgeInput) -> list[KnowledgeHit]:
+            type(self).search_count += 1
+            assert request.query == "payment DB_POOL_TIMEOUT connection pool reduced"
+            return knowledge_module.local_search(request, documents)
+
+    monkeypatch.setattr(knowledge_module, "_cloud_context", lambda environment: object())
+    monkeypatch.setattr(knowledge_module, "GcloudKnowledgeClient", ProbeClient)
+    monkeypatch.delenv("OPSPILOT_KNOWLEDGE_PROBE_ENABLED", raising=False)
+    with pytest.raises(RuntimeError, match="probe gate"):
+        run_knowledge_probe("dev")
+
+    monkeypatch.setenv("OPSPILOT_KNOWLEDGE_PROBE_ENABLED", "true")
+    result = run_knowledge_probe("dev")
+
+    assert isinstance(result, KnowledgeProbeResult)
+    assert result.executed_query_count == 1
+    assert result.succeeded is True
+    assert result.hit_count >= 1
+    assert result.expected_document_present is True
+    assert result.citation_metadata_complete is True
+    assert ProbeClient.search_count == 1
+
+
+def test_M4_live_smoke_stops_on_first_safe_api_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingClient:
+        search_count = 0
+
+        def __init__(self, context: object) -> None:
+            del context
+
+        def read_index_status(self, expected_document_ids: Sequence[str]) -> KnowledgeIndexStatus:
+            return KnowledgeIndexStatus(
+                document_count=len(expected_document_ids),
+                indexed_count=len(expected_document_ids),
+                error_count=0,
+                exact_document_set=True,
+            )
+
+        def search(self, request: SearchKnowledgeInput) -> list[KnowledgeHit]:
+            type(self).search_count += 1
+            raise AgentSearchFailure("invalid_request", invalid_fields=["filter"])
+
+    monkeypatch.setenv("OPSPILOT_KNOWLEDGE_SMOKE_ENABLED", "true")
+    monkeypatch.setattr(knowledge_module, "_cloud_context", lambda environment: object())
+    monkeypatch.setattr(knowledge_module, "GcloudKnowledgeClient", FailingClient)
+
+    result = run_agent_search_smoke("dev")
+
+    assert result.executed_query_count == 1
+    assert result.failure_code == "invalid_request"
+    assert result.invalid_fields == ["filter"]
+    assert FailingClient.search_count == 1

@@ -18,6 +18,8 @@ from opspilot.knowledge import (
     KnowledgeSyncMode,
     render_knowledge_result,
     run_agent_search_smoke,
+    run_knowledge_diagnostic,
+    run_knowledge_probe,
     run_knowledge_sync,
     run_local_smoke,
     validate_knowledge,
@@ -83,6 +85,16 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_smoke.add_argument("--backend", choices=("local", "agent-search"), default="local")
     knowledge_smoke.add_argument("--env", choices=("dev",), default="dev")
     knowledge_smoke.add_argument("--format", choices=("json", "summary"), default="summary")
+    knowledge_diagnose = knowledge_commands.add_parser(
+        "diagnose", help="Run zero-query redacted Agent Search readiness checks"
+    )
+    knowledge_diagnose.add_argument("--env", choices=("dev",), default="dev")
+    knowledge_diagnose.add_argument("--format", choices=("json", "summary"), default="summary")
+    knowledge_probe = knowledge_commands.add_parser(
+        "probe", help="Run one gated fixed Agent Search diagnostic query"
+    )
+    knowledge_probe.add_argument("--env", choices=("dev",), default="dev")
+    knowledge_probe.add_argument("--format", choices=("json", "summary"), default="summary")
     return parser
 
 
@@ -174,4 +186,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(render_knowledge_result(smoke), end="")
         return 0 if smoke.passed else 2
+    if args.command == "knowledge" and args.knowledge_command == "diagnose":
+        diagnostic = run_knowledge_diagnostic(str(args.env))
+        if args.format == "json":
+            print(json.dumps(diagnostic.model_dump(), indent=2))
+        else:
+            print(render_knowledge_result(diagnostic), end="")
+        return 0 if diagnostic.backend_ready else 2
+    if args.command == "knowledge" and args.knowledge_command == "probe":
+        probe = run_knowledge_probe(str(args.env))
+        if args.format == "json":
+            print(json.dumps(probe.model_dump(), indent=2))
+        else:
+            print(render_knowledge_result(probe), end="")
+        return 0 if probe.succeeded else 2
     raise AssertionError("unreachable command")

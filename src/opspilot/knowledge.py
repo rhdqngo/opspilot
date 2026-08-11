@@ -25,6 +25,16 @@ from pydantic import BaseModel, Field, model_validator
 DocumentType = Literal["runbook", "prior_rca", "architecture", "ownership", "known_error"]
 KnowledgeBackend = Literal["local", "agent-search"]
 KnowledgeSyncMode = Literal["plan", "apply"]
+AgentSearchFailureCode = Literal[
+    "invalid_request",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "rate_limited",
+    "server_error",
+    "transport_error",
+    "invalid_response",
+]
 
 ALLOWED_SERVICES = frozenset({"shared", "order-service", "payment-service", "inventory-service"})
 ALLOWED_DOCUMENT_TYPES = frozenset(
@@ -44,7 +54,28 @@ REQUIRED_RUNBOOK_SECTIONS = frozenset(
     }
 )
 MAX_CHUNK_BYTES = 24 * 1024
+MAX_ERROR_BODY_BYTES = 16 * 1024
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
+ALLOWED_SEARCH_ERROR_FIELDS = frozenset(
+    {
+        "servingConfig",
+        "query",
+        "pageSize",
+        "filter",
+        "contentSearchSpec",
+        "contentSearchSpec.searchResultMode",
+        "relevanceScoreSpec",
+        "relevanceScoreSpec.returnRelevanceScore",
+    }
+)
+SEARCH_ERROR_FIELD_ALIASES = {
+    "serving_config": "servingConfig",
+    "page_size": "pageSize",
+    "content_search_spec": "contentSearchSpec",
+    "content_search_spec.search_result_mode": "contentSearchSpec.searchResultMode",
+    "relevance_score_spec": "relevanceScoreSpec",
+    "relevance_score_spec.return_relevance_score": "relevanceScoreSpec.returnRelevanceScore",
+}
 
 
 class KnowledgeDocumentMetadata(BaseModel):
@@ -149,6 +180,8 @@ class KnowledgeSmokeResult(BaseModel):
     citation_metadata_complete: bool
     untrusted_content_flagged: bool
     untrusted_instruction_executed: bool = False
+    failure_code: AgentSearchFailureCode | None = None
+    invalid_fields: list[str] = Field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -194,6 +227,44 @@ class KnowledgeIndexStatus(BaseModel):
             and self.document_count == self.indexed_count
             and self.error_count == 0
         )
+
+
+class KnowledgeDiagnosticResult(BaseModel):
+    credential_ready: bool
+    serving_config_count: int = Field(ge=0)
+    engine_serving_config_ready: bool
+    schema_ready: bool
+    filter_fields_ready: bool
+    document_count: int = Field(ge=0)
+    indexed_count: int = Field(ge=0)
+    index_error_count: int = Field(ge=0)
+    backend_ready: bool
+    search_query_count: int = Field(default=0, ge=0, le=0)
+    failure_code: AgentSearchFailureCode | None = None
+
+
+class KnowledgeProbeResult(BaseModel):
+    executed_query_count: int = Field(ge=0, le=1)
+    succeeded: bool
+    failure_code: AgentSearchFailureCode | None = None
+    invalid_fields: list[str] = Field(default_factory=list)
+    hit_count: int = Field(ge=0)
+    expected_document_present: bool
+    citation_metadata_complete: bool
+
+
+class AgentSearchFailure(RuntimeError):
+    """A redacted Agent Search failure safe for aggregate CLI results."""
+
+    def __init__(
+        self,
+        code: AgentSearchFailureCode,
+        *,
+        invalid_fields: Sequence[str] = (),
+    ) -> None:
+        super().__init__(f"Agent Search failed: {code}")
+        self.code = code
+        self.invalid_fields = tuple(sorted(set(invalid_fields)))
 
 
 def default_knowledge_dir() -> Path:
@@ -388,6 +459,64 @@ def build_search_filter(request: SearchKnowledgeInput) -> str:
         values = ", ".join(f'"{value}"' for value in request.document_types)
         clauses.append(f"document_type: ANY({values})")
     return " AND ".join(clauses)
+
+
+def build_agent_search_request(request: SearchKnowledgeInput) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "query": request.query,
+        "pageSize": request.top_k,
+        "contentSearchSpec": {"searchResultMode": "CHUNKS"},
+        "relevanceScoreSpec": {"returnRelevanceScore": True},
+    }
+    filter_value = build_search_filter(request)
+    if filter_value:
+        body["filter"] = filter_value
+    return body
+
+
+def _failure_code_for_status(status: int) -> AgentSearchFailureCode:
+    if status == 400:
+        return "invalid_request"
+    if status == 401:
+        return "unauthorized"
+    if status == 403:
+        return "forbidden"
+    if status == 404:
+        return "not_found"
+    if status == 429:
+        return "rate_limited"
+    if status >= 500:
+        return "server_error"
+    return "invalid_response"
+
+
+def _safe_error_fields(payload: object) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return []
+    details = error.get("details")
+    if not isinstance(details, list):
+        return []
+    fields: set[str] = set()
+    for detail in details:
+        if not isinstance(detail, dict):
+            continue
+        violations = detail.get("fieldViolations")
+        if not isinstance(violations, list):
+            continue
+        for violation in violations:
+            if not isinstance(violation, dict):
+                continue
+            raw_field = violation.get("field")
+            if not isinstance(raw_field, str):
+                continue
+            field = raw_field.removeprefix("search_request.").removeprefix("request.")
+            canonical_field = SEARCH_ERROR_FIELD_ALIASES.get(field, field)
+            if canonical_field in ALLOWED_SEARCH_ERROR_FIELDS:
+                fields.add(canonical_field)
+    return sorted(fields)
 
 
 def _bounded_utf8(value: str, remaining: int) -> str:
@@ -736,7 +865,7 @@ class GcloudKnowledgeClient:
     def _token(self) -> str:
         token = _gcloud(("auth", "print-access-token")).stdout.strip()
         if not token:
-            raise RuntimeError("Google user credential is unavailable")
+            raise AgentSearchFailure("unauthorized")
         return token
 
     def _request(self, method: str, url: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -754,11 +883,94 @@ class GcloudKnowledgeClient:
         try:
             with urlopen(request, timeout=60) as response:
                 payload = json.load(response)
-        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
-            raise RuntimeError("Agent Search request failed") from exc
+        except HTTPError as exc:
+            raw_error = exc.read(MAX_ERROR_BODY_BYTES + 1)[:MAX_ERROR_BODY_BYTES]
+            try:
+                error_payload: object = json.loads(raw_error)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                error_payload = None
+            raise AgentSearchFailure(
+                _failure_code_for_status(exc.code),
+                invalid_fields=_safe_error_fields(error_payload),
+            ) from None
+        except (URLError, TimeoutError) as exc:
+            raise AgentSearchFailure("transport_error") from exc
+        except json.JSONDecodeError as exc:
+            raise AgentSearchFailure("invalid_response") from exc
         if not isinstance(payload, dict):
-            raise RuntimeError("Agent Search returned an unexpected response")
+            raise AgentSearchFailure("invalid_response")
         return payload
+
+    def _serving_configs(self) -> tuple[str, ...]:
+        context = self.context
+        engine_parent = (
+            f"projects/{context.project_id}/locations/{context.location}/collections/"
+            f"default_collection/engines/{context.engine_id}"
+        )
+        payload = self._request(
+            "GET", f"https://discoveryengine.googleapis.com/v1/{engine_parent}/servingConfigs"
+        )
+        raw_configs = payload.get("servingConfigs")
+        configs = raw_configs if isinstance(raw_configs, list) else []
+        engine_prefix = f"{engine_parent}/servingConfigs/"
+        return tuple(
+            str(item["name"])
+            for item in configs
+            if isinstance(item, dict)
+            and isinstance(item.get("name"), str)
+            and str(item["name"]).startswith(engine_prefix)
+        )
+
+    def _resolve_serving_config(self) -> str:
+        configs = self._serving_configs()
+        if len(configs) != 1:
+            raise AgentSearchFailure("invalid_response")
+        return configs[0]
+
+    def diagnose(self, expected_document_ids: Sequence[str]) -> KnowledgeDiagnosticResult:
+        context = self.context
+        owned_configs = self._serving_configs()
+        schema_parent = (
+            f"projects/{context.project_id}/locations/{context.location}/collections/"
+            f"default_collection/dataStores/{context.data_store_id}/schemas/default_schema"
+        )
+        schema_payload = self._request(
+            "GET", f"https://discoveryengine.googleapis.com/v1/{schema_parent}"
+        )
+        raw_schema = schema_payload.get("jsonSchema")
+        if isinstance(raw_schema, str):
+            try:
+                schema: object = json.loads(raw_schema)
+            except json.JSONDecodeError:
+                schema = None
+        else:
+            schema = raw_schema
+        properties = schema.get("properties") if isinstance(schema, dict) else None
+        property_map = properties if isinstance(properties, dict) else {}
+        filter_fields_ready = all(
+            isinstance(property_map.get(name), dict)
+            and property_map[name].get("indexable") is True
+            and property_map[name].get("retrievable") is True
+            for name in ("service", "document_type")
+        )
+        index_status = self.read_index_status(expected_document_ids)
+        backend_ready = (
+            len(owned_configs) == 1
+            and isinstance(schema, dict)
+            and filter_fields_ready
+            and index_status.ready
+        )
+        return KnowledgeDiagnosticResult(
+            credential_ready=True,
+            serving_config_count=len(owned_configs),
+            engine_serving_config_ready=len(owned_configs) == 1,
+            schema_ready=isinstance(schema, dict),
+            filter_fields_ready=filter_fields_ready,
+            document_count=index_status.document_count,
+            indexed_count=index_status.indexed_count,
+            index_error_count=index_status.error_count,
+            backend_ready=backend_ready,
+        )
 
     def import_documents(self, manifest_object: str) -> str:
         context = self.context
@@ -836,24 +1048,11 @@ class GcloudKnowledgeClient:
         )
 
     def search(self, request: SearchKnowledgeInput) -> list[KnowledgeHit]:
-        context = self.context
-        serving_config = (
-            f"projects/{context.project_id}/locations/{context.location}/collections/"
-            f"default_collection/engines/{context.engine_id}/servingConfigs/default_search"
-        )
-        body: dict[str, Any] = {
-            "query": request.query,
-            "pageSize": request.top_k,
-            "contentSearchSpec": {"searchResultMode": "CHUNKS"},
-            "relevanceScoreSpec": {"returnRelevanceScore": True},
-        }
-        filter_value = build_search_filter(request)
-        if filter_value:
-            body["filter"] = filter_value
+        serving_config = self._resolve_serving_config()
         payload = self._request(
             "POST",
             f"https://discoveryengine.googleapis.com/v1/{serving_config}:search",
-            body,
+            build_agent_search_request(request),
         )
         return normalize_search_response(payload, request)
 
@@ -880,15 +1079,31 @@ def run_agent_search_smoke(environment: str, root: Path | None = None) -> Knowle
     failed: list[str] = []
     citation_complete = True
     untrusted_content_flagged = False
+    executed_count = 0
     for case in cases:
-        hits = client.search(
-            SearchKnowledgeInput(
-                query=case.query,
-                service=case.service,
-                document_types=case.document_types,
-                top_k=case.top_k,
+        try:
+            hits = client.search(
+                SearchKnowledgeInput(
+                    query=case.query,
+                    service=case.service,
+                    document_types=case.document_types,
+                    top_k=case.top_k,
+                )
             )
-        )
+        except AgentSearchFailure as exc:
+            return KnowledgeSmokeResult(
+                backend="agent-search",
+                query_count=len(cases),
+                executed_query_count=executed_count + 1,
+                passed_count=executed_count - len(failed),
+                failed_case_ids=[*failed, case.case_id],
+                backend_ready=True,
+                citation_metadata_complete=citation_complete,
+                untrusted_content_flagged=untrusted_content_flagged,
+                failure_code=exc.code,
+                invalid_fields=list(exc.invalid_fields),
+            )
+        executed_count += 1
         if case.expected_document_id not in {hit.document_id for hit in hits}:
             failed.append(case.case_id)
         if case.expected_document_id == "SEC-001":
@@ -902,11 +1117,71 @@ def run_agent_search_smoke(environment: str, root: Path | None = None) -> Knowle
     return KnowledgeSmokeResult(
         backend="agent-search",
         query_count=len(cases),
-        executed_query_count=len(cases),
+        executed_query_count=executed_count,
         passed_count=len(cases) - len(failed),
         failed_case_ids=failed,
         citation_metadata_complete=citation_complete,
         untrusted_content_flagged=untrusted_content_flagged,
+    )
+
+
+def run_knowledge_diagnostic(
+    environment: str, root: Path | None = None
+) -> KnowledgeDiagnosticResult:
+    documents = load_corpus(root)
+    try:
+        client = GcloudKnowledgeClient(_cloud_context(environment))
+        return client.diagnose([document.metadata.document_id for document in documents])
+    except (AgentSearchFailure, RuntimeError) as exc:
+        failure_code: AgentSearchFailureCode = (
+            exc.code if isinstance(exc, AgentSearchFailure) else "transport_error"
+        )
+        return KnowledgeDiagnosticResult(
+            credential_ready=failure_code not in {"unauthorized", "forbidden"},
+            serving_config_count=0,
+            engine_serving_config_ready=False,
+            schema_ready=False,
+            filter_fields_ready=False,
+            document_count=0,
+            indexed_count=0,
+            index_error_count=0,
+            backend_ready=False,
+            failure_code=failure_code,
+        )
+
+
+def run_knowledge_probe(environment: str, root: Path | None = None) -> KnowledgeProbeResult:
+    if os.environ.get("OPSPILOT_KNOWLEDGE_PROBE_ENABLED") != "true":
+        raise RuntimeError("Agent Search probe gate is disabled")
+    case = next(item for item in load_smoke_cases(root) if item.case_id == "KQ-001")
+    request = SearchKnowledgeInput(
+        query=case.query,
+        service=case.service,
+        document_types=case.document_types,
+        top_k=case.top_k,
+    )
+    try:
+        hits = GcloudKnowledgeClient(_cloud_context(environment)).search(request)
+    except AgentSearchFailure as exc:
+        return KnowledgeProbeResult(
+            executed_query_count=1,
+            succeeded=False,
+            failure_code=exc.code,
+            invalid_fields=list(exc.invalid_fields),
+            hit_count=0,
+            expected_document_present=False,
+            citation_metadata_complete=False,
+        )
+    citation_complete = all(
+        hit.document_id and hit.title and hit.uri and hit.section for hit in hits
+    )
+    expected_present = case.expected_document_id in {hit.document_id for hit in hits}
+    return KnowledgeProbeResult(
+        executed_query_count=1,
+        succeeded=expected_present and citation_complete,
+        hit_count=len(hits),
+        expected_document_present=expected_present,
+        citation_metadata_complete=citation_complete,
     )
 
 
