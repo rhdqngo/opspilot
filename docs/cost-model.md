@@ -147,3 +147,12 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - The approved batch stopped after SCN-001 used two successful requests. Reported usage was 2,901
   prompt tokens and 790 output tokens, about USD 0.0115 at the documented list rates. SCN-006 and
   SCN-007 made no request, and the process gate was removed.
+
+## M6 Approval 4 boundary
+
+- Safe acceptance diagnostics are local and issue no model request.
+- The only approved live suite is `m6-rca`, containing SCN-001 and at most two requests with no
+  retry. `m6-safety` and `m6-core` are fake-only in this approval.
+- The conservative request ceiling is one third of the Approval 3 six-request ceiling. Actual token
+  usage is recorded only from bounded provider metadata.
+- Terraform, IAM, Cloud Run, Search, live evidence, and deployment changes remain zero.

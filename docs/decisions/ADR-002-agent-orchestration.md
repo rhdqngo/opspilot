@@ -29,8 +29,9 @@ preventing an LLM from constructing executable resource queries or action payloa
 - The fixture fake model is the CI default. Vertex use remains behind
   `OPSPILOT_LIVE_MODEL_ENABLED=true`; the approved model and location are fixed to
   `gemini-3.5-flash` and `global`.
-- The only live batch is the sequential `m6-core` suite (SCN-001, SCN-006, SCN-007), capped at six
-  attempted requests and 200 seconds with no retry. The seven-case evaluation remains fake-only.
+- Acceptance is divided into fixed `m6-rca`, `m6-safety`, and `m6-core` suites capped at two, four,
+  and six attempted requests respectively, with a 200-second deadline and no retry. The seven-case
+  evaluation remains fake-only.
 - The first approved live batch produced two HTTP-successful Vertex responses but stopped while
   validating the reviewer output. The precise invalid field was not retained and is not inferred.
 - A model-based independent reviewer is deferred as a post-MVP option. Restoring it requires a
@@ -38,3 +39,6 @@ preventing an LLM from constructing executable resource queries or action payloa
 - The Approval 3 batch completed both SCN-001 model calls but failed its final semantic acceptance
   predicate. It stopped before SCN-006 as designed. No retry, model substitution, schema relaxation,
   or infrastructure change was made.
+- Approval 4 preserves every predicate while exposing allowlisted failure codes and safe report
+  facts. It authorizes only the fixed SCN-001 `m6-rca` suite; the safety cases remain a later
+  approval boundary.

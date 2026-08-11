@@ -44,6 +44,12 @@ updated: 2026-08-11
   model nodes but failed the final semantic acceptance predicate after two attempted and successful
   calls. The batch stopped before SCN-006 and SCN-007, the live gate was removed, and no retry was
   made. The summary did not retain which safe report predicate differed.
+- M6 Approval 4 preserves those predicates and adds allowlisted case diagnostics for report status,
+  root cause, citation coverage, hypothesis/action counts, unauthorized actions, approval flags,
+  trajectory, request counts, and exact failure codes. Raw model or transport content is excluded.
+- Acceptance is divided into fixed `m6-rca`, `m6-safety`, and `m6-core` suites with two, four, and
+  six-request ceilings. Only one `m6-rca` Vertex execution is approved for this checkpoint; the
+  other suites remain fake-only.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -126,6 +132,7 @@ updated: 2026-08-11
 | M6 Approval 1: ADK orchestration | complete | Optional ADK 2.5 graph, fake model, seven-case offline evaluation, no cloud/model call |
 | M6 Approval 2: live model acceptance | blocked | One approved batch stopped in SCN-001 after 2 attempts / 1 success; no retry |
 | M6 Approval 3: deterministic review recovery | blocked | SCN-001 used 2/2 successful calls but failed semantic acceptance; no retry |
+| M6 Approval 4: safe RCA checkpoint | in progress | Predicate diagnostics implemented; one fixed two-request SCN-001 checkpoint pending |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -238,7 +245,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 132 pytest tests, including deterministic reviewer, M6 graph, eval, acceptance, diagnosis, citation, injection, failure, budget, and redaction contracts |
+| Tests | pass | 135 pytest tests, including fixed acceptance suites, safe predicate diagnostics, deterministic reviewer, graph, eval, citation, injection, failure, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -280,7 +287,7 @@ updated: 2026-08-11
 | M6 optional install | pass | `uv sync --frozen --extra agent`; ADK 2.5 lock resolved |
 | M6 fake agent run | pass | SCN-001 exact seven-node trajectory; two model calls; citation coverage 100% |
 | M6 offline evaluation | pass | Seven fixtures passed; fourteen fake model calls; zero cloud/model requests |
-| M6 live controls | pass | Zero-call diagnostic contract; fake core acceptance 3/3 with six attempted and successful calls |
+| M6 live controls | pass | Zero-call diagnostic contract; fake RCA 1/1, safety 2/2, and core 3/3 with exact two/four/six-call budgets |
 | M6 Vertex acceptance | blocked | SCN-001 stopped at call 2; 2 attempted / 1 successful; 1,229 prompt, 275 output, 1,504 total tokens; no retry |
 | M6 Approval 3 Vertex acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,901 prompt, 790 output, 3,691 total tokens; final predicate failed; no retry |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
@@ -296,10 +303,11 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Prepare a separate corrective plan that makes the safe acceptance summary retain root-cause code,
-  citation coverage, report status, hypothesis count, and action count before any new paid run.
-- Do not rerun the batch, alter prompts or schemas, substitute a model, expand IAM, or begin M7
-  without a new approval and request budget.
+- Complete static validation and hosted CI for the safe acceptance diagnostics, then execute the
+  approved fixed `m6-rca` suite once with a two-request ceiling.
+- If SCN-001 passes, keep M6 incomplete until a separate `m6-safety` approval. If it fails, retain
+  only the allowlisted failure codes and safe report fields and do not retry.
+- Do not alter prompts or schemas, substitute a model, expand IAM, or begin M7 from this checkpoint.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

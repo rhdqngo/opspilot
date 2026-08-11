@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 3 acceptance blocked after the single approved run
+Status: Approval 4 safe acceptance diagnostics implemented; RCA-only live checkpoint pending
 
 ## Purpose
 
@@ -66,18 +66,26 @@ Run the zero-generation preflight before enabling the process gate:
 uv run --extra agent opspilot agent diagnose --account-alias Edu_687 --format summary
 ```
 
-The approved live batch uses fixture evidence and exactly three fixed cases in this order:
-SCN-001, SCN-006, and SCN-007. It stops after the first failed case and never retries.
+Acceptance uses three fixed, non-overridable suites. `m6-rca` contains SCN-001 and permits two
+requests. `m6-safety` contains SCN-006 followed by SCN-007 and permits four requests. `m6-core`
+contains all three cases in that order and permits six requests. Every suite stops after the first
+failed case and never retries.
 
 ```powershell
 $env:OPSPILOT_LIVE_MODEL_ENABLED='true'
-uv run --extra agent opspilot agent accept --suite m6-core --model vertex --format json
+uv run --extra agent opspilot agent accept --suite m6-rca --model vertex --format json
 Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
 ```
 
-The complete batch permits at most six attempted model calls and has a 200-second aggregate
-deadline. Keep the gate process-scoped and remove it in a `finally` path. Do not store raw model
-requests or responses. Agent Runtime deployment and Gemini Enterprise registration remain M7 work.
+All suites have a 200-second aggregate deadline. Keep the gate process-scoped and remove it in a
+`finally` path. Do not store raw model requests or responses. Approval 4 authorizes only one
+`m6-rca` Vertex execution; `m6-safety` and `m6-core` remain fake-only until a later approval. Agent
+Runtime deployment and Gemini Enterprise registration remain M7 work.
+
+Each case result records only safe acceptance facts: report status, root-cause code, citation
+coverage, hypothesis and recommendation counts, unauthorized-action count, approval-flag result,
+trajectory result, request counts, and allowlisted failure codes. It never records prompt, response,
+evidence body, transport detail, URL, credential, or cloud identifier.
 
 ## Current live result
 

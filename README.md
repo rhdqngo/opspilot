@@ -82,21 +82,26 @@ uv sync --frozen --extra agent
 uv run --extra agent opspilot agent run --backend fixture --scenario SCN-001 --model fake --format summary
 uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
 uv run --extra agent opspilot agent diagnose --account-alias Edu_687 --format summary
+uv run --extra agent opspilot agent accept --suite m6-rca --model fake --format summary
+uv run --extra agent opspilot agent accept --suite m6-safety --model fake --format summary
 uv run --extra agent opspilot agent accept --suite m6-core --model fake --format summary
 ```
 
 The graph performs bounded evidence preparation, RCA drafting, deterministic citation review and
 scoring, and report composition. The two model nodes receive normalized evidence only, have no
 tools, and cannot assign support scores or execute recommendations. The Vertex model path is
-fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true`. The live acceptance path is fixed to
-SCN-001, SCN-006, and SCN-007, stops on first failure, and permits at most six model requests.
-The diagnostic performs no generation request and emits only redacted readiness fields.
+fail-closed unless `OPSPILOT_LIVE_MODEL_ENABLED=true`. Acceptance is split into fixed `m6-rca`
+(SCN-001), `m6-safety` (SCN-006 and SCN-007), and `m6-core` suites with respective two, four, and
+six-request ceilings. Every suite stops on first failure. The diagnostic performs no generation
+request and emits only redacted readiness fields.
 
 The first approved Vertex batch stopped safely after the reviewer response reached the client and
 was not retried. Approval 3 replaces that advisory model reviewer with fixed citation rules while
 preserving the seven-node trajectory. Its separately approved batch stopped after SCN-001 completed
 two successful model calls but failed the final semantic acceptance predicate; SCN-006 and SCN-007
-were not called. M6 remains blocked and M7 deployment has not started.
+were not called. Approval 4 exposes each existing acceptance predicate through fixed safe fields
+and failure codes before the separately bounded SCN-001-only checkpoint. M6 remains blocked and M7
+deployment has not started.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and

@@ -129,10 +129,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_diagnose.add_argument("--account-alias", default="Edu_687")
     agent_diagnose.add_argument("--format", choices=("json", "summary"), default="summary")
-    agent_accept = agent_commands.add_parser(
-        "accept", help="Run the fixed three-case M6 model acceptance suite"
+    agent_accept = agent_commands.add_parser("accept", help="Run a fixed M6 model acceptance suite")
+    agent_accept.add_argument(
+        "--suite",
+        choices=("m6-rca", "m6-safety", "m6-core"),
+        default="m6-core",
     )
-    agent_accept.add_argument("--suite", choices=("m6-core",), default="m6-core")
     agent_accept.add_argument("--model", choices=("fake", "vertex"), default="fake")
     agent_accept.add_argument("--format", choices=("json", "summary"), default="summary")
     return parser
@@ -255,7 +257,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if evidence_result.succeeded else 2
     if args.command == "agent":
         try:
-            from opspilot.agent.contracts import AgentBackend, ModelBackend
+            from opspilot.agent.contracts import (
+                AgentAcceptanceSuite,
+                AgentBackend,
+                ModelBackend,
+            )
             from opspilot.agent.diagnostics import (
                 render_agent_diagnostic,
                 run_agent_diagnostic,
@@ -283,7 +289,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if agent_result.succeeded else 2
         if args.agent_command == "eval":
             if str(args.model) != "fake":
-                print("Vertex evaluation is limited to: agent accept --suite m6-core")
+                print("Vertex evaluation is limited to a fixed agent acceptance suite")
                 return 2
             eval_result = asyncio.run(run_agent_eval(model_backend=ModelBackend.FAKE))
             print(render_agent_eval(eval_result, str(args.format)), end="")
@@ -297,7 +303,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if agent_diagnostic.model_ready else 2
         if args.agent_command == "accept":
             acceptance = asyncio.run(
-                run_agent_acceptance(model_backend=ModelBackend(str(args.model)))
+                run_agent_acceptance(
+                    model_backend=ModelBackend(str(args.model)),
+                    suite=AgentAcceptanceSuite(str(args.suite)),
+                )
             )
             print(render_agent_acceptance(acceptance, str(args.format)), end="")
             return 0 if acceptance.passed else 2

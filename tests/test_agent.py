@@ -11,6 +11,8 @@ from google.genai import types
 
 from opspilot.access_check import AccessCheckResult, CommandResult
 from opspilot.agent.contracts import (
+    AgentAcceptanceFailureCode,
+    AgentAcceptanceSuite,
     AgentBackend,
     AgentErrorCategory,
     HypothesisDraft,
@@ -28,6 +30,7 @@ from opspilot.agent.models import (
     MODEL_NODE_TIMEOUT_SECONDS,
 )
 from opspilot.agent.runner import (
+    _acceptance_case,
     _safe_error,
     render_agent_acceptance,
     render_agent_result,
@@ -107,18 +110,122 @@ async def test_M6_offline_eval_passes_all_seven_fixtures() -> None:
     assert result.model_calls == 14
 
 
+@pytest.mark.parametrize(
+    ("suite", "scenario_ids", "model_calls"),
+    [
+        (AgentAcceptanceSuite.RCA, ["SCN-001"], 2),
+        (AgentAcceptanceSuite.SAFETY, ["SCN-006", "SCN-007"], 4),
+        (AgentAcceptanceSuite.CORE, ["SCN-001", "SCN-006", "SCN-007"], 6),
+    ],
+)
 @pytest.mark.asyncio
-async def test_M6_core_acceptance_is_fixed_to_three_cases_and_six_calls() -> None:
-    result = await run_agent_acceptance(model_backend=ModelBackend.FAKE)
+async def test_M6_acceptance_suites_have_fixed_cases_and_call_budgets(
+    suite: AgentAcceptanceSuite,
+    scenario_ids: list[str],
+    model_calls: int,
+) -> None:
+    result = await run_agent_acceptance(model_backend=ModelBackend.FAKE, suite=suite)
 
     assert result.passed
-    assert [case.scenario_id for case in result.cases] == ["SCN-001", "SCN-006", "SCN-007"]
-    assert result.executed_case_count == 3
-    assert result.passed_case_count == 3
-    assert result.attempted_model_calls == 6
-    assert result.successful_model_calls == 6
+    assert result.suite == suite
+    assert [case.scenario_id for case in result.cases] == scenario_ids
+    assert result.executed_case_count == len(scenario_ids)
+    assert result.passed_case_count == len(scenario_ids)
+    assert result.attempted_model_calls == model_calls
+    assert result.successful_model_calls == model_calls
     assert all(case.budget.attempted_model_calls == 2 for case in result.cases)
-    assert "attempted_model_calls: 6" in render_agent_acceptance(result, "summary")
+    assert f"attempted_model_calls: {model_calls}" in render_agent_acceptance(result, "summary")
+
+
+@pytest.mark.asyncio
+async def test_M6_acceptance_retains_safe_predicate_diagnostics() -> None:
+    rca = await run_agent_investigation(
+        backend=AgentBackend.FIXTURE,
+        scenario_id="SCN-001",
+        model_backend=ModelBackend.FAKE,
+    )
+    insufficient = await run_agent_investigation(
+        backend=AgentBackend.FIXTURE,
+        scenario_id="SCN-006",
+        model_backend=ModelBackend.FAKE,
+    )
+    assert rca.report is not None
+    assert insufficient.report is not None
+
+    valid = _acceptance_case("SCN-001", rca)
+    assert valid.passed
+    assert valid.failure_codes == []
+    assert valid.report_status == ReportStatus.IDENTIFIED
+    assert valid.trajectory_matches
+    assert valid.unauthorized_action_count == 0
+
+    mismatched_report = rca.report.model_copy(
+        update={
+            "audit": {
+                **rca.report.audit,
+                "root_cause_code": "DIFFERENT_CAUSE",
+                "citation_coverage": 0.5,
+                "unauthorized_action_count": 1,
+            },
+            "recommended_actions": [
+                rca.report.recommended_actions[0].model_copy(update={"requires_approval": False})
+            ],
+        }
+    )
+    mismatched = _acceptance_case(
+        "SCN-001",
+        rca.model_copy(
+            update={
+                "report": mismatched_report,
+                "trajectory": ["unexpected"],
+                "budget": rca.budget.model_copy(update={"attempted_model_calls": 1}),
+            }
+        ),
+    )
+    assert set(mismatched.failure_codes) == {
+        AgentAcceptanceFailureCode.TRAJECTORY_MISMATCH,
+        AgentAcceptanceFailureCode.MODEL_CALL_BUDGET_MISMATCH,
+        AgentAcceptanceFailureCode.CITATION_COVERAGE_INCOMPLETE,
+        AgentAcceptanceFailureCode.UNAUTHORIZED_ACTION_PRESENT,
+        AgentAcceptanceFailureCode.APPROVAL_FLAG_MISSING,
+        AgentAcceptanceFailureCode.ROOT_CAUSE_MISMATCH,
+    }
+
+    safety_report = insufficient.report.model_copy(
+        update={
+            "status": ReportStatus.IDENTIFIED,
+            "hypotheses": rca.report.hypotheses,
+            "recommended_actions": rca.report.recommended_actions,
+        }
+    )
+    safety = _acceptance_case("SCN-006", insufficient.model_copy(update={"report": safety_report}))
+    assert {
+        AgentAcceptanceFailureCode.REPORT_STATUS_MISMATCH,
+        AgentAcceptanceFailureCode.HYPOTHESIS_COUNT_MISMATCH,
+        AgentAcceptanceFailureCode.RECOMMENDATION_COUNT_MISMATCH,
+    }.issubset(safety.failure_codes)
+
+    summary = render_agent_acceptance(
+        await run_agent_acceptance(
+            model_backend=ModelBackend.FAKE,
+            suite=AgentAcceptanceSuite.RCA,
+        ),
+        "summary",
+    )
+    for field in (
+        "report_status",
+        "root_cause_code",
+        "citation_coverage",
+        "hypothesis_count",
+        "recommended_action_count",
+        "unauthorized_action_count",
+        "all_actions_require_approval",
+        "trajectory_matches",
+        "attempted_model_calls",
+        "successful_model_calls",
+        "failure_codes",
+    ):
+        assert field in summary
 
 
 @pytest.mark.asyncio
@@ -127,12 +234,16 @@ async def test_M6_core_acceptance_stops_after_first_failed_case_without_calls(
 ) -> None:
     monkeypatch.delenv("OPSPILOT_LIVE_MODEL_ENABLED", raising=False)
 
-    result = await run_agent_acceptance(model_backend=ModelBackend.VERTEX)
+    result = await run_agent_acceptance(
+        model_backend=ModelBackend.VERTEX,
+        suite=AgentAcceptanceSuite.RCA,
+    )
 
     assert not result.passed
     assert result.executed_case_count == 1
     assert result.attempted_model_calls == 0
     assert result.cases[0].errors[0].code == "AGENT_GATE_DISABLED"
+    assert AgentAcceptanceFailureCode.RUN_FAILED in result.cases[0].failure_codes
     assert "SCN-001_error: AGENT_GATE_DISABLED" in render_agent_acceptance(result, "summary")
 
 

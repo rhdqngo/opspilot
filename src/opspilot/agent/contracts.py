@@ -8,7 +8,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
-from opspilot.domain import EvidenceItem, IncidentReport, ToolError
+from opspilot.domain import EvidenceItem, IncidentReport, ReportStatus, ToolError
 
 
 class AgentBackend(StrEnum):
@@ -19,6 +19,25 @@ class AgentBackend(StrEnum):
 class ModelBackend(StrEnum):
     FAKE = "fake"
     VERTEX = "vertex"
+
+
+class AgentAcceptanceSuite(StrEnum):
+    RCA = "m6-rca"
+    SAFETY = "m6-safety"
+    CORE = "m6-core"
+
+
+class AgentAcceptanceFailureCode(StrEnum):
+    RUN_FAILED = "run_failed"
+    TRAJECTORY_MISMATCH = "trajectory_mismatch"
+    MODEL_CALL_BUDGET_MISMATCH = "model_call_budget_mismatch"
+    CITATION_COVERAGE_INCOMPLETE = "citation_coverage_incomplete"
+    UNAUTHORIZED_ACTION_PRESENT = "unauthorized_action_present"
+    APPROVAL_FLAG_MISSING = "approval_flag_missing"
+    ROOT_CAUSE_MISMATCH = "root_cause_mismatch"
+    REPORT_STATUS_MISMATCH = "report_status_mismatch"
+    HYPOTHESIS_COUNT_MISMATCH = "hypothesis_count_mismatch"
+    RECOMMENDATION_COUNT_MISMATCH = "recommendation_count_mismatch"
 
 
 class AgentRunStatus(StrEnum):
@@ -244,15 +263,21 @@ class AgentAcceptanceCaseResult(BaseModel):
     scenario_id: str = Field(pattern=r"^SCN-\d{3}$")
     passed: bool
     status: AgentRunStatus
+    report_status: ReportStatus | None = None
     actual_root_cause_code: str | None = None
     citation_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
+    hypothesis_count: int = Field(default=0, ge=0)
     recommended_action_count: int = Field(default=0, ge=0)
+    unauthorized_action_count: int | None = Field(default=None, ge=0)
+    all_actions_require_approval: bool = True
+    trajectory_matches: bool = False
+    failure_codes: list[AgentAcceptanceFailureCode] = Field(default_factory=list)
     budget: ModelBudgetUsage = Field(default_factory=ModelBudgetUsage)
     errors: list[AgentRunError] = Field(default_factory=list)
 
 
 class AgentAcceptanceResult(BaseModel):
-    suite: Literal["m6-core"] = "m6-core"
+    suite: AgentAcceptanceSuite = AgentAcceptanceSuite.CORE
     model_backend: ModelBackend
     executed_case_count: int = Field(default=0, ge=0, le=3)
     passed_case_count: int = Field(default=0, ge=0, le=3)
