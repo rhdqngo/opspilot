@@ -209,6 +209,7 @@ def test_M1_and_M2_permission_sets_stay_explicitly_separated() -> None:
     assert "monitoring.timeSeries.list" in M2_PROJECT_PERMISSIONS
     assert "discoveryengine.documents.import" in M4_PROJECT_PERMISSIONS
     assert "discoveryengine.servingConfigs.search" in M4_PROJECT_PERMISSIONS
+    assert "iam.serviceAccounts.setIamPolicy" in M5_OPERATOR_PROJECT_PERMISSIONS
     assert set(M5_INVESTIGATOR_PERMISSIONS) == {
         "discoveryengine.servingConfigs.search",
         "logging.logEntries.list",

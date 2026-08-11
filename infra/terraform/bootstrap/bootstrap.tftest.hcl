@@ -23,9 +23,10 @@ run "secure_bootstrap_plan" {
   assert {
     condition = (
       contains(google_project_iam_custom_role.ci_plan_reader.permissions, "iam.roles.get") &&
+      contains(google_project_iam_custom_role.ci_plan_reader.permissions, "iam.serviceAccounts.getIamPolicy") &&
       contains(google_project_iam_custom_role.ci_plan_reader.permissions, "resourcemanager.projects.getIamPolicy")
     )
-    error_message = "Hosted M5 plans may read only the custom role and project IAM policy."
+    error_message = "Hosted M5 plans may read only the custom role, project IAM, and leaf service-account IAM policy."
   }
 
   assert {

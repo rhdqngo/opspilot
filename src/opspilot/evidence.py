@@ -1123,6 +1123,8 @@ def _normalize_log_result(
             environment=environment,
             observed_at=signature.last_seen,
             summary=signature.normalized_message,
+            value=signature.count,
+            unit="occurrences",
             direction=EvidenceDirection.UNKNOWN,
             source_uri=f"opspilot://evidence/log/{index:04d}",
             source_record_id=f"log-{signature.fingerprint[:12]}",

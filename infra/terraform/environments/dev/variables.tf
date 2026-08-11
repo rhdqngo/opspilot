@@ -97,3 +97,23 @@ variable "enable_live_evidence" {
   type        = bool
   default     = false
 }
+
+variable "investigator_operator_email" {
+  description = "Operator allowed to mint short-lived investigator credentials; injected at runtime."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      var.investigator_operator_email == "" ||
+      can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.investigator_operator_email))
+    )
+    error_message = "investigator_operator_email must be empty or a valid email address."
+  }
+
+  validation {
+    condition     = !var.enable_live_evidence || length(trimspace(var.investigator_operator_email)) > 0
+    error_message = "investigator_operator_email is required when live evidence is enabled."
+  }
+}

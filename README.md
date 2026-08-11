@@ -102,8 +102,9 @@ M4 Terraform is default-off. Enabling it in a separately reviewed plan adds exac
 knowledge bucket, one Agent Search data store, one metadata schema, and one Standard Search engine.
 Approval 1 does not create those resources or upload a document.
 
-M5 Terraform is also default-off. Enabling it in a separately reviewed Approval 2 plan adds only
-one investigator custom role and one binding to the existing investigator identity.
+M5 Terraform is also default-off. Enabling it in a separately reviewed Approval 2 plan adds one
+investigator custom role, its project binding, and one operator Token Creator binding scoped only
+to the existing investigator service account.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform
@@ -133,5 +134,5 @@ See `docs/operations/demo-services.md` for the workload runbook and
   only after the reviewed three-service update and remains part of the manual read-only plan gate.
 - M4 hosted plans additionally require `TF_M4_KNOWLEDGE_READY=true`; it remains unset until the
   separate Search apply, import, and live smoke approval completes.
-- M5 hosted plans additionally require `TF_M5_LIVE_EVIDENCE_READY=true`; Approval 1 does not create
-  or set this variable.
+- M5 hosted plans additionally require `TF_M5_LIVE_EVIDENCE_READY=true`; it remains unset until
+  investigator IAM and the bounded live acceptance both pass.

@@ -133,6 +133,6 @@ plan; it must never be bypassed with state editing.
 ## M5 hosted-plan preparation
 
 M5 Approval 1 adds `iam.roles.get` and `resourcemanager.projects.getIamPolicy` to the desired CI
-custom-role source so a future hosted plan can refresh the investigator custom role and project IAM
-member. No bootstrap apply occurs in Approval 1. Approval 2 must review an exact one-resource
-in-place bootstrap plan before enabling the M5 hosted gate.
+custom-role source. Approval 2 also prepares `iam.serviceAccounts.getIamPolicy` so the hosted plan
+can refresh the operator binding on the fixed investigator service account. The bootstrap apply
+must remain an exact one-resource in-place update before the M5 hosted gate is enabled.

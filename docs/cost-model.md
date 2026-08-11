@@ -87,14 +87,15 @@ Future work must not add any cost-bearing resource without a separate plan and a
   It created no cost-bearing resource and issued no Search request or import; the hosted plan was
   read-only and zero drift.
 
-## M5 Approval 1 impact
+## M5 Approval 1 and Approval 2 boundary
 
 - Typed evidence contracts, fixture/live adapters, and default-off IAM are repository-only changes.
 - Fixture smoke performs four logical collectors and zero Google Cloud API calls.
 - No Logging, Monitoring, Cloud Run Admin, or Agent Search request is executed in Approval 1.
 - No image, workload, custom metric, alert, role, binding, or other cloud resource is changed.
 - Approval 2 will cap live acceptance at one SCN-001 run, one Logging request, two Monitoring
-  requests, one Cloud Run revision collection, and one Standard Search request.
+  requests, one Cloud Run service read plus one revision list, and one Standard Search request.
+- Approval 2 adds IAM bindings only. It creates no workload or persistent cost-bearing service.
 
 ## Cleanup order
 

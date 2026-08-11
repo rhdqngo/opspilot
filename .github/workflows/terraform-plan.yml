@@ -24,6 +24,7 @@ jobs:
       TF_VAR_deploy_knowledge: "true"
       TF_VAR_search_location: "global"
       TF_VAR_enable_live_evidence: "true"
+      TF_VAR_investigator_operator_email: ${{ secrets.GCP_INVESTIGATOR_OPERATOR_EMAIL }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       OPSPILOT_REDACT_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       OPSPILOT_REDACT_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}

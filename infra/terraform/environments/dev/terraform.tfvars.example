@@ -9,3 +9,4 @@ enable_scenarios   = false
 deploy_knowledge   = false
 search_location    = "global"
 enable_live_evidence = false
+# investigator_operator_email = "operator@example.invalid"

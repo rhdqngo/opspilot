@@ -88,6 +88,7 @@ resource "google_project_iam_custom_role" "ci_plan_reader" {
     "discoveryengine.schemas.get",
     "discoveryengine.schemas.list",
     "iam.serviceAccounts.get",
+    "iam.serviceAccounts.getIamPolicy",
     "iam.serviceAccounts.list",
     "iam.roles.get",
     "monitoring.notificationChannels.get",

@@ -72,7 +72,8 @@ run "bounded_dev_foundation" {
       length(google_discovery_engine_schema.knowledge) == 0 &&
       length(google_discovery_engine_search_engine.knowledge) == 0 &&
       length(google_project_iam_custom_role.investigator_reader) == 0 &&
-      length(google_project_iam_member.investigator_reader) == 0
+      length(google_project_iam_member.investigator_reader) == 0 &&
+      length(google_service_account_iam_member.investigator_operator_token_creator) == 0
     )
     error_message = "The default M2 gate must preserve the M1-only resource graph."
   }
@@ -302,23 +303,33 @@ run "m5_live_evidence_apply_ready_contract" {
   command = plan
 
   variables {
-    project_id                = "example-project"
-    billing_account_id        = "000000-000000-000000"
-    budget_notification_email = "operator@example.invalid"
-    deploy_demo               = true
-    enable_scenarios          = true
-    deploy_knowledge          = true
-    search_location           = "global"
-    enable_live_evidence      = true
-    demo_image_uri            = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    project_id                  = "example-project"
+    billing_account_id          = "000000-000000-000000"
+    budget_notification_email   = "operator@example.invalid"
+    deploy_demo                 = true
+    enable_scenarios            = true
+    deploy_knowledge            = true
+    search_location             = "global"
+    enable_live_evidence        = true
+    investigator_operator_email = "operator@example.invalid"
+    demo_image_uri              = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   }
 
   assert {
     condition = (
       length(google_project_iam_custom_role.investigator_reader) == 1 &&
-      length(google_project_iam_member.investigator_reader) == 1
+      length(google_project_iam_member.investigator_reader) == 1 &&
+      length(google_service_account_iam_member.investigator_operator_token_creator) == 1
     )
     error_message = "M5 must add exactly one investigator custom role and one binding."
+  }
+
+  assert {
+    condition = (
+      google_service_account_iam_member.investigator_operator_token_creator[0].role == "roles/iam.serviceAccountTokenCreator" &&
+      google_service_account_iam_member.investigator_operator_token_creator[0].member == "user:operator@example.invalid"
+    )
+    error_message = "Operator impersonation must be limited to the fixed investigator service account."
   }
 
   assert {

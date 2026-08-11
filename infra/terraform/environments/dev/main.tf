@@ -264,6 +264,14 @@ resource "google_project_iam_member" "investigator_reader" {
   member  = "serviceAccount:${google_service_account.investigator.email}"
 }
 
+resource "google_service_account_iam_member" "investigator_operator_token_creator" {
+  count = var.enable_live_evidence ? 1 : 0
+
+  service_account_id = google_service_account.investigator.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "user:${var.investigator_operator_email}"
+}
+
 resource "google_service_account" "demo" {
   for_each = local.demo_service_names
 

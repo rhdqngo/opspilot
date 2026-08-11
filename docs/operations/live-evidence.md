@@ -1,6 +1,6 @@
 # M5 Live Evidence Runbook
 
-Status: Approval 1 code complete; cloud access not applied
+Status: Approval 2 IAM and live acceptance prepared; cloud access not yet applied
 
 ## Purpose
 
@@ -42,9 +42,16 @@ process-scoped synthetic `OPSPILOT_SCENARIO_RUN_ID`. Neither setting belongs in 
 ## Approval 2 boundary
 
 Do not run the live command until a separately reviewed bootstrap custom-role update and exact
-two-create dev IAM plan have been applied. Approval 2 must use service-account impersonation with
-no user-managed key, run one bounded SCN-001 profile, and keep actual identifiers in the process
+three-create dev IAM plan have been applied. The dev graph contains the investigator read role,
+its project binding, and one Token Creator binding scoped to the investigator service account for
+the `Edu_687` operator. Approval 2 must use this short-lived impersonation path with no
+user-managed key, run one bounded SCN-001 profile, and keep actual identifiers in the process
 environment or ignored run directory only.
+
+The live collection is one Logging request, two Monitoring requests, one Cloud Run service read,
+one revision list, and one Standard Search request. A log evidence item records its redacted
+signature count as `occurrences`, allowing the six expected `DB_POOL_TIMEOUT` events to be checked
+without retaining raw request or trace identifiers.
 
 The revision collector reports temporal facts as neutral evidence. It must not convert the fixture
 statement about a reduced pool size into a live claim unless the actual revision data supports it.

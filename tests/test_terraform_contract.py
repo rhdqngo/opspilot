@@ -56,7 +56,11 @@ def test_M1_ci_custom_role_is_least_privilege() -> None:
     assert {"run.services.get", "run.services.getIamPolicy", "run.services.list"}.issubset(
         permissions
     )
-    assert {"iam.roles.get", "resourcemanager.projects.getIamPolicy"}.issubset(permissions)
+    assert {
+        "iam.roles.get",
+        "iam.serviceAccounts.getIamPolicy",
+        "resourcemanager.projects.getIamPolicy",
+    }.issubset(permissions)
 
 
 def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
@@ -78,6 +82,8 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert 'TF_VAR_deploy_demo: "true"' in live_plan
     assert 'TF_VAR_deploy_knowledge: "true"' in live_plan
     assert 'TF_VAR_enable_live_evidence: "true"' in live_plan
+    assert "TF_VAR_investigator_operator_email" in live_plan
+    assert "secrets.GCP_INVESTIGATOR_OPERATOR_EMAIL" in live_plan
     assert "TF_VAR_demo_image_uri" in live_plan
     assert live_plan.count("-lock=false") == 2
     assert "vars.TF_DEV_STATE_READY != 'true'" in live_plan
@@ -144,8 +150,13 @@ def test_M5_terraform_is_default_off_and_defines_only_bounded_investigator_iam()
     )
 
     assert 'variable "enable_live_evidence"' in variables
+    assert 'variable "investigator_operator_email"' in variables
     assert 'resource "google_project_iam_custom_role" "investigator_reader"' in dev_source
     assert 'resource "google_project_iam_member" "investigator_reader"' in dev_source
+    assert (
+        'resource "google_service_account_iam_member" '
+        '"investigator_operator_token_creator"' in dev_source
+    )
     role = re.search(
         r'resource "google_project_iam_custom_role" "investigator_reader" \{(.*?)\n\}',
         dev_source,
@@ -167,3 +178,6 @@ def test_M5_terraform_is_default_off_and_defines_only_bounded_investigator_iam()
     prohibited = ("create", "delete", "update", "setIamPolicy", "invoke", "import")
     assert not any(permission.endswith(prohibited) for permission in permissions)
     assert "allUsers" not in dev_source
+    assert 'role               = "roles/iam.serviceAccountTokenCreator"' in dev_source
+    assert 'member             = "user:${var.investigator_operator_email}"' in dev_source
+    assert "service_account_id = google_service_account.investigator.name" in dev_source

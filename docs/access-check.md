@@ -23,7 +23,7 @@ project number, OAuth client, token, or billing account identifier.
 | M2 managed services | pass | The three exact Terraform service names are the three expected applied services; no additional Cloud Run service is present |
 | M4 apply permissions | pass | Bucket/object, Search data store/schema/engine, import, operation-read, and search permissions were verified without identifiers |
 | M4 candidate names | pass | Candidate bucket, data store, and engine conflicts are all zero |
-| M5 operator permissions | implemented check | Custom-role create/update and project IAM binding permissions are reported without identifiers |
+| M5 operator permissions | implemented check | Custom-role create/update plus project and leaf service-account IAM binding permissions are reported without identifiers |
 | Investigator impersonation | implemented check | Service-account token permission is tested on the fixed investigator identity without printing it |
 | Investigator target role | prepared | Seven read/API-use permissions; role and binding are not applied in Approval 1 |
 | Gemini Enterprise API access | pass | Global engine listing is permitted |
@@ -67,8 +67,9 @@ The M4 extension completed with `m4_permissions_ready=pass`,
 import operation, or query was created.
 
 The M5 extension reports operator IAM readiness, investigator impersonation readiness, and the
-fixed target-permission count. Approval 1 implements only this redacted check; it does not grant a
-role, impersonate the service account, or issue a telemetry/Search request.
+fixed target-permission count. Before Approval 2 apply, the operator permission gate passes while
+impersonation correctly remains blocked. The approved Terraform change grants Token Creator only
+on the fixed investigator service account; it does not add a project-level impersonation grant.
 
 ## Location decisions
 

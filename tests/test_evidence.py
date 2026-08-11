@@ -546,6 +546,9 @@ async def test_M5_live_adapter_uses_fixed_bounded_requests_and_logical_citations
     assert result.complete is True
     assert result.budget.logical_tool_calls == 4
     assert result.budget.api_calls == 6
+    log_evidence = next(item for item in result.evidence if item.source_type == SourceType.LOG)
+    assert log_evidence.value == 1
+    assert log_evidence.unit == "occurrences"
     assert {item.source_type for item in result.evidence} == {
         SourceType.LOG,
         SourceType.METRIC,

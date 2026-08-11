@@ -81,6 +81,7 @@ M4_PROJECT_PERMISSIONS: tuple[str, ...] = (
 M5_OPERATOR_PROJECT_PERMISSIONS: tuple[str, ...] = (
     "iam.roles.create",
     "iam.roles.update",
+    "iam.serviceAccounts.setIamPolicy",
     "resourcemanager.projects.setIamPolicy",
 )
 

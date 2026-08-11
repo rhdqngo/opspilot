@@ -1,6 +1,6 @@
 # ADR-009: Keep Live Evidence Collection Deterministic and Read-only
 
-Status: accepted for M5 Approval 1
+Status: accepted; Approval 2 leaf impersonation amendment prepared
 
 ## Decision
 
@@ -11,6 +11,11 @@ Cloud Logging, Monitoring, Cloud Run revision, and Agent Search access share one
 The live investigator receives one custom role containing only the seven approved read/API-use
 permissions. The role and binding remain default-off until a separate apply approval. Local
 validation uses the fixture adapter and performs no cloud query.
+
+The operator may mint a short-lived investigator OAuth token through
+`roles/iam.serviceAccountTokenCreator`, but the binding is attached only to the fixed investigator
+service account. No project-wide impersonation grant or service-account key is permitted. Hosted
+Terraform receives only the IAM policy read permission required to refresh that leaf binding.
 
 ## Consequences
 
