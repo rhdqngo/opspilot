@@ -42,6 +42,5 @@ repository name, owner name, actor name, branch name, or fork-provided secret.
 The repository defines resources but grants no automated apply identity. Approval 2 applied the
 reviewed custom-role update separately from the exact dev 10-create plan. Service-account keys,
 `allUsers`, broad project roles, and automated apply remain prohibited. The hosted plan gate is
-disabled while the private `run.app` route returns a pre-container 404. An organization
-administrator may allow only the operator's approved network or device context and the CI
-identity's three Cloud Run read methods; the service IAM boundary remains unchanged.
+disabled while the private `run.app` route returns a pre-container 404. Endpoint recovery leaves
+the service IAM boundary unchanged.

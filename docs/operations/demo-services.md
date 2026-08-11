@@ -62,8 +62,8 @@ authorization headers, account identifiers, or tokens.
   application log is produced.
 - The v2 service reports `defaultUriDisabled=false`, `INGRESS_TRAFFIC_ALL`, IAM enforcement active,
   and a Ready revision. Local health probes and Cloud Run startup/liveness probes pass.
-- The symptoms match an inherited network or VPC Service Controls route restriction. The operator
-  can detect the parent organization but cannot read its access-policy perimeter configuration.
+- The symptoms are classified only as an endpoint-level failure. They do not establish a specific
+  platform or policy cause.
 - `TF_PLAN_ENABLED=false` remains set. `TF_M2_IMAGE_READY` and `GCP_DEMO_IMAGE_URI` remain absent,
   so hosted plan cannot run prematurely.
 - The current Cloud Run inventory contains only the three managed M2 candidates. An earlier note
@@ -75,15 +75,13 @@ Run the repeatable redacted diagnostic without supplying a project identifier:
 uv run opspilot route-check --account-alias Edu_687 --format summary
 ```
 
-The current blocked contract exits `2` with `blocker_code=route_restricted`. See
-`cloud-run-route-recovery.md` for the administrator checklist and the acceptance sequence.
+The current blocked contract exits `2` with `blocker_code=endpoint_not_found`. See
+`cloud-run-mvp-recovery.md` for the controlled refresh and acceptance sequence.
 
 ## Resume procedure
 
-1. Follow `cloud-run-route-recovery.md` and have the organization administrator confirm whether
-   the project or caller is inside a VPC Service Controls perimeter or another inherited route
-   restriction.
-2. Restore authenticated access without adding `allUsers` or broadening runtime IAM.
+1. Follow `cloud-run-mvp-recovery.md` and repeat the canonical endpoint and IAM checks.
+2. If the blocker persists, apply only the reviewed three-service in-place revision refresh.
 3. Repeat unauthenticated-denial and authenticated 10-order smoke checks.
 4. Verify request/trace logs and request-count/latency metrics, then set the private image variable
    and hosted plan gates.

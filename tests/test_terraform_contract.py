@@ -99,3 +99,7 @@ def test_M2_terraform_defines_only_private_bounded_demo_resources() -> None:
     assert 'memory = "256Mi"' in dev_source
     assert "firestore" not in dev_source.lower()
     assert "alert_policy" not in dev_source
+    assert 'release_phase = "m2-mvp"' in dev_source
+    assert "google_compute_network" not in dev_source
+    assert "google_vpc_access_connector" not in dev_source
+    assert "google_access_context_manager" not in dev_source

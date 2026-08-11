@@ -282,7 +282,7 @@ MVP는 다음 기능을 반드시 포함한다.
 - Workflows 기반 human-in-the-loop 실행
 - Cloud Deploy 승인·카나리 배포
 - Model Armor 또는 Agent Gateway
-- VPC Service Controls
+- MVP 완료 후 별도 승인으로만 VPC Service Controls와 private connectivity 검토
 - BigQuery 로그 장기 보관
 - Cloud SQL 기반 실제 connection pool 장애
 - 커스텀 승인 웹 콘솔
@@ -2069,9 +2069,9 @@ MVP에서 허용할 action은 아래 두 가지로 제한한다.
 | approval/execution audit | 1년 | 삭제 금지 정책 고려 |
 | evaluation runs | 180일 | 회귀 비교 |
 
-## 14.10 Model Armor 및 perimeter 옵션
+## 14.10 Model Armor 옵션
 
-조직 정책이 허용한다면 모델 입·출력과 도구 사이에 Model Armor 검사를 추가하고, 민감한 환경에서는 VPC Service Controls와 private connectivity를 검토한다. MVP의 성공 조건에는 필수로 두지 않지만, 설계 문서와 위협 모델에는 활성화 지점을 표시한다.
+MVP 완료 후 별도 승인으로 모델 입·출력과 도구 사이의 Model Armor 검사를 검토한다.
 
 ---
 
@@ -3361,7 +3361,6 @@ Key result
 - Cloud Deploy approvals: https://cloud.google.com/deploy/docs/approve-rollout
 - Workflows callbacks: https://cloud.google.com/workflows/docs/creating-callback-endpoints
 - Model Armor: https://cloud.google.com/security/products/model-armor
-- VPC Service Controls: https://cloud.google.com/vpc-service-controls/docs
 
 ---
 
@@ -3370,4 +3369,3 @@ Key result
 이 문서의 구현 우선순위는 다음 한 문장으로 요약된다.
 
 > **관측 가능한 데모 서비스를 만들고, deterministic한 증거 수집 도구를 먼저 검증한 다음, ADK 멀티에이전트로 근거 기반 RCA를 수행하며, Gemini Enterprise에 진입점을 제공하되, 모든 파괴적 복구는 별도 identity·정책·사람 승인·사후 검증을 통과하게 한다.**
-

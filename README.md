@@ -30,8 +30,8 @@ Without Make, build and run `opspilot-demo:local` with `docker build --platform 
 `docker compose up -d --no-build`, and `docker compose down --remove-orphans`. The bounded load
 command is `uv run opspilot demo load --orders 10 --concurrency 2 --auth local`.
 
-The three private Cloud Run services are deployed, but remote invocation is currently blocked
-before the container by an inherited route policy. The identifier-free operator diagnostic is:
+The three private Cloud Run services are deployed, but remote invocation currently returns an
+endpoint-level `404` before the container. The identifier-free operator diagnostic is:
 
 ```powershell
 uv run opspilot route-check --account-alias Edu_687 --format summary
@@ -67,7 +67,7 @@ terraform -chdir=infra/terraform/environments/dev test
 ```
 
 See `docs/operations/demo-services.md` for the workload runbook and
-`docs/operations/cloud-run-route-recovery.md` for the administrator checkpoint.
+`docs/operations/cloud-run-mvp-recovery.md` for controlled endpoint recovery.
 
 ## Safety boundary
 
@@ -80,4 +80,4 @@ See `docs/operations/demo-services.md` for the workload runbook and
 - Pull requests build the Linux/amd64 image and exercise all three roles only on a local network.
 - The live Terraform plan workflow is manual, uses WIF, and has no apply or state-write identity.
 - The live plan is additionally gated by `TF_M2_IMAGE_READY=true`; it remains disabled while the
-  inherited route restriction blocks remote acceptance.
+  endpoint blocker prevents remote acceptance.

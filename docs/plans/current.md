@@ -9,6 +9,14 @@ updated: 2026-08-11
 - Build OpsPilot as an evidence-grounded AI incident commander for synthetic Google Cloud
   operations data.
 
+## Delivery priority
+
+- MVP core proceeds in order: remote workload, reproducible incident, Search, live read-only
+  evidence, ADK orchestration, managed runtime/enterprise registration, and minimum evaluation.
+- Advanced security/connectivity, automatic alert intake, approval execution, multi-project
+  operation, and expanded dashboards are post-MVP optional work.
+- Optional work cannot enter an MVP acceptance gate or Terraform plan without a separate approval.
+
 ## Active scope
 
 - R0 local investigation, M0 access verification, and the M1 foundation are complete.
@@ -33,7 +41,7 @@ updated: 2026-08-11
 | M1 Bootstrap infrastructure | complete | Protected remote state, numeric WIF, read-only plan identity |
 | M1 Dev foundation | complete | 14 managed resources; operator and hosted zero drift |
 | M2 Approval 1: local workload | complete | Three healthy containers; 10/10 normal orders; no cloud write |
-| M2 Approval 2: Cloud Run deploy | blocked after apply | Infrastructure applied; inherited route restriction blocks remote smoke |
+| M2 Approval 2: Cloud Run deploy | blocked after apply | Infrastructure applied; endpoint-level 404 blocks remote smoke |
 | UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
 
 ## Completed major results
@@ -53,6 +61,8 @@ updated: 2026-08-11
   configured while remote invocation is blocked.
 - Corrected the Cloud Run inventory: the current project contains the three managed M2 candidates
   and no additional non-candidate service.
+- Replaced the policy-specific route hypothesis with a generic endpoint diagnostic and kept
+  advanced connectivity outside the active MVP implementation.
 
 ## Verification state
 
@@ -61,7 +71,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 50 pytest tests, including redaction and route blocker classification |
+| Tests | pass | 51 pytest tests, including redaction and generic endpoint classification |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -71,25 +81,23 @@ updated: 2026-08-11
 | Bootstrap apply | pass | Exact `0 create / 1 update / 0 delete`; operator zero drift |
 | Dev apply | pass | Exact `10 create / 0 update / 0 delete`; 24 managed resources; operator zero drift |
 | Runtime security | pass | Three Ready private services; digest match; keys/project roles/public principals 0 |
-| Route diagnostic | pass | Redacted CLI exits 2 with three pre-container 404s and `route_restricted` |
+| Route diagnostic | pass | Three attempts: canonical URLs 3/3; authenticated 404s; container logs 0; `endpoint_not_found` |
 | Remote smoke | blocked | Google frontend 404 before container; request logs and metrics absent |
 | Hosted plan | gated | Plan gate false; image-ready and digest variables absent |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Blockers and decisions needed
 
-- The organization-level access-policy perimeter cannot be read by the current operator. An
-  administrator must confirm inherited VPC Service Controls or Cloud Run route restrictions.
 - Do not add `allUsers`, broad runtime IAM, or unplanned operator bindings to bypass the blocker.
-- The administrator checklist requests only a network/access-level exception for the operator and
-  a method-limited Cloud Run Admin API read path for the GitHub plan identity.
+- A persistent `endpoint_not_found` permits one exact three-service in-place revision refresh; all
+  other blocker codes stop before apply.
 - Real account, project, billing, state, service URL, image URI, repository numeric, and credential
   identifiers must not enter tracked files or artifacts.
 
 ## Next checkpoint
 
-- Obtain the administrator's identifier-free `route exception active` confirmation, rerun the
-  redacted route check, then run authenticated 10-order E2E,
+- Rerun the generic route check, conditionally refresh only the three service revisions, then run
+  authenticated 10-order E2E,
   request/trace and latency metrics checks, configure the private GitHub image variables, and run
   hosted read-only zero drift before marking M2 complete.
 
@@ -97,7 +105,7 @@ updated: 2026-08-11
 
 - Master plan: `docs/plans/opspilot_ai_implementation_spec.md`
 - Demo runbook: `docs/operations/demo-services.md`
-- Route recovery runbook: `docs/operations/cloud-run-route-recovery.md`
+- MVP endpoint recovery: `docs/operations/cloud-run-mvp-recovery.md`
 - Bootstrap runbook: `docs/operations/bootstrap.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`

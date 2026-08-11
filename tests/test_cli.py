@@ -48,7 +48,7 @@ def test_route_check_cli_returns_two_for_a_redacted_blocker(
         lambda **_kwargs: CloudRunRouteCheckResult(
             services_found=3,
             services_ready=3,
-            blocker_code="route_restricted",
+            blocker_code="endpoint_not_found",
         ),
     )
 
@@ -56,5 +56,5 @@ def test_route_check_cli_returns_two_for_a_redacted_blocker(
 
     assert exit_code == 2
     output = capsys.readouterr().out
-    assert '"blocker_code": "route_restricted"' in output
+    assert '"blocker_code": "endpoint_not_found"' in output
     assert "http" not in output

@@ -39,11 +39,10 @@ unverified until a real threshold is reached.
 
 - Three private Cloud Run services share one digest and use request-based CPU, 1 vCPU, 256 MiB,
   min 0, max 2, concurrency 20, and a 10-second request timeout.
-- There is no scheduled load, Firestore, custom metric, alert policy, fault injector, or VPC.
+- There is no scheduled load, Firestore, custom metric, alert policy, or fault injector.
 - The three revisions use one immutable Artifact Registry digest. No background demo window is
 active, and both hosted Terraform plan gates remain disabled until remote smoke succeeds.
-The administrator route exception must not add a proxy, connector, NAT path, minimum instance, or
-other cost-bearing resource without a separate plan and approval.
+Endpoint recovery must not add any cost-bearing resource without a separate plan and approval.
 
 ## Cleanup order
 

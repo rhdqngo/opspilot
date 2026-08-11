@@ -106,7 +106,9 @@ resource "google_cloud_run_v2_service" "demo_leaf" {
     service_account                  = google_service_account.demo[each.key].email
     timeout                          = "10s"
     max_instance_request_concurrency = 20
-    labels                           = local.labels
+    labels = merge(local.labels, {
+      release_phase = "m2-mvp"
+    })
 
     containers {
       image = var.demo_image_uri
@@ -197,7 +199,9 @@ resource "google_cloud_run_v2_service" "demo_order" {
     service_account                  = google_service_account.demo["order"].email
     timeout                          = "10s"
     max_instance_request_concurrency = 20
-    labels                           = local.labels
+    labels = merge(local.labels, {
+      release_phase = "m2-mvp"
+    })
 
     containers {
       image = var.demo_image_uri

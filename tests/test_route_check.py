@@ -23,6 +23,7 @@ def _healthy_result(**updates: Any) -> CloudRunRouteCheckResult:
         "services_found": expected,
         "services_ready": expected,
         "services_with_full_traffic": expected,
+        "canonical_urls_consistent": expected,
         "default_urls_enabled": expected,
         "ingress_all_services": expected,
         "iam_enforced_services": expected,
@@ -30,22 +31,24 @@ def _healthy_result(**updates: Any) -> CloudRunRouteCheckResult:
         "operator_invoke_permission": True,
         "unauthenticated_status_codes": [403] * expected,
         "authenticated_status_codes": [200] * expected,
+        "container_application_logs": expected,
     }
     values.update(updates)
     return CloudRunRouteCheckResult(**values)
 
 
-def test_route_check_classifies_pre_container_404_as_route_restricted() -> None:
+def test_route_check_classifies_pre_container_404_as_endpoint_not_found() -> None:
     result = classify_route(
         _healthy_result(
             unauthenticated_status_codes=[404] * 3,
             authenticated_status_codes=[404] * 3,
             pre_container_404_services=3,
+            container_application_logs=0,
         )
     )
 
     assert result.route_ready is False
-    assert result.blocker_code == "route_restricted"
+    assert result.blocker_code == "endpoint_not_found"
 
 
 def test_route_check_accepts_iam_403_and_authenticated_200() -> None:
@@ -62,12 +65,18 @@ def test_route_check_distinguishes_authenticated_iam_denial() -> None:
     assert result.blocker_code == "iam_denied"
 
 
-def test_route_check_distinguishes_unready_service_and_unknown_http_failure() -> None:
+def test_route_check_distinguishes_unready_service_and_transport_failure() -> None:
     unready = classify_route(_healthy_result(services_ready=2))
-    unknown = classify_route(_healthy_result(authenticated_status_codes=[0] * 3))
+    transport = classify_route(_healthy_result(authenticated_status_codes=[0] * 3))
 
     assert unready.blocker_code == "service_unready"
-    assert unknown.blocker_code == "unknown"
+    assert transport.blocker_code == "transport_error"
+
+
+def test_route_check_distinguishes_application_failure() -> None:
+    result = classify_route(_healthy_result(authenticated_status_codes=[500] * 3))
+
+    assert result.blocker_code == "application_error"
 
 
 def test_route_check_converts_gcloud_failures_to_safe_state() -> None:
@@ -97,6 +106,7 @@ class FakeRunner:
                         "status": {
                             "conditions": [{"type": "Ready", "status": "True"}],
                             "traffic": [{"percent": 100}],
+                            "url": f"https://{command[3]}.secret.example",
                         }
                     }
                 ),
@@ -116,14 +126,8 @@ class FakeRunner:
                 ),
             )
         if command[:2] == ("logging", "read"):
-            assert 'logName:"run.googleapis.com%2Frequests"' in command[2]
+            assert "jsonPayload.request_id=" in command[2]
             return CommandResult(0, "[]")
-        if command[:3] == ("resource-manager", "org-policies", "list"):
-            return CommandResult(0, "[]")
-        if command[:2] == ("projects", "get-ancestors"):
-            return CommandResult(0, '[{"type":"organization","id":"secret-org-id"}]')
-        if command[:3] == ("access-context-manager", "policies", "list"):
-            return CommandResult(1, "")
         raise AssertionError(f"Unexpected command shape: {command!r}")
 
 
@@ -149,16 +153,16 @@ def _requester(
     raise AssertionError(f"Unexpected URL shape: {url}")
 
 
-def test_route_check_handles_unreadable_vpc_policy_and_redacts_identifiers() -> None:
+def test_route_check_redacts_endpoint_and_credential_identifiers() -> None:
     result = run_route_check(
         runner=FakeRunner(),
         requester=_requester,
-        status_requester=lambda _url, _token: 404,
+        status_requester=lambda _url, _token, _request_id: 404,
     )
 
-    assert result.blocker_code == "route_restricted"
-    assert result.project_org_policies_readable is True
-    assert result.vpc_sc_policies_readable is False
+    assert result.blocker_code == "endpoint_not_found"
+    assert result.canonical_urls_consistent == 3
+    assert result.container_application_logs == 0
     output = result.model_dump_json() + render_route_summary(result)
     for secret_value in (
         "secret-project-id",
@@ -166,6 +170,5 @@ def test_route_check_handles_unreadable_vpc_policy_and_redacts_identifiers() -> 
         "secret-identity-token",
         "secret.example",
         "example.invalid",
-        "secret-org-id",
     ):
         assert secret_value not in output

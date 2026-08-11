@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -20,11 +22,19 @@ DEMO_SERVICES: tuple[str, ...] = (
     "opspilot-dev-payment",
     "opspilot-dev-inventory",
 )
-BlockerCode = Literal["none", "service_unready", "route_restricted", "iam_denied", "unknown"]
+BlockerCode = Literal[
+    "none",
+    "service_unready",
+    "endpoint_not_found",
+    "iam_denied",
+    "transport_error",
+    "application_error",
+    "unknown",
+]
 
 
 class CloudRunRouteCheckResult(BaseModel):
-    """Redacted route state suitable for console output and administrator handoff."""
+    """Redacted route state suitable for local MVP endpoint diagnostics."""
 
     account_alias_match: bool = False
     user_credentials: bool = False
@@ -32,6 +42,7 @@ class CloudRunRouteCheckResult(BaseModel):
     services_found: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
     services_ready: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
     services_with_full_traffic: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
+    canonical_urls_consistent: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
     default_urls_enabled: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
     ingress_all_services: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
     iam_enforced_services: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
@@ -40,9 +51,7 @@ class CloudRunRouteCheckResult(BaseModel):
     unauthenticated_status_codes: list[int] = Field(default_factory=list)
     authenticated_status_codes: list[int] = Field(default_factory=list)
     pre_container_404_services: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
-    request_log_observed: bool = False
-    project_org_policies_readable: bool = False
-    vpc_sc_policies_readable: bool = False
+    container_application_logs: int = Field(default=0, ge=0, le=len(DEMO_SERVICES))
     route_ready: bool = False
     blocker_code: BlockerCode = "unknown"
 
@@ -55,7 +64,7 @@ class CommandResult:
 
 CommandRunner = Callable[[Sequence[str]], CommandResult]
 ApiRequester = Callable[[str, str, dict[str, Any] | None, str], dict[str, Any]]
-HttpStatusRequester = Callable[[str, str | None], int]
+HttpStatusRequester = Callable[[str, str | None, str], int]
 
 
 def _default_runner(arguments: Sequence[str]) -> CommandResult:
@@ -100,8 +109,10 @@ def _request_json(
     return payload
 
 
-def _request_status(url: str, token: str | None) -> int:
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
+def _request_status(url: str, token: str | None, request_id: str) -> int:
+    headers = {"X-Request-ID": request_id}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     request = Request(url, headers=headers, method="GET")
     try:
         with urlopen(request, timeout=20) as response:
@@ -170,12 +181,18 @@ def classify_route(result: CloudRunRouteCheckResult) -> CloudRunRouteCheckResult
     """Set the stable readiness and blocker classification from redacted observations."""
 
     expected = len(DEMO_SERVICES)
-    base_ready = all(
+    service_ready = all(
         value == expected
         for value in (
             result.services_found,
             result.services_ready,
             result.services_with_full_traffic,
+        )
+    )
+    endpoint_configured = all(
+        value == expected
+        for value in (
+            result.canonical_urls_consistent,
             result.default_urls_enabled,
             result.ingress_all_services,
             result.iam_enforced_services,
@@ -187,21 +204,27 @@ def classify_route(result: CloudRunRouteCheckResult) -> CloudRunRouteCheckResult
             result.account_alias_match,
             result.user_credentials,
             result.default_project_configured,
-            base_ready,
+            service_ready,
+            endpoint_configured,
             result.operator_invoke_permission,
             result.unauthenticated_status_codes == [403] * expected,
             result.authenticated_status_codes == [200] * expected,
             result.pre_container_404_services == 0,
+            result.container_application_logs == expected,
         )
     )
     if route_ready:
         blocker: BlockerCode = "none"
-    elif not base_ready:
+    elif not service_ready:
         blocker = "service_unready"
-    elif 404 in result.authenticated_status_codes:
-        blocker = "route_restricted"
+    elif 0 in result.unauthenticated_status_codes or 0 in result.authenticated_status_codes:
+        blocker = "transport_error"
+    elif 404 in result.authenticated_status_codes and result.container_application_logs == 0:
+        blocker = "endpoint_not_found"
     elif 401 in result.authenticated_status_codes or 403 in result.authenticated_status_codes:
         blocker = "iam_denied"
+    elif any(code >= 400 for code in result.authenticated_status_codes):
+        blocker = "application_error"
     else:
         blocker = "unknown"
     return result.model_copy(update={"route_ready": route_ready, "blocker_code": blocker})
@@ -213,6 +236,7 @@ def run_route_check(
     runner: CommandRunner = _default_runner,
     requester: ApiRequester = _request_json,
     status_requester: HttpStatusRequester = _request_status,
+    sleeper: Callable[[float], None] = time.sleep,
 ) -> CloudRunRouteCheckResult:
     """Inspect the fixed M2 route without returning identifiers or credential material."""
 
@@ -298,68 +322,39 @@ def run_route_check(
         result.ingress_all_services += int(v2_service.get("ingress") == "INGRESS_TRAFFIC_ALL")
         result.iam_enforced_services += int(not bool(v2_service.get("invokerIamDisabled")))
         service_uri = v2_service.get("uri")
+        status_uri = service.get("status", {}).get("url")
         if isinstance(service_uri, str) and service_uri.startswith("https://"):
+            result.canonical_urls_consistent += int(status_uri == service_uri)
             service_urls.append(service_uri.rstrip("/"))
 
     for service_uri in service_urls:
         health_url = f"{service_uri}/healthz"
-        result.unauthenticated_status_codes.append(status_requester(health_url, None))
-        authenticated_status = status_requester(health_url, identity_token.stdout)
+        request_id = f"req_route_{uuid4().hex[:20]}"
+        result.unauthenticated_status_codes.append(status_requester(health_url, None, request_id))
+        authenticated_status = status_requester(health_url, identity_token.stdout, request_id)
         result.authenticated_status_codes.append(authenticated_status)
         result.pre_container_404_services += int(authenticated_status == 404)
-
-    log_filter = (
-        'resource.type="cloud_run_revision" '
-        'AND logName:"run.googleapis.com%2Frequests" AND ('
-        + " OR ".join(
-            f'resource.labels.service_name="{service_name}"' for service_name in DEMO_SERVICES
-        )
-        + ")"
-    )
-    logs = _json_list(
-        runner(
-            (
-                "logging",
-                "read",
-                log_filter,
-                "--freshness=15m",
-                "--limit=1",
-                "--format=json",
-            )
-        )
-    )
-    result.request_log_observed = bool(logs)
-
-    org_policies = _json_list(
-        runner(
-            (
-                "resource-manager",
-                "org-policies",
-                "list",
-                f"--project={project_id}",
-                "--format=json",
-            )
-        )
-    )
-    result.project_org_policies_readable = org_policies is not None
-
-    ancestors = _json_list(runner(("projects", "get-ancestors", project_id, "--format=json")))
-    organizations = [
-        item for item in ancestors or [] if item.get("type") == "organization" and item.get("id")
-    ]
-    if len(organizations) == 1:
-        policies = _json_list(
-            runner(
-                (
-                    "access-context-manager",
-                    "policies",
-                    "list",
-                    f"--organization={organizations[0]['id']}",
-                    "--format=json",
+        log_filter = f'resource.type="cloud_run_revision" AND jsonPayload.request_id="{request_id}"'
+        logs: list[dict[str, Any]] | None = []
+        attempts = 3 if authenticated_status == 200 else 1
+        for attempt in range(attempts):
+            logs = _json_list(
+                runner(
+                    (
+                        "logging",
+                        "read",
+                        log_filter,
+                        "--freshness=5m",
+                        "--limit=1",
+                        "--format=json",
+                    )
                 )
             )
-        )
-        result.vpc_sc_policies_readable = policies is not None
+            if logs or logs is None:
+                break
+            if attempt < attempts - 1:
+                sleeper(float(attempt + 1))
+        result.container_application_logs += int(bool(logs))
 
     result.unauthenticated_status_codes.sort()
     result.authenticated_status_codes.sort()
@@ -377,6 +372,7 @@ def render_route_summary(result: CloudRunRouteCheckResult) -> str:
             f"services_found={result.services_found}",
             f"services_ready={result.services_ready}",
             f"services_with_full_traffic={result.services_with_full_traffic}",
+            f"canonical_urls_consistent={result.canonical_urls_consistent}",
             f"default_urls_enabled={result.default_urls_enabled}",
             f"ingress_all_services={result.ingress_all_services}",
             f"iam_enforced_services={result.iam_enforced_services}",
@@ -387,10 +383,7 @@ def render_route_summary(result: CloudRunRouteCheckResult) -> str:
             "authenticated_status_codes="
             + ",".join(str(code) for code in result.authenticated_status_codes),
             f"pre_container_404_services={result.pre_container_404_services}",
-            f"request_log_observed={'pass' if result.request_log_observed else 'fail'}",
-            "project_org_policies_readable="
-            f"{'pass' if result.project_org_policies_readable else 'fail'}",
-            f"vpc_sc_policies_readable={'pass' if result.vpc_sc_policies_readable else 'fail'}",
+            f"container_application_logs={result.container_application_logs}",
             f"route_ready={'pass' if result.route_ready else 'fail'}",
             f"blocker_code={result.blocker_code}",
             "",

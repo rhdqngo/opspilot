@@ -148,4 +148,20 @@ run "m2_deploy_ready_contract" {
     ))
     error_message = "All M2 services must retain the synthetic-data label."
   }
+
+  assert {
+    condition = alltrue(concat(
+      [for service in google_cloud_run_v2_service.demo_leaf : service.ingress == "INGRESS_TRAFFIC_ALL" && service.invoker_iam_disabled == false],
+      [google_cloud_run_v2_service.demo_order[0].ingress == "INGRESS_TRAFFIC_ALL" && google_cloud_run_v2_service.demo_order[0].invoker_iam_disabled == false],
+    ))
+    error_message = "The MVP endpoint must remain reachable through Cloud Run ingress with IAM enforced."
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for service in google_cloud_run_v2_service.demo_leaf : service.template[0].labels["release_phase"] == "m2-mvp"],
+      [google_cloud_run_v2_service.demo_order[0].template[0].labels["release_phase"] == "m2-mvp"],
+    ))
+    error_message = "The controlled MVP refresh marker must create only new service revisions."
+  }
 }
