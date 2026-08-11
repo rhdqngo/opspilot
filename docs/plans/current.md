@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-code-complete / M7-ready-for-runtime-approval
+phase: M7-code-complete / hosted-static-blocked
 updated: 2026-08-12
 
 ## Objective
@@ -33,7 +33,16 @@ updated: 2026-08-12
   repository variable, or other cloud change. The future enabled graph is limited to three API
   addresses, one leaf service-agent IAM grant, one Runtime, and one investigator-role update.
 - Enterprise registration is plan-first, fixed-name, unique-app/runtime, idempotent, redacted, and
-  process-gated. Approval 1 performs no live discovery, registration, or paid runtime call.
+  process-gated. Approval 1 performed only redacted read-only inventory; no registration or paid
+  runtime call occurred.
+
+## Active blocker
+
+- The M7 commit reached private `main`, but both hosted static workflows were rejected before any
+  job step started because the GitHub account currently has a payment or Actions spending-limit
+  issue. Local Python/container/Terraform validation and the read-only M7 access gate passed.
+- Restore the GitHub Actions billing/spending state, then rerun the two existing workflows. No code,
+  Google Cloud, IAM, Runtime, Enterprise, or Terraform change is needed to clear this blocker.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -402,6 +411,7 @@ updated: 2026-08-12
 | M7 fixture runtime smoke | pass | Existing seven-node graph; exactly two fake model calls; citation coverage 100% |
 | M7 runtime package | pass | Deterministic tar.gz/SHA; packaged catalog and pinned requirements; forbidden repository content absent |
 | M7 Terraform static | pass | Default-off existing graph; enabled mock graph adds five addresses and one role update only |
+| M7 hosted static CI | blocked | GitHub rejected Python/container and Terraform jobs before startup due to account payment or Actions spending-limit state |
 | M7 cloud/IAM/runtime/app change | pass | Zero changes in Approval 1; deployment and registration remain separately gated |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -415,7 +425,9 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- M7 Approval 2 must separately review and apply the bootstrap one-update and dev exact
+- First clear the GitHub Actions account billing/spending blocker and rerun the existing hosted
+  Python/container and Terraform workflows. Only after both pass is M7 Approval 1 ready to close.
+- M7 Approval 2 must then separately review and apply the bootstrap one-update and dev exact
   `5 create / 1 update` plans, then deploy the Runtime and register it once into the unique existing
   global Enterprise app.
 - Run one unsupported request first and require zero evidence/model calls. Then run exactly one
