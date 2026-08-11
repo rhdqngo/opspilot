@@ -100,3 +100,18 @@ def test_M3_cli_scenario_run_prints_redacted_aggregate(
     output = capsys.readouterr().out
     assert '"ground_truth_matched":true' in output
     assert "http" not in output
+
+
+def test_M4_cli_validates_and_smokes_local_corpus_without_cloud_identifiers(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["knowledge", "validate", "--format", "json"]) == 0
+    validation_output = capsys.readouterr().out
+    assert '"document_count": 13' in validation_output
+
+    assert main(["knowledge", "smoke", "--backend", "local", "--format", "json"]) == 0
+    smoke_output = capsys.readouterr().out
+    assert '"passed_count": 10' in smoke_output
+    assert "gs://" not in smoke_output
+    assert "project_id" not in smoke_output
+    assert "token" not in smoke_output

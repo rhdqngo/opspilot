@@ -44,6 +44,169 @@ data "google_project" "current" {
   project_id = var.project_id
 }
 
+resource "google_storage_bucket" "knowledge" {
+  count = var.deploy_knowledge ? 1 : 0
+
+  project                     = var.project_id
+  name                        = "opspilot-${var.environment}-knowledge-${data.google_project.current.number}"
+  location                    = var.region
+  storage_class               = "STANDARD"
+  force_destroy               = false
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  labels                      = local.labels
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 30
+    }
+
+    action {
+      type = "Delete"
+    }
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.m1]
+}
+
+resource "google_discovery_engine_data_store" "knowledge" {
+  count = var.deploy_knowledge ? 1 : 0
+
+  project                      = var.project_id
+  location                     = var.search_location
+  data_store_id                = "opspilot-${var.environment}-knowledge"
+  display_name                 = "OpsPilot ${var.environment} synthetic knowledge"
+  industry_vertical            = "GENERIC"
+  content_config               = "CONTENT_REQUIRED"
+  solution_types               = ["SOLUTION_TYPE_SEARCH"]
+  skip_default_schema_creation = true
+  deletion_policy              = "PREVENT"
+
+  document_processing_config {
+    default_parsing_config {
+      digital_parsing_config {}
+    }
+
+    chunking_config {
+      layout_based_chunking_config {
+        chunk_size                = 300
+        include_ancestor_headings = true
+      }
+    }
+  }
+
+  depends_on = [google_project_service.m1]
+}
+
+resource "google_discovery_engine_schema" "knowledge" {
+  count = var.deploy_knowledge ? 1 : 0
+
+  project         = var.project_id
+  location        = var.search_location
+  data_store_id   = google_discovery_engine_data_store.knowledge[0].data_store_id
+  schema_id       = "default_schema"
+  deletion_policy = "PREVENT"
+  json_schema = jsonencode({
+    "$schema" = "https://json-schema.org/draft/2020-12/schema"
+    type      = "object"
+    properties = {
+      title = {
+        type               = "string"
+        keyPropertyMapping = "title"
+        retrievable        = true
+        searchable         = true
+      }
+      canonical_uri = {
+        type               = "string"
+        keyPropertyMapping = "uri"
+        retrievable        = true
+      }
+      document_id = {
+        type        = "string"
+        indexable   = true
+        retrievable = true
+      }
+      document_type = {
+        type        = "string"
+        indexable   = true
+        retrievable = true
+      }
+      service = {
+        type        = "string"
+        indexable   = true
+        retrievable = true
+      }
+      version = {
+        type        = "string"
+        retrievable = true
+      }
+      owner = {
+        type        = "string"
+        retrievable = true
+      }
+      updated_at = {
+        type        = "string"
+        retrievable = true
+      }
+      review_due_at = {
+        type        = "string"
+        retrievable = true
+      }
+      tags = {
+        type = "array"
+        items = {
+          type = "string"
+        }
+        indexable   = true
+        retrievable = true
+      }
+      section = {
+        type        = "string"
+        retrievable = true
+      }
+      description = {
+        type        = "string"
+        retrievable = true
+      }
+      security_test = {
+        type        = "boolean"
+        indexable   = true
+        retrievable = true
+      }
+    }
+  })
+
+  depends_on = [google_discovery_engine_data_store.knowledge]
+}
+
+resource "google_discovery_engine_search_engine" "knowledge" {
+  count = var.deploy_knowledge ? 1 : 0
+
+  project           = var.project_id
+  location          = var.search_location
+  collection_id     = "default_collection"
+  engine_id         = "opspilot-${var.environment}-knowledge"
+  display_name      = "OpsPilot ${var.environment} synthetic knowledge"
+  industry_vertical = "GENERIC"
+  data_store_ids    = [google_discovery_engine_data_store.knowledge[0].data_store_id]
+  disable_analytics = true
+  deletion_policy   = "PREVENT"
+
+  search_engine_config {
+    search_tier = "SEARCH_TIER_STANDARD"
+  }
+
+  depends_on = [google_discovery_engine_schema.knowledge]
+}
+
 resource "google_project_service" "m1" {
   for_each = local.project_services
 

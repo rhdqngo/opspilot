@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M3 complete; bounded incident validated and workload scaled to zero
+Status: M3 complete; M4 local corpus prepared with cloud resources still disabled
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -63,9 +63,23 @@ Future work must not add any cost-bearing resource without a separate plan and a
   fault state, IAM grant, or remediation resource was added.
 - All three services retain minimum instances zero and return to scale-to-zero after validation.
 
+## M4 Approval 1 impact
+
+- Thirteen Markdown documents, one deterministic catalog, and ten local retrieval queries are
+  repository-only data and generate no Google Cloud charge.
+- `deploy_knowledge=false` is the Terraform default. No knowledge bucket, data store, schema,
+  engine, object, import operation, or billable Search query was created in Approval 1.
+- Approval 2 is restricted to General pay-as-you-go Standard Search. Enterprise Search, AI
+  Overview, LLM add-ons, configurable pricing subscriptions, OCR, and layout parsing are excluded.
+- The planned corpus is far below the documented 10 GiB index free allowance. Ten Standard Search
+  smoke requests have a maximum list price of USD 0.015 before any shared free-query allowance;
+  actual billing must still be checked because existing project Search usage can share allowances.
+- The existing KRW 50,000 alert remains the project guardrail. A configurable subscription or an
+  unexpected add-on is a hard stop rather than an accepted cost increase.
+
 ## Cleanup order
 
-1. Disable `TF_M2_IMAGE_READY` and the live Terraform plan gate.
+1. Disable `TF_M4_KNOWLEDGE_READY`, `TF_M3_IMAGE_READY`, `TF_M2_IMAGE_READY`, and the live plan gate.
 2. Remove GitHub WIF repository variables.
 3. Review the dev destroy plan and budget deletion protection.
 4. Remove dev resources only after explicit approval.

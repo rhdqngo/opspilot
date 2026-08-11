@@ -20,7 +20,9 @@ project number, OAuth client, token, or billing account identifier.
 | Project-scoped budget permission | pass | Read/write budget permissions exist for this single project |
 | M1 apply permissions | pass | API, Artifact Registry, service-account, notification-channel, and project-budget writes were verified without identifiers |
 | M2 deploy permissions | pass | Cloud Run create/update/read/IAM, invoke, actAs, image upload, telemetry read, and API enable permissions were verified without identifiers |
-| M2 candidate names | pass | The three exact Terraform service names have zero conflicts; an unrelated existing service was not inspected or modified |
+| M2 managed services | pass | The three exact Terraform service names are the three expected applied services; no additional Cloud Run service is present |
+| M4 apply permissions | pass | Bucket/object, Search data store/schema/engine, import, operation-read, and search permissions were verified without identifiers |
+| M4 candidate names | pass | Candidate bucket, data store, and engine conflicts are all zero |
 | Gemini Enterprise API access | pass | Global engine listing is permitted |
 | Gemini Enterprise app | pass | An existing global app was detected without recording its identifier |
 | Data policy | pass | Synthetic ecommerce data only |
@@ -52,10 +54,14 @@ accept or persist a project ID, billing account ID, currency value, or credentia
 The redacted access command completed with `m0_ready=pass`. No API, IAM policy, budget, or other
 Google Cloud resource was changed during the check.
 
-The same read-only command completed with `m2_permissions_ready=pass`,
-`m2_candidate_names_available=pass`, `m2_candidate_service_conflicts=0`, and
-`m2_deploy_ready=pass`. These booleans authorize no deployment by themselves; Approval 2 remains
-required.
+Before M2 apply, the same read-only command completed with `m2_permissions_ready=pass`, zero name
+conflicts, and `m2_deploy_ready=pass`. After the approved deployment the same candidate check
+correctly finds the three managed services, so it is no longer an availability gate.
+
+The M4 extension completed with `m4_permissions_ready=pass`,
+`m4_candidate_names_available=pass`, candidate conflict counts of zero, and
+`m4_apply_ready=pass`. This was a read-only permission/name check: no Search resource, object,
+import operation, or query was created.
 
 ## Location decisions
 

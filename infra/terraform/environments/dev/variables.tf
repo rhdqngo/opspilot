@@ -74,3 +74,20 @@ variable "enable_scenarios" {
   type        = bool
   default     = false
 }
+
+variable "deploy_knowledge" {
+  description = "Approval gate for the M4 Agent Search knowledge resources."
+  type        = bool
+  default     = false
+}
+
+variable "search_location" {
+  description = "Agent Search location, intentionally independent from the workload region."
+  type        = string
+  default     = "global"
+
+  validation {
+    condition     = var.search_location == "global"
+    error_message = "The M4 MVP Agent Search location must remain global."
+  }
+}

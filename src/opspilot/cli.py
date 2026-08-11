@@ -7,12 +7,21 @@ import asyncio
 import json
 import os
 from collections.abc import Sequence
+from typing import cast
 
 import uvicorn
 
 from opspilot.access_check import render_access_summary, run_access_check
 from opspilot.demo.load import run_load
 from opspilot.demo.scenario_runner import render_scenario_summary, run_scenario
+from opspilot.knowledge import (
+    KnowledgeSyncMode,
+    render_knowledge_result,
+    run_agent_search_smoke,
+    run_knowledge_sync,
+    run_local_smoke,
+    validate_knowledge,
+)
 from opspilot.reporting import render_markdown
 from opspilot.route_check import render_route_summary, run_route_check
 from opspilot.workflow import run_fixture_investigation
@@ -56,6 +65,24 @@ def build_parser() -> argparse.ArgumentParser:
     scenario_run.add_argument("--scenario", default="SCN-001")
     scenario_run.add_argument("--auth", choices=("local", "gcloud"), default="local")
     scenario_run.add_argument("--format", choices=("json", "summary"), default="summary")
+    knowledge = subcommands.add_parser("knowledge", help="Validate and synchronize knowledge")
+    knowledge_commands = knowledge.add_subparsers(dest="knowledge_command", required=True)
+    knowledge_validate = knowledge_commands.add_parser(
+        "validate", help="Validate the local synthetic knowledge corpus"
+    )
+    knowledge_validate.add_argument("--format", choices=("json", "summary"), default="summary")
+    knowledge_sync = knowledge_commands.add_parser(
+        "sync", help="Plan or apply a hash-based knowledge synchronization"
+    )
+    knowledge_sync.add_argument("--env", choices=("dev",), default="dev")
+    knowledge_sync.add_argument("--mode", choices=("plan", "apply"), default="plan")
+    knowledge_sync.add_argument("--format", choices=("json", "summary"), default="summary")
+    knowledge_smoke = knowledge_commands.add_parser(
+        "smoke", help="Run deterministic local or gated Agent Search queries"
+    )
+    knowledge_smoke.add_argument("--backend", choices=("local", "agent-search"), default="local")
+    knowledge_smoke.add_argument("--env", choices=("dev",), default="dev")
+    knowledge_smoke.add_argument("--format", choices=("json", "summary"), default="summary")
     return parser
 
 
@@ -124,4 +151,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(render_scenario_summary(scenario_result), end="")
         return 0 if scenario_result.ground_truth_matched and scenario_result.recovered else 2
+    if args.command == "knowledge" and args.knowledge_command == "validate":
+        validation = validate_knowledge()
+        if args.format == "json":
+            print(json.dumps(validation.model_dump(), indent=2))
+        else:
+            print(render_knowledge_result(validation), end="")
+        return 0 if validation.valid else 2
+    if args.command == "knowledge" and args.knowledge_command == "sync":
+        sync_result = run_knowledge_sync(str(args.env), cast(KnowledgeSyncMode, str(args.mode)))
+        if args.format == "json":
+            print(json.dumps(sync_result.model_dump(), indent=2))
+        else:
+            print(render_knowledge_result(sync_result), end="")
+        return 0
+    if args.command == "knowledge" and args.knowledge_command == "smoke":
+        smoke = (
+            run_local_smoke() if args.backend == "local" else run_agent_search_smoke(str(args.env))
+        )
+        if args.format == "json":
+            print(json.dumps(smoke.model_dump(), indent=2))
+        else:
+            print(render_knowledge_result(smoke), end="")
+        return 0 if smoke.passed else 2
     raise AssertionError("unreachable command")

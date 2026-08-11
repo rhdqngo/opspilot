@@ -30,6 +30,10 @@ jobs:
         run: uv run mypy src tests
       - name: Test
         run: uv run pytest
+      - name: Validate synthetic knowledge corpus
+        run: uv run opspilot knowledge validate --format summary
+      - name: Run deterministic knowledge smoke
+        run: uv run opspilot knowledge smoke --backend local --env dev --format summary
       - name: Build
         run: uv build
 

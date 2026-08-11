@@ -67,7 +67,10 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "pull_request:" not in live_plan
     assert "vars.TF_PLAN_ENABLED == 'true'" in live_plan
     assert "vars.TF_M2_IMAGE_READY == 'true'" in live_plan
+    assert "vars.TF_M3_IMAGE_READY == 'true'" in live_plan
+    assert "vars.TF_M4_KNOWLEDGE_READY == 'true'" in live_plan
     assert 'TF_VAR_deploy_demo: "true"' in live_plan
+    assert 'TF_VAR_deploy_knowledge: "true"' in live_plan
     assert "TF_VAR_demo_image_uri" in live_plan
     assert live_plan.count("-lock=false") == 2
     assert "vars.TF_DEV_STATE_READY != 'true'" in live_plan
@@ -79,6 +82,8 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "google-github-actions/auth" not in pull_request_checks
     assert "docker build --platform linux/amd64" in pull_request_checks
     assert "docker compose up -d --no-build" in pull_request_checks
+    assert "opspilot knowledge validate" in pull_request_checks
+    assert "opspilot knowledge smoke --backend local" in pull_request_checks
 
 
 def test_M2_terraform_defines_only_private_bounded_demo_resources() -> None:
@@ -103,3 +108,23 @@ def test_M2_terraform_defines_only_private_bounded_demo_resources() -> None:
     assert "google_compute_network" not in dev_source
     assert "google_vpc_access_connector" not in dev_source
     assert "google_access_context_manager" not in dev_source
+
+
+def test_M4_terraform_is_default_off_and_defines_only_four_knowledge_resources() -> None:
+    dev_source = (TERRAFORM_ROOT / "environments" / "dev" / "main.tf").read_text(encoding="utf-8")
+    variables = (TERRAFORM_ROOT / "environments" / "dev" / "variables.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'variable "deploy_knowledge"' in variables
+    assert 'variable "search_location"' in variables
+    assert 'default     = "global"' in variables
+    assert dev_source.count('resource "google_storage_bucket" "knowledge"') == 1
+    assert dev_source.count('resource "google_discovery_engine_data_store" "knowledge"') == 1
+    assert dev_source.count('resource "google_discovery_engine_schema" "knowledge"') == 1
+    assert dev_source.count('resource "google_discovery_engine_search_engine" "knowledge"') == 1
+    assert "SEARCH_TIER_STANDARD" in dev_source
+    assert "SEARCH_ADD_ON_LLM" not in dev_source
+    assert 'deletion_policy   = "PREVENT"' in dev_source
+    assert "google_storage_bucket_object" not in dev_source
+    assert "allUsers" not in dev_source

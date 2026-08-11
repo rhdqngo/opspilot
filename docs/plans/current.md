@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M3-complete / M4-ready-for-planning
+phase: M4-code-complete / M4-ready-for-search-apply-approval
 updated: 2026-08-11
 
 ## Objective
@@ -19,6 +19,17 @@ updated: 2026-08-11
 
 ## Active scope
 
+- M4 Approval 1 is complete in the repository. Thirteen synthetic knowledge documents, a
+  deterministic hash catalog, ten retrieval queries, typed Search normalization, guarded sync and
+  smoke commands, and a default-off four-resource Agent Search boundary are implemented.
+- The M4 redacted gate confirms the operator has the required permissions and the dedicated
+  candidate bucket, data store, and engine have zero conflicts. This read-only check changed no
+  Google Cloud resource.
+- `deploy_knowledge=false` remains the default and `TF_M4_KNOWLEDGE_READY` is unset. No knowledge
+  bucket, Search resource, document object, import operation, or billable query exists from M4.
+- Approval 2 must separately review the one-update bootstrap plan and exact four-create dev plan,
+  then perform one hash-based import and exactly ten Standard Search smoke queries.
+
 - M3 is complete. Seven deterministic incident fixtures cover grounded, contradictory,
   insufficient, and malicious evidence cases.
 - SCN-001 is the only live-capable MVP scenario. Its strict request-scoped 5/10/5 profile was
@@ -26,8 +37,6 @@ updated: 2026-08-11
   endpoint.
 - The M3 rollout updated only the three existing Cloud Run services. Terraform still adds no
   scenario resource or IAM binding, and both operator and hosted plans are zero drift.
-- M4 planning is next and must keep Agent Search corpus/index changes behind a separate approval.
-
 - R0 local investigation, M0 access verification, and the M1 foundation are complete.
 - M2 Approval 1 implements order, payment, and inventory as three isolated roles in one non-root
   Linux/amd64 image with in-memory state, structured logs, propagated request/trace IDs, and a
@@ -56,9 +65,23 @@ updated: 2026-08-11
 | M2 Approval 2: Cloud Run deploy | complete | Private remote E2E, telemetry, security, and hosted zero drift passed |
 | M3 Approval 1: incident corpus | complete | Seven offline contracts; bounded SCN-001 local injection; no cloud write |
 | M3 Approval 2: live incident | complete | Exact three-service update; three recovered live runs; telemetry and zero drift passed |
-| UI Foundation | not-applicable | M2 is API, CLI, container, and infrastructure only |
+| M4 Approval 1: knowledge and IaC boundary | complete | 13 documents, 10 local retrieval contracts, guarded sync, default-off four-resource graph |
+| M4 Approval 2: Search apply/import | not-started | Separate approval required; no M4 cloud write or billable query yet |
+| UI Foundation | not-applicable | M4 is API, CLI, corpus, and infrastructure only |
 
 ## Completed major results
+
+- Added five runbooks, three prior RCAs, three architecture documents, one ownership document, and
+  one malicious-instruction regression document with strict UTC metadata and logical citations.
+- Added deterministic catalog hashing, ten local top-five retrieval contracts, bounded Search hit
+  normalization, allowlisted filter construction, stale-document warnings, and untrusted-content
+  flags.
+- Added plan-by-default knowledge synchronization. Apply and live Search each require an explicit
+  environment gate; import success is required before the remote snapshot advances.
+- Prepared a protected regional knowledge bucket plus global data store, explicit schema, and
+  Standard Search engine behind `deploy_knowledge=false`; existing Search assets are untouched.
+- Extended the hosted plan identity with Search get/list only, added a false M4 workflow gate, and
+  verified M4 permissions and zero candidate conflicts without identifiers or cloud mutation.
 
 - Added SCN-001 through SCN-007 as validated ground-truth contracts and generalized fixture replay
   so contradictions, insufficient evidence, and malicious knowledge are handled per scenario.
@@ -109,7 +132,7 @@ updated: 2026-08-11
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 61 pytest tests, including seven scenario contracts and bounded SCN-001 execution |
+| Tests | pass | 72 pytest tests, including knowledge, seven scenario contracts, and bounded SCN-001 execution |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -129,6 +152,13 @@ updated: 2026-08-11
 | Remote smoke | pass | 10/10 fulfilled; request IDs and traces correlated across three services; 5xx 0 |
 | Cloud Monitoring | pass | Request-count/latency for three services; expected M3 5xx points on order/payment |
 | Hosted plan | pass | WIF read-only; redacted `No changes`; identifier leaks and binary artifacts 0 |
+| M4 corpus validation | pass | 13 documents, deterministic metadata/hash catalog, 10 query contracts |
+| M4 local retrieval | pass | 10/10 expected documents in top five; citation metadata complete; malicious text treated as data |
+| M4 access gate | pass | Required permissions; candidate bucket/data store/engine conflicts 0; identifier-free output |
+| M4 Terraform static | pass | Default-off zero drift contract; enabled graph contains exactly four protected Search resources |
+| M4 operator default-off plan | pass | Remote state 24 managed resources; `deploy_knowledge=false`; zero drift |
+| M4 operator enabled plan | pass | Disposable read-only plan: exact `4 create / 0 update / 0 delete / 0 replacement`; plan removed |
+| M4 cloud mutation/query | pass | Resource changes 0; object uploads/imports 0; billable Search queries 0 |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -141,10 +171,12 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Plan M4 around a minimal synthetic Agent Search knowledge corpus, deterministic retrieval
-  contracts, and a default-off infrastructure boundary.
-- Do not create or import a Search data store, engine, IAM binding, or document corpus until a
-  separate M4 apply approval defines the exact resource and cost boundary.
+- Obtain M4 Approval 2 only after rechecking General pay-as-you-go pricing, candidate conflicts,
+  current 24-resource state, and the KRW cost boundary.
+- Review bootstrap `0 create / 1 update / 0 delete` and dev
+  `4 create / 0 update / 0 delete / 0 replacement` as separate binary plans.
+- Do not upload/import the corpus or execute the ten live queries until both plans and the explicit
+  sync/search gates are approved.
 
 ## Related artifacts
 
@@ -154,10 +186,12 @@ updated: 2026-08-11
 - Superseded migration contingency: `docs/plans/m2_personal_project_migration.md`
 - Bootstrap runbook: `docs/operations/bootstrap.md`
 - Scenario runbook: `docs/operations/scenarios.md`
+- Knowledge runbook: `docs/operations/knowledge.md`
 - Access gate: `docs/access-check.md`
 - IAM matrix: `docs/iam-matrix.md`
 - Cost model: `docs/cost-model.md`
 - IaC decision: `docs/decisions/ADR-007-iac-delivery.md`
+- Agent Search decision: `docs/decisions/ADR-008-agent-search-corpus.md`
 
 ## Update rules
 

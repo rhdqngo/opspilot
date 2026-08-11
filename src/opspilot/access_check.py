@@ -49,8 +49,37 @@ M2_PROJECT_PERMISSIONS: tuple[str, ...] = (
     "monitoring.timeSeries.list",
 )
 
+M4_PROJECT_PERMISSIONS: tuple[str, ...] = (
+    "serviceusage.services.use",
+    "storage.buckets.create",
+    "storage.objects.create",
+    "storage.objects.delete",
+    "storage.objects.get",
+    "storage.objects.list",
+    "discoveryengine.dataStores.create",
+    "discoveryengine.dataStores.delete",
+    "discoveryengine.dataStores.get",
+    "discoveryengine.dataStores.list",
+    "discoveryengine.dataStores.update",
+    "discoveryengine.schemas.create",
+    "discoveryengine.schemas.delete",
+    "discoveryengine.schemas.get",
+    "discoveryengine.schemas.list",
+    "discoveryengine.schemas.update",
+    "discoveryengine.engines.create",
+    "discoveryengine.engines.delete",
+    "discoveryengine.engines.get",
+    "discoveryengine.engines.list",
+    "discoveryengine.engines.update",
+    "discoveryengine.documents.import",
+    "discoveryengine.documents.get",
+    "discoveryengine.documents.list",
+    "discoveryengine.operations.get",
+    "discoveryengine.servingConfigs.search",
+)
+
 PROJECT_PERMISSIONS: tuple[str, ...] = tuple(
-    dict.fromkeys((*M1_PROJECT_PERMISSIONS, *M2_PROJECT_PERMISSIONS))
+    dict.fromkeys((*M1_PROJECT_PERMISSIONS, *M2_PROJECT_PERMISSIONS, *M4_PROJECT_PERMISSIONS))
 )
 
 M2_CANDIDATE_SERVICES: tuple[str, ...] = (
@@ -58,6 +87,8 @@ M2_CANDIDATE_SERVICES: tuple[str, ...] = (
     "opspilot-dev-payment",
     "opspilot-dev-inventory",
 )
+
+M4_CANDIDATE_ID = "opspilot-dev-knowledge"
 
 
 class AccessCheckResult(BaseModel):
@@ -80,6 +111,14 @@ class AccessCheckResult(BaseModel):
     m2_candidate_names_available: bool = False
     m2_candidate_service_conflicts: int = Field(default=0, ge=0)
     m2_deploy_ready: bool = False
+    m4_permissions_ready: bool = False
+    missing_m4_permissions: list[str] = Field(default_factory=list)
+    m4_candidate_check_available: bool = False
+    m4_candidate_names_available: bool = False
+    m4_candidate_bucket_conflicts: int = Field(default=0, ge=0)
+    m4_candidate_data_store_conflicts: int = Field(default=0, ge=0)
+    m4_candidate_engine_conflicts: int = Field(default=0, ge=0)
+    m4_apply_ready: bool = False
     gemini_enterprise_access: bool = False
     gemini_enterprise_app_exists: bool = False
     m0_ready: bool = False
@@ -210,12 +249,17 @@ def run_access_check(
         result.missing_m2_permissions = [
             permission for permission in M2_PROJECT_PERMISSIONS if permission not in granted
         ]
+        result.missing_m4_permissions = [
+            permission for permission in M4_PROJECT_PERMISSIONS if permission not in granted
+        ]
         result.api_activation_permission = "serviceusage.services.enable" in granted
         result.m1_permissions_ready = not result.missing_project_permissions
         result.m2_permissions_ready = not result.missing_m2_permissions
+        result.m4_permissions_ready = not result.missing_m4_permissions
     except RuntimeError:
         result.missing_project_permissions = list(M1_PROJECT_PERMISSIONS)
         result.missing_m2_permissions = list(M2_PROJECT_PERMISSIONS)
+        result.missing_m4_permissions = list(M4_PROJECT_PERMISSIONS)
 
     candidate_filter = "metadata.name=(" + " ".join(M2_CANDIDATE_SERVICES) + ")"
     candidates = _load_json_list(
@@ -235,17 +279,62 @@ def run_access_check(
         result.m2_candidate_service_conflicts = len(candidates)
         result.m2_candidate_names_available = not candidates
 
+    bucket_candidates = _load_json_list(
+        runner(
+            (
+                "storage",
+                "buckets",
+                "list",
+                f"--filter=name:{M4_CANDIDATE_ID}-",
+                "--format=json",
+            )
+        )
+    )
+    if bucket_candidates is not None:
+        result.m4_candidate_bucket_conflicts = len(bucket_candidates)
+
     try:
         engines = requester(
             user_token.stdout,
             "https://discoveryengine.googleapis.com/v1/projects/"
             f"{quote(project_id, safe='')}/locations/global/collections/"
-            "default_collection/engines?pageSize=1",
+            "default_collection/engines?pageSize=100",
             None,
             project_id,
         )
         result.gemini_enterprise_access = True
         result.gemini_enterprise_app_exists = bool(engines.get("engines"))
+        engine_items = engines.get("engines", [])
+        if isinstance(engine_items, list):
+            result.m4_candidate_engine_conflicts = sum(
+                1
+                for item in engine_items
+                if isinstance(item, dict)
+                and str(item.get("name", "")).endswith(f"/engines/{M4_CANDIDATE_ID}")
+            )
+        data_stores = requester(
+            user_token.stdout,
+            "https://discoveryengine.googleapis.com/v1/projects/"
+            f"{quote(project_id, safe='')}/locations/global/collections/"
+            "default_collection/dataStores?pageSize=100",
+            None,
+            project_id,
+        )
+        data_store_items = data_stores.get("dataStores", [])
+        if isinstance(data_store_items, list):
+            result.m4_candidate_data_store_conflicts = sum(
+                1
+                for item in data_store_items
+                if isinstance(item, dict)
+                and str(item.get("name", "")).endswith(f"/dataStores/{M4_CANDIDATE_ID}")
+            )
+        result.m4_candidate_check_available = bucket_candidates is not None
+        result.m4_candidate_names_available = (
+            result.m4_candidate_check_available
+            and result.m4_candidate_bucket_conflicts == 0
+            and result.m4_candidate_data_store_conflicts == 0
+            and result.m4_candidate_engine_conflicts == 0
+        )
     except RuntimeError:
         pass
 
@@ -272,6 +361,13 @@ def run_access_check(
             result.m2_candidate_names_available,
         )
     )
+    result.m4_apply_ready = all(
+        (
+            result.m0_ready,
+            result.m4_permissions_ready,
+            result.m4_candidate_names_available,
+        )
+    )
     return result
 
 
@@ -288,5 +384,10 @@ def render_access_summary(result: AccessCheckResult) -> str:
         lines.append("missing_project_permissions=" + ",".join(result.missing_project_permissions))
     if result.missing_m2_permissions:
         lines.append("missing_m2_permissions=" + ",".join(result.missing_m2_permissions))
+    if result.missing_m4_permissions:
+        lines.append("missing_m4_permissions=" + ",".join(result.missing_m4_permissions))
     lines.append(f"m2_candidate_service_conflicts={result.m2_candidate_service_conflicts}")
+    lines.append(f"m4_candidate_bucket_conflicts={result.m4_candidate_bucket_conflicts}")
+    lines.append(f"m4_candidate_data_store_conflicts={result.m4_candidate_data_store_conflicts}")
+    lines.append(f"m4_candidate_engine_conflicts={result.m4_candidate_engine_conflicts}")
     return "\n".join(lines) + "\n"

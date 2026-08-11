@@ -66,7 +66,11 @@ run "bounded_dev_foundation" {
       length(google_service_account.demo) == 0 &&
       length(google_cloud_run_v2_service.demo_leaf) == 0 &&
       length(google_cloud_run_v2_service.demo_order) == 0 &&
-      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 0
+      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 0 &&
+      length(google_storage_bucket.knowledge) == 0 &&
+      length(google_discovery_engine_data_store.knowledge) == 0 &&
+      length(google_discovery_engine_schema.knowledge) == 0 &&
+      length(google_discovery_engine_search_engine.knowledge) == 0
     )
     error_message = "The default M2 gate must preserve the M1-only resource graph."
   }
@@ -203,5 +207,69 @@ run "m3_scenario_gate_contract" {
       length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2
     )
     error_message = "M3 Approval 1 must not add cloud resources or IAM bindings."
+  }
+}
+
+run "m4_knowledge_apply_ready_contract" {
+  command = plan
+
+  variables {
+    project_id                = "example-project"
+    billing_account_id        = "000000-000000-000000"
+    budget_notification_email = "operator@example.invalid"
+    deploy_demo               = true
+    enable_scenarios          = true
+    deploy_knowledge          = true
+    search_location           = "global"
+    demo_image_uri            = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+
+  assert {
+    condition = (
+      length(google_storage_bucket.knowledge) == 1 &&
+      length(google_discovery_engine_data_store.knowledge) == 1 &&
+      length(google_discovery_engine_schema.knowledge) == 1 &&
+      length(google_discovery_engine_search_engine.knowledge) == 1
+    )
+    error_message = "The M4 gate must add exactly the bucket, data store, schema, and search engine."
+  }
+
+  assert {
+    condition = (
+      google_storage_bucket.knowledge[0].force_destroy == false &&
+      google_storage_bucket.knowledge[0].uniform_bucket_level_access == true &&
+      google_storage_bucket.knowledge[0].public_access_prevention == "enforced" &&
+      google_storage_bucket.knowledge[0].versioning[0].enabled == true
+    )
+    error_message = "The M4 knowledge bucket must remain private, versioned, and protected."
+  }
+
+  assert {
+    condition = (
+      google_discovery_engine_data_store.knowledge[0].location == "global" &&
+      google_discovery_engine_data_store.knowledge[0].content_config == "CONTENT_REQUIRED" &&
+      google_discovery_engine_data_store.knowledge[0].deletion_policy == "PREVENT" &&
+      google_discovery_engine_data_store.knowledge[0].document_processing_config[0].chunking_config[0].layout_based_chunking_config[0].chunk_size == 300
+    )
+    error_message = "M4 must use the bounded global unstructured knowledge data store."
+  }
+
+  assert {
+    condition = (
+      google_discovery_engine_search_engine.knowledge[0].search_engine_config[0].search_tier == "SEARCH_TIER_STANDARD" &&
+      google_discovery_engine_search_engine.knowledge[0].disable_analytics == true
+    )
+    error_message = "M4 must use Standard Search without analytics or LLM add-ons."
+  }
+
+  assert {
+    condition = (
+      length(google_project_service.m1) == 12 &&
+      length(google_service_account.demo) == 3 &&
+      length(google_cloud_run_v2_service.demo_leaf) == 2 &&
+      length(google_cloud_run_v2_service.demo_order) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2
+    )
+    error_message = "M4 must not change the existing API, runtime identity, Cloud Run, or IAM graph."
   }
 }

@@ -1,0 +1,55 @@
+- case_id: KQ-001
+  query: payment DB_POOL_TIMEOUT connection pool reduced
+  expected_document_id: RB-PAY-001
+  service: payment-service
+  document_types: [runbook]
+  top_k: 5
+- case_id: KQ-002
+  query: external provider dependency latency exceeded timeout
+  expected_document_id: RB-PAY-002
+  service: payment-service
+  document_types: [runbook]
+  top_k: 5
+- case_id: KQ-003
+  query: inventory canonical hostname endpoint not found
+  expected_document_id: RB-INV-001
+  service: inventory-service
+  document_types: [runbook]
+  top_k: 5
+- case_id: KQ-004
+  query: Cloud Run pending requests capacity concurrency scaling
+  expected_document_id: RB-ORD-001
+  service: order-service
+  document_types: [runbook]
+  top_k: 5
+- case_id: KQ-005
+  query: upstream rate limit contradictory cache warning
+  expected_document_id: RB-PAY-003
+  service: payment-service
+  document_types: [runbook]
+  top_k: 5
+- case_id: KQ-006
+  query: prior incident database pool six deterministic timeouts
+  expected_document_id: RCA-2026-0001
+  document_types: [prior_rca]
+  top_k: 5
+- case_id: KQ-007
+  query: private services distinct identities evidence safety boundary
+  expected_document_id: ARC-001
+  document_types: [architecture]
+  top_k: 5
+- case_id: KQ-008
+  query: request ID trace metadata identity token parallel fan-out
+  expected_document_id: ARC-002
+  document_types: [architecture]
+  top_k: 5
+- case_id: KQ-009
+  query: service owner escalation evidence missing data
+  expected_document_id: OWN-001
+  document_types: [ownership]
+  top_k: 5
+- case_id: KQ-010
+  query: malicious prompt injection ignore safety reveal credentials
+  expected_document_id: SEC-001
+  document_types: [known_error]
+  top_k: 5

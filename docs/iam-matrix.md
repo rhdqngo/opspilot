@@ -1,12 +1,12 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M3 runtime boundary applied and remotely validated
+Status: M1-M3 applied; M4 knowledge boundary prepared but not applied
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
 | --- | --- | --- | --- |
-| Developer / `Edu_687` operator | Current dev project | Local read checks, approved image push, completed M1-M3 applies, bounded private invocation | Destroy, billing link changes, unreviewed IAM broadening |
-| GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, and state object read | API enable, IAM write, Artifact Registry write, Cloud Run update, budget write, state write |
+| Developer / `Edu_687` operator | Current dev project | Local read checks, completed M1-M3 applies, bounded private invocation, M4 read-only gate | Destroy, unapproved Search creation/import, billing model changes, unreviewed IAM broadening |
+| GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, prepared Search data store/schema/engine get/list, state object read | Search/import, API enable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
 | Investigator identity | Dev project | Identity exists with no project role and no user-managed key | Logging, Monitoring, Run, Deploy, Secret, IAM, remediation writes |
 | Order runtime identity | Payment and inventory services | `roles/run.invoker` on the two leaf services only | Project roles, keys, secrets, IAM, remediation, arbitrary Cloud Run invocation |
 | Payment / inventory runtime identities | Their own Cloud Run revisions | No IAM role or user-managed key | Cross-service invocation, project roles, secrets, IAM, remediation writes |
@@ -19,6 +19,12 @@ The project custom role is limited to the following permissions:
 - `artifactregistry.repositories.get`
 - `artifactregistry.repositories.list`
 - `billing.resourcebudgets.read`
+- `discoveryengine.dataStores.get`
+- `discoveryengine.dataStores.list`
+- `discoveryengine.engines.get`
+- `discoveryengine.engines.list`
+- `discoveryengine.schemas.get`
+- `discoveryengine.schemas.list`
 - `iam.serviceAccounts.get`
 - `iam.serviceAccounts.list`
 - `monitoring.notificationChannels.get`
@@ -53,3 +59,14 @@ revisions. Runtime user-managed keys, runtime project roles, public principals, 
 invokers remain zero. The order runtime identity retains only its two leaf `roles/run.invoker`
 grants. Scenario context is strict request-scoped synthetic data; it neither authorizes a request
 nor grants access, and Cloud Run IAM continues to enforce invocation.
+
+## M4 knowledge boundary
+
+The operator's redacted permission check covers bucket/object operations, Search data store/schema/
+engine management, document import, operation status, and bounded search. Candidate bucket, data
+store, and engine conflicts are zero. Those permissions authorize no action until Approval 2.
+
+Terraform prepares only four knowledge resources and no IAM binding. The existing investigator
+identity remains unprivileged, the hosted plan identity receives only six Search get/list
+permissions, and document import/search never runs in hosted Terraform. Existing Search assets are
+not attached, imported, renamed, or modified.

@@ -43,6 +43,20 @@ incident payments return the synthetic `DB_POOL_TIMEOUT`; all baseline and recov
 be fulfilled. The bounded profile has also been reproduced three times against the private Cloud
 Run workload. No persistent fault flag or management endpoint exists.
 
+## Synthetic operational knowledge
+
+M4 Approval 1 adds 13 versioned synthetic runbooks, RCA, architecture, ownership, and adversarial
+documents plus ten deterministic retrieval queries. Local validation performs no cloud call:
+
+```powershell
+uv run opspilot knowledge validate --format summary
+uv run opspilot knowledge smoke --backend local --env dev --format summary
+```
+
+`knowledge sync` defaults to plan mode. Apply and Agent Search smoke remain disabled until the
+separate M4 Approval 2 gates are set. Project, bucket, data-store, engine, token, and GCS URI values
+are never accepted as CLI arguments or printed.
+
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
 `/ready`. The identifier-free operator diagnostic is:
@@ -68,6 +82,10 @@ GCS backend. M2 uses one immutable image across three applied private Cloud Run 
 remote state contains 24 managed resources; operator and hosted read-only plans are zero drift.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
 ignored backend files, and GitHub repository variables.
+
+M4 Terraform is default-off. Enabling it in a separately reviewed plan adds exactly one protected
+knowledge bucket, one Agent Search data store, one metadata schema, and one Standard Search engine.
+Approval 1 does not create those resources or upload a document.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform
@@ -95,3 +113,5 @@ See `docs/operations/demo-services.md` for the workload runbook and
 - The live plan is additionally gated by `TF_M2_IMAGE_READY=true` and remains manual/read-only.
 - M3 scenario deployment additionally requires `TF_M3_IMAGE_READY=true`. The variable is enabled
   only after the reviewed three-service update and remains part of the manual read-only plan gate.
+- M4 hosted plans additionally require `TF_M4_KNOWLEDGE_READY=true`; it remains unset until the
+  separate Search apply, import, and live smoke approval completes.
