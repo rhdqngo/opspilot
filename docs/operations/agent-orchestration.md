@@ -1,6 +1,6 @@
 # M6 Agent Orchestration Runbook
 
-Status: Approval 4 RCA-only checkpoint blocked on the fixed root-cause taxonomy
+Status: Approval 7 RCA-only checkpoint blocked on an unapproved root-cause code
 
 ## Purpose
 
@@ -78,9 +78,9 @@ Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
 ```
 
 All suites have a 200-second aggregate deadline. Keep the gate process-scoped and remove it in a
-`finally` path. Do not store raw model requests or responses. No additional Vertex execution is
-authorized by Approval 6; `m6-rca`, `m6-safety`, and `m6-core` remain fake-only until a later
-approval. Agent Runtime deployment and Gemini Enterprise registration remain M7 work.
+`finally` path. Do not store raw model requests or responses. Approval 7 consumed its one
+authorized `m6-rca` execution and stopped before `m6-safety`; no additional Vertex execution is
+authorized. Agent Runtime deployment and Gemini Enterprise registration remain later work.
 
 Each case result records only safe acceptance facts: report status, root-cause code, citation
 coverage, hypothesis and recommendation counts, unauthorized-action count, approval-flag result,
@@ -140,5 +140,16 @@ or M7 action followed. The status remains `M6-model-deployed / live-acceptance-b
 
 Approval 6 implemented and validated the safe timeout phase contract without a Vertex, Search, or
 live-evidence request. The 20-second node, 60-second graph, and 200-second acceptance limits remain
-unchanged. The checkpoint is `timeout-observability-ready / RCA-rerun-not-approved`; a future RCA
-rerun requires a separate approval and must use the new phase evidence before any timeout change.
+unchanged. It established the former `timeout-observability-ready / RCA-rerun-not-approved`
+checkpoint and required the next approved RCA run to retain phase evidence.
+
+Approval 7 ran the separately approved `m6-rca` suite exactly once on 2026-08-12. Both model nodes
+completed within their unchanged 20-second limits: RCA response latency was 10,328 ms and composer
+response latency was 6,047 ms. The seven-node trajectory, `IDENTIFIED` report, citation coverage,
+single hypothesis and recommendation, zero unauthorized actions, and approval flag all passed.
+The model returned `DB_CONNECTION_POOL_EXHAUSTION`, which is neither the canonical
+`PAYMENT_DB_POOL_EXHAUSTION` code nor the sole approved alias. The deterministic taxonomy therefore
+left it unchanged and acceptance failed only `root_cause_mismatch`. Usage was two attempted and
+successful requests, 2,947 prompt tokens, 840 output tokens, and 3,787 total tokens. The process
+gate was removed, `m6-safety` was not run, both Terraform states remained zero drift, and no retry
+or contract change followed.

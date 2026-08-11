@@ -1,7 +1,7 @@
 # ADR-002: Combine deterministic workflow with bounded agent reasoning
 
-Status: implemented; strict taxonomy selected, live RCA blocked by bounded timeout
-Date: 2026-08-11
+Status: implemented; strict taxonomy selected, live RCA blocked by an unapproved code
+Date: 2026-08-12
 
 ## Decision
 
@@ -60,3 +60,8 @@ preventing an LLM from constructing executable resource queries or action payloa
   origin is derived only from the last observed phase; missing evidence remains `unknown`.
 - Approval 6 is zero-call and zero-cloud-change. It prepares a separately approved RCA rerun but
   does not authorize one, run the safety suite, or begin M7.
+- Approval 7 used that authorization once. Both model nodes completed within 20 seconds and every
+  non-taxonomy predicate passed, but `DB_CONNECTION_POOL_EXHAUSTION` is outside the canonical code
+  and sole approved alias. The verifier correctly failed closed with `root_cause_mismatch`.
+- No second alias is inferred from semantic similarity. Expanding aliases or replacing raw-code
+  matching with an evidence-derived classifier requires a separate decision and live approval.

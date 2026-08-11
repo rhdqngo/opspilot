@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: updated for zero-call M6 timeout observability
+Status: updated for the instrumented M6 RCA checkpoint
 
 ## Protected assets and trust boundaries
 
@@ -22,7 +22,8 @@ approval cross those boundaries.
 | Unauthorized remediation | No tools or write endpoint; unsafe action text is dropped; all retained actions require approval | M8 needs a separate action-policy threat review |
 | Unsafe failure leakage | Exceptions normalize to fixed error categories and ADK internal trace logging is suppressed at the public boundary | Local debug mode must never be enabled in hosted output |
 | Invalid advisory review output | Citation review is local deterministic code; no model response is parsed at this stage | A future model reviewer would require a separate post-MVP contract and approval |
-| Semantic acceptance mismatch | The fixed suite stops on the first failed predicate and removes the process gate without retry | The summary retains budget and pass/fail but did not retain which safe report predicate differed |
+| Semantic acceptance mismatch | The fixed suite exposes allowlisted predicate failures and stops before later cases without retry | Strict raw-code matching can reject a semantically related but unapproved taxonomy label |
+| Taxonomy coercion | Canonicalization permits only an exact, evidence-scoped alias after citation verification | Model label variation requires a separate policy decision rather than runtime fuzzy matching |
 | Timeout misclassification or diagnostic leakage | Public callbacks retain only allowlisted phase names and bounded monotonic milliseconds; timeout origin is derived from the last completed phase | A pre-response timeout cannot distinguish provider latency from framework work before the response callback |
 
 ## Deferred reviews

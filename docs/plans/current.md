@@ -2,7 +2,7 @@
 
 status: active
 phase: M6-model-deployed / live-acceptance-blocked
-updated: 2026-08-11
+updated: 2026-08-12
 
 ## Objective
 
@@ -64,8 +64,16 @@ updated: 2026-08-11
 - Timeout origin is derived from the last observed phase as response pending, structured-output
   pending, graph-completion pending, acceptance deadline, or unknown. No prompt, response, raw
   exception, wall-clock time, URL, credential, or cloud identifier enters the result.
-- Approval 6 authorizes no Vertex, Search, or live-evidence request and no cloud change. The active
-  checkpoint is `timeout-observability-ready / RCA-rerun-not-approved`; M6 remains blocked.
+- Approval 6 authorized no Vertex, Search, or live-evidence request and no cloud change. It created
+  the timeout-observability checkpoint used by Approval 7.
+- M6 Approval 7 ran one instrumented `m6-rca` suite under the unchanged limits. Both model nodes
+  completed with two attempted and successful requests, and timeout origin remained `none`.
+- All RCA predicates except taxonomy passed. The model returned
+  `DB_CONNECTION_POOL_EXHAUSTION`, which is not the canonical code or sole approved alias, so the
+  verifier preserved it and returned only `root_cause_mismatch`.
+- The live gate was removed, safety issued zero requests, both Terraform states remained zero
+  drift, and no retry, timeout increase, taxonomy expansion, or cloud change was made. The active
+  checkpoint is `RCA-taxonomy-blocked / safety-not-approved`.
 
 - M5 Approval 1 adds typed Logging, Monitoring, Cloud Run revision, and Agent Search evidence
   contracts behind one fixture/live client boundary. The existing seven fixture reports keep their
@@ -151,6 +159,7 @@ updated: 2026-08-11
 | M6 Approval 4: safe RCA checkpoint | blocked | Exact two-call run failed only `root_cause_mismatch`; no retry or contract change |
 | M6 Approval 5: strict RCA taxonomy | blocked | Alias validated offline; one bounded run stopped at 1 attempt / 0 success with `AGENT_TIMEOUT`; no retry |
 | M6 Approval 6: timeout observability | complete | Content-free phase timing and timeout-origin classification validated offline; no Vertex request |
+| M6 Approval 7: final live acceptance | blocked | RCA completed 2/2 calls without timeout but failed only `root_cause_mismatch`; safety was not run |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -190,6 +199,10 @@ updated: 2026-08-11
 - Added zero-generation diagnostic visibility for the unchanged 20-second node, 60-second graph,
   and 200-second acceptance limits. Approval 6 issued no live model or evidence request and made no
   infrastructure change.
+- Ran the single Approval 7 RCA checkpoint. Both model responses completed in 10,328 ms and 6,047
+  ms, the full trajectory and all non-taxonomy RCA predicates passed, and the exact taxonomy
+  boundary rejected the unapproved `DB_CONNECTION_POOL_EXHAUSTION` label without coercion. Safety
+  was not called.
 
 - Added strict UTC and allowlist contracts for bounded log, metric, revision, and knowledge reads.
 - Added server-owned Logging/Monitoring filter builders, safe REST error normalization, PII/token
@@ -330,6 +343,7 @@ updated: 2026-08-11
 | M6 Approval 5 taxonomy | pass | Exact alias, canonical pass-through, wrong-service, insufficient-source, unknown/case-variant, and composer-boundary contracts validated offline |
 | M6 Approval 5 Vertex acceptance | blocked | SCN-001: 1 attempted / 0 successful; `AGENT_TIMEOUT`; 0 prompt/output/total tokens; no retry |
 | M6 Approval 6 timeout observability | pass | Public phase callbacks, bounded monotonic timings, safe timeout origins, and backward-compatible payload defaults; live calls 0 |
+| M6 Approval 7 RCA acceptance | blocked | SCN-001: 2 attempted / 2 successful; 2,947 prompt, 840 output, 3,787 total tokens; only `root_cause_mismatch`; safety calls 0 |
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -343,12 +357,11 @@ updated: 2026-08-11
 
 ## Next checkpoint
 
-- Approval 7 may authorize exactly one unchanged `m6-rca` execution with at most two requests. It
-  must use the new phase evidence to distinguish response wait, structured-output processing, or
-  graph completion before proposing any timeout change.
-- Do not retry `m6-rca`, run `m6-safety`, increase timeouts, alter prompts or schemas, expand the
-  alias set, relax acceptance, substitute a model, expand IAM, or begin M7 without that separate
-  approval.
+- A separate Approval 8 must decide whether the deterministic taxonomy should recognize
+  `DB_CONNECTION_POOL_EXHAUSTION` under the same verified payment/multi-source conditions or adopt
+  a different evidence-derived canonical classification boundary.
+- Do not retry `m6-rca`, run `m6-safety`, expand the alias set, relax acceptance, alter the model,
+  prompt, schema or timeout, expand IAM, or begin M7 before that decision and approval.
 - Do not expand investigator IAM, deploy Agent Runtime, register Gemini Enterprise, persist agent
   sessions, or add remediation until their separate milestone approvals.
 

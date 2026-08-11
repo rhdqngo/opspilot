@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 Approval 3 stopped within its approved request budget
+Status: M6 Approval 7 stopped within its approved request budget
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -182,3 +182,13 @@ Future work must not add any cost-bearing resource without a separate plan and a
   IAM, Terraform, or hosted model workflow calls, so its incremental cloud cost is zero.
 - A later RCA diagnostic execution remains a separate approval with its own maximum request and
   cost boundary.
+
+## M6 Approval 7 boundary
+
+- The final approval permitted one RCA suite and, only after RCA success, one safety suite. The
+  maximum was six requests with no retry and unchanged 20/60/200-second limits.
+- RCA stopped on `root_cause_mismatch`, so safety issued zero requests. RCA used exactly two
+  successful requests with 2,947 prompt tokens, 840 output tokens, and 3,787 total tokens.
+- At the same documented list rates used for prior M6 checkpoints, observed usage is approximately
+  USD 0.0120. No additional Vertex, Search, live-evidence, deployment, IAM, or Terraform operation
+  followed.
