@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-operation-declaration-ready / runtime-update-pending
+phase: M7-complete / MVP-minimum-evaluation-ready
 updated: 2026-08-12
 
 ## Objective
@@ -44,46 +44,25 @@ updated: 2026-08-12
 
 ## Active blocker
 
-- `Edu_687` user credentials and ADC were reauthenticated. The identifier-free gate reconfirmed
-  the intended default project, KRW billing, the unique existing Enterprise app, zero Runtime or
-  registration name conflicts, and the required M7 operator permissions.
-- Bootstrap remained zero drift. The reviewed dev plan was exactly `5 create / 1 update / 0 delete
-  / 0 replacement`, with only the approved APIs, leaf token-creator grant, Runtime, and investigator
-  role permission change.
-- The single approved apply recorded the three API addresses, leaf IAM member, and investigator
-  role update, then the Runtime failed its first startup. Dev now has `35 managed / 36 addresses`;
-  no Reasoning Engine remains in Terraform state or live Runtime inventory.
-- Redacted Runtime logs identified `ModuleNotFoundError: No module named 'google.cloud.aiplatform'`.
-  Approval 3 pins `google-cloud-aiplatform[agent-engines]==1.153.1` alongside the existing ADK 2.5
-  requirement without using the incompatible ADK 1.x extra.
-- Two deterministic archives produced the same hash. A clean Python 3.12 environment installed
-  the packaged requirements and imported `google.cloud.aiplatform`, `vertexai.agent_engines`, and
-  the Runtime entrypoint with zero cloud calls. Existing partial API/IAM state and the failed-run
-  recovery files remain preserved until the reviewed one-create plan succeeds.
-- The fresh corrective plan was exactly `1 create / 0 update / 0 delete / 0 replacement` and
-  targeted only the missing Runtime. Its single approved apply failed during registered-operation
-  discovery: the exported ADK `LlmAgent` has none of the Runtime `query`, `async_query`,
-  `stream_query`, `bidi_stream_query`, or `async_stream_query` methods.
-- The second failure left dev at `35 managed / 36 addresses`, with no Runtime in state or live
-  inventory and no Enterprise registration. No probe, registration, Preview request, retry, or
-  additional cloud mutation was attempted.
-- The final M7 correction wraps the existing fixed-scope ADK agent in the official Agent Platform
-  `AdkApp` and registers only `streaming_agent_run_with_events` in async-stream mode. It adds no
-  dependency, graph node, IAM permission, API, or product feature.
-- The packaged entrypoint passed isolated Python 3.12 installation, exact operation discovery, and
-  a real local streaming rejection with zero evidence/model calls. The fixed live probe now uses
-  `streamQuery` with a 64-KiB total response cap and preserves the identifier-free output contract.
-- The reviewed final plan was exactly one Runtime create and applied successfully. Dev now contains
-  `36 managed / 37 addresses`, and the post-apply operator plan is zero drift.
-- The live resource returned no `classMethods`. Provider schema inspection confirmed that source
-  deployment requires an explicit `spec.class_methods` JSON declaration; the wrapper method alone
-  is not copied into that API field by Terraform. This is a hard acceptance blocker.
-- Approval 5 now defines the one permitted async-stream operation and required `request_json`
-  string explicitly in Terraform. Static contract tests pass; the live Runtime has not yet been
-  updated, queried, registered, or used from Preview.
-- Per the stop condition, Runtime probe, Enterprise registration, Preview investigation, evidence
-  calls, and model calls remain zero. The Runtime is preserved; no update, retry, destroy, or IAM
-  change was attempted.
+- None for M7. The managed Runtime exposes exactly one async-stream operation,
+  `streaming_agent_run_with_events`, with the required `request_json` string input.
+- The reviewed Runtime update was exactly `0 create / 1 update / 0 delete / 0 replacement` and
+  changed only `spec.class_methods`. Dev remains `36 managed / 37 addresses`; the final operator
+  plan is `No changes`. Bootstrap source/state was unchanged and its prior operator plan remains
+  zero drift.
+- The fixed unsupported-service probe ran once and returned `unsupported_service` with zero
+  evidence and model calls. The existing global Enterprise app has one enabled registration for
+  the unique Runtime; the final registration plan is an idempotent no-op with zero conflicts.
+- The fixed supported Enterprise request used the official global location endpoint and finished
+  with HTTP 200 and final state `SUCCEEDED`. The accepted execution window recorded exactly two
+  successful global Vertex model invocations, Runtime log entries, and Cloud Trace entries.
+- The response and telemetry scans found no prompt, user identifier, email, token, or resource-path
+  leakage. Runtime code and validated contracts cap evidence access at six calls, require complete
+  logical citation coverage, admit no unauthorized action, and require approval on every retained
+  recommendation.
+- GitHub Actions remain `workflow_dispatch` only and `skipped-by-policy`; local validation and
+  operator plans are the authoritative MVP gates. M7 repository gates and hosted plans were not
+  enabled or run.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -248,8 +227,8 @@ updated: 2026-08-12
 | M6 Approval 8: evidence classification | blocked | Classifier and static CI passed; live RCA stopped at composer response timeout and safety was not run |
 | M6 Approval 9: MVP latency calibration | complete | RCA 1/1 and safety 2/2 passed with 6/6 calls, no timeout, and zero cloud drift |
 | M7 Approval 1: Runtime and Enterprise preparation | complete | Fixed natural-language adapter, workload ADC, deterministic package, default-off IaC, guarded registration; cloud changes 0 |
-| M7 Approval 2: local-gated deployment | blocked | Exact plan applied once; API/IAM changes persisted, Runtime startup failed because the packaged Agent Platform SDK dependency was missing; no probe or registration |
-| M7 Approval 5: explicit operation declaration | active | Exact async-stream declaration is static-validated; live Runtime update, probe, registration, and Preview remain pending |
+| M7 Approval 2: local-gated deployment | complete | Approved API/IAM foundation is managed; the Runtime dependency and entrypoint blockers were corrected without expanding permissions |
+| M7 Approval 5: explicit operation declaration | complete | Exact one-update apply, live operation schema, safe probe, enabled Enterprise registration, supported request, telemetry, and zero drift passed |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -457,7 +436,7 @@ updated: 2026-08-12
 | M7 hosted static CI | skipped-by-policy | All three workflows are manual-only; no hosted job or M7 repository gate is required for the MVP |
 | M7 local operator gate | pass | Full Python/fixture/package regression, Linux/amd64 non-root Compose 10/10 and SCN-001, TFLint, bootstrap/dev validate and mock plans |
 | M7 Runtime operation contract | pass | Official `AdkApp`; only `streaming_agent_run_with_events`; isolated streaming rejection; evidence/model calls 0 |
-| M7 cloud/IAM/runtime/app change | pending | Runtime remains 36/37 zero drift; exact one-update operation plan and live acceptance are not yet executed |
+| M7 cloud/IAM/runtime/app change | pass | Runtime remains 36/37 zero drift; exact one-update operation apply completed, registration is enabled/no-op, supported Enterprise stream reached `SUCCEEDED` with two successful model calls |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -470,14 +449,11 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Generate a fresh plan for the approved `spec.class_methods` declaration. Require one in-place
-  Runtime update, with resource count remaining 36/37 and no source, identity, IAM, API, scaling,
-  telemetry, or network change.
-- Only after the live operation schema contains exactly that one method may one unsupported
-  streaming probe, one registration, and one supported payment-service Preview investigation run.
-- Do not infer deployment authority from Approval 1. Sessions, Memory Bank, OAuth delegation,
-  Agent Gateway, VPC, Model Armor, alert intake, remediation, dashboards, and multi-project work
-  remain outside the MVP gate.
+- Plan the minimum MVP evaluation over the already-deployed Runtime and synthetic dataset. Reuse
+  the fixed supported investigation and existing fixture suites; do not add infrastructure or
+  broaden the product surface merely to produce an evaluation score.
+- Keep Sessions, Memory Bank, OAuth delegation, Agent Gateway, VPC, Model Armor, alert intake,
+  remediation, dashboards, and multi-project operation outside the MVP gate.
 
 ## Related artifacts
 

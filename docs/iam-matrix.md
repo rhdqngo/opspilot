@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M5 applied; M7 Runtime deployed, explicit operation declaration blocked
+Status: M1-M7 applied; Runtime and Enterprise MVP path accepted
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
@@ -139,6 +139,8 @@ the Enterprise async-stream operation and needs no additional permission. The gr
 and no registration, public principal, key, broad project role, or hosted-reader expansion was
 created.
 
-The final Runtime create required no IAM change and succeeded. The live resource has no registered
-class method because Terraform source did not declare `spec.class_methods`; no probe, registration,
-or Preview call was made. A future operation declaration must not add IAM or broaden this matrix.
+The final Runtime create required no IAM change and succeeded. The subsequent exact in-place update
+declared one async-stream class method and changed no IAM. The out-of-scope probe used zero evidence
+and model calls, and the unique Enterprise registration is enabled for the same Runtime. No public
+principal, user-managed key, broad predefined role, OAuth grant, hosted-reader expansion, or second
+Runtime operation was added.

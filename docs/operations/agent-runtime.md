@@ -1,6 +1,6 @@
 # M7 Agent Runtime Runbook
 
-Status: Runtime deployed; explicit class-method declaration blocked
+Status: M7 complete; Runtime and Enterprise Preview path accepted
 
 ## MVP contract
 
@@ -46,43 +46,46 @@ process. It discovers only the fixed Runtime and sends one fixed unsupported-ser
 the streaming operation. Its total response is capped at 64 KiB and its output contains no project,
 Runtime resource, URL, token, prompt, user identifier, or raw response.
 
-## Deployment gate
+## Deployed boundary
 
-Source default `deploy_agent_runtime=false` preserves an unconfigured environment. Hosted
-validation is skipped during the MVP, so the bootstrap source remains zero drift and is not
-applied. The runtime must remain in
-`asia-northeast3`, use the existing investigator service account, scale from zero to one, and
-capture no prompt, response, or user identity content in telemetry.
+Source default `deploy_agent_runtime=false` remains fail-closed. The managed environment explicitly
+enables it with an immutable deterministic archive. The Runtime remains in `asia-northeast3`, uses
+the existing investigator service account, scales from zero to one, and captures no message or user
+identity content in telemetry. Dev contains `36 managed / 37 addresses` and the operator plan is
+zero drift.
 
-That exact plan was applied once. The three API addresses, leaf service-agent grant, and
-investigator-role update succeeded, while Runtime startup failed with a redacted
-`ModuleNotFoundError` for `google.cloud.aiplatform`. Dev state is therefore `35 managed / 36
-addresses`, with no Runtime in state or live inventory. Approval 3 validated the dependency fix
-and reviewed an exact Runtime-only one-create plan. That single apply reached entrypoint operation
-discovery but failed because the exported ADK `LlmAgent` implements none of the Runtime query or
-stream-query operations. Dev remains `35 managed / 36 addresses`; Runtime, probe, registration,
-and Enterprise query counts remain zero.
+The public Runtime schema contains exactly one method:
 
-Neither failed archive was reapplied. The final approval used the new `AdkApp` archive only after
-reconfirming an exact Runtime-only one-create plan.
+```text
+streaming_agent_run_with_events
+api_mode: async_stream
+required input: request_json (string)
+```
 
-The final one-create plan passed and the Runtime is now managed with `36 managed / 37 addresses`
-and zero drift. The live Runtime nevertheless returned an empty operation schema. The Google
-provider exposes `spec.class_methods` as an explicit JSON string and did not infer it from the
-packaged wrapper. Approval 5 therefore fixes one explicit OpenAPI declaration for
-`streaming_agent_run_with_events` in async-stream mode with one required `request_json` string.
-Probe, registration, and Preview remain blocked until a fresh plan confirms that this declaration
-is the only Runtime in-place change and the live schema matches it exactly.
+The exact in-place declaration plan changed only that schema: `0 create / 1 update / 0 delete / 0
+replacement`. Runtime source, identity, IAM, APIs, scaling, telemetry, labels, region, and deletion
+policy were unchanged.
 
-Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander`.
-Planning is read-only. Apply additionally requires the process-scoped
-`OPSPILOT_ENTERPRISE_REGISTER_ENABLED=true` gate, a unique existing global app, a unique deployed
-runtime, and no conflicting registration. Identifiers are never printed.
+Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander` and the
+existing unique global app. Registration is enabled for the same unique Runtime; subsequent plans
+are no-op. The supported request must use the global location endpoint. Do not add
+`actionDisabled` to a direct Agent-mode request: the Runtime itself publishes no action operation,
+and disabling actions at the outer request can suppress the registered-agent invocation.
 
-## Approval 2 acceptance
+## Live acceptance evidence
 
-First send one unsupported probe and require zero evidence/model calls. Then register once and send
-one supported Enterprise request. Require a normal or `INCONCLUSIVE` report, citation coverage
-100%, unauthorized actions zero, no captured message/user content, runtime log/trace presence, and
-local operator Terraform zero drift. Do not dispatch GitHub workflows or enable Sessions, Memory
-Bank, OAuth delegation, Agent Gateway, VPC, Model Armor, remediation, or dashboard work in M7.
+- The fixed unsupported-service probe returned the expected rejection with evidence/model calls
+  both zero.
+- The registered supported request finished with HTTP 200 and final Enterprise state `SUCCEEDED`.
+- Vertex metrics for the bounded execution window recorded exactly two successful global model
+  invocations.
+- Runtime logs were present and contained no detected prompt, email, bearer token, or exception
+  class. Cloud Trace entries were observable in the same bounded window.
+- The deployed code caps evidence access at six calls, requires complete logical citations, filters
+  unauthorized actions, and marks every retained recommendation as approval-required. These
+  contracts are covered by the full local Runtime and agent regression suite.
+- Enterprise registration and dev Terraform both finish no-op/zero drift. GitHub workflows remain
+  manual-only and `skipped-by-policy`.
+
+Do not enable Sessions, Memory Bank, OAuth delegation, Agent Gateway, VPC, Model Armor,
+remediation, or dashboard work as part of M7.

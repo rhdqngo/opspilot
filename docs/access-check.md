@@ -73,15 +73,11 @@ fixed target-permission count. Before Approval 2 apply, impersonation correctly 
 reviewed three-create dev plan it passes. Token Creator is attached only to the fixed investigator
 service account and no project-level impersonation grant exists.
 
-The M7 extension completed its Approval 1 read-only check with one existing global Enterprise app,
-zero Runtime and registration display-name conflicts, and the required operator permissions. The
-post-deploy investigator target remains the fixed eight-permission contract. Approval 2 must rerun
-the same gate before any apply without recording discovered app, runtime, agent, project, or
+The M7 gate confirmed one existing global Enterprise app, one unique Runtime, one enabled matching
+registration, zero display-name conflicts, and the fixed eight-permission investigator contract.
+The final registration plan is no-op. User-facing credential output remains identifier-free; local
+operator ADC supplied the accepted cloud path without storing account, Runtime, app, project, or
 service-account identifiers.
-
-The latest pre-Approval-2 attempt found the user credential and ADC expired. It made no cloud
-change and its candidate counts are not accepted as current evidence. Interactive reauthentication
-and a fresh redacted check are hard gates before reading remote state or planning an apply.
 
 ## Location decisions
 

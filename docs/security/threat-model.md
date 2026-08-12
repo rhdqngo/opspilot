@@ -1,6 +1,6 @@
 # OpsPilot MVP Threat Model
 
-Status: M6 complete; M7 runtime boundary implemented and deployment remains separate
+Status: M7 complete; managed Runtime and Enterprise boundary validated
 
 ## Protected assets and trust boundaries
 
@@ -31,15 +31,15 @@ approval cross those boundaries.
 | Threat | Control | Residual risk |
 | --- | --- | --- |
 | Natural-language scope expansion | Public callback accepts exactly payment-service and a recent 30-minute read-only investigation; all other input stops before cloud/model calls | Korean/English intent vocabulary is intentionally narrow for MVP |
-| User identity or prompt capture | Input is used only for deterministic scope selection; email/user ID is ignored; Runtime telemetry content capture is explicitly off | Approval 2 must verify hosted telemetry behavior |
+| User identity or prompt capture | Input is used only for deterministic scope selection; email/user ID is ignored; Runtime telemetry content capture is explicitly off; live log scan found no prompt/user identifier | Continue bounded scans during later evaluations |
 | Runtime credential broadening | Existing investigator SA, workload ADC, eight explicit permissions, no key; Runtime service agent gets leaf Token Creator only | Project-wide telemetry read remains bounded by synthetic-only project and server-side filters |
 | Package contamination | Deterministic file allowlist, pinned requirements, packaged catalog, ignored output, no archive artifact | Dependency supply-chain review remains CI/static rather than attestation-based |
-| Ambiguous Enterprise registration | One global app, one fixed-name runtime, one fixed-name registration; ambiguity hard-stops and apply is process-gated | Existing app administrator must still review the Approval 2 mutation |
-| Runtime acceptance leakage | One gated fixed rejection probe caps the response, discards raw payloads, and emits only counts and blocker codes | Supported Enterprise output still requires a post-run log scan |
+| Ambiguous Enterprise registration | One global app, one fixed-name runtime, one fixed-name registration; ambiguity hard-stops and apply is process-gated; final plan is no-op | Preserve uniqueness checks before any future update |
+| Runtime acceptance leakage | One gated fixed rejection probe caps the response and emits only counts; supported acceptance retained only aggregate status, model-call, log, and trace evidence | Do not persist raw Enterprise or Runtime responses |
 
 ## Deferred reviews
 
-Agent Runtime deployment and Gemini Enterprise registration remain deferred until reauthentication
-and an exact local operator plan. GitHub workflows are manual-only and skipped as MVP gates.
-Sessions, Memory Bank, OAuth user delegation, Agent Gateway, VPC, Model Armor, approval state, and
-remediation remain excluded. M7 Approval 1 grants no runtime identity and persists no session.
+Agent Runtime deployment and Gemini Enterprise registration are complete. GitHub workflows remain
+manual-only and skipped as MVP gates. Sessions, Memory Bank, OAuth user delegation, Agent Gateway,
+VPC, Model Armor, approval state, and remediation remain excluded and require separate post-MVP
+review. The accepted M7 path persists no product session and adds no execution tool.

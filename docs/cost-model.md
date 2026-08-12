@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 complete; M7 Runtime deployed, operation schema blocked
+Status: M7 complete; managed Runtime and Enterprise MVP path accepted
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -15,7 +15,7 @@ contains account and project identifiers.
 | Synthetic load | Manual, 100 orders and concurrency 10 hard maximum |
 | Data | Synthetic ecommerce only |
 | Remediation | Disabled |
-| Agent Runtime source default | Disabled; Approval 1 has no deployment or runtime call |
+| Agent Runtime source default | Disabled; managed environment uses min 0/max 1 and concurrency 3 |
 
 The Google Cloud budget is an alert, not a hard spending cap. Later workloads must use
 scale-to-zero, bounded log and metric queries, short retention, manual demo windows, and explicit
@@ -87,6 +87,18 @@ Future work must not add any cost-bearing resource without a separate plan and a
   one-create gate. The create succeeded and dev reached 36/37 with min instances zero and zero
   drift. Its operation schema is empty, so probe, evidence, model, registration, and Preview request
   counts remain zero. No follow-up update or destroy was performed.
+
+## M7 completion impact
+
+- The final Runtime-only schema update added no resource and changed no identity, IAM, API,
+  scaling, telemetry, or network setting. Dev remains at 36 managed resources and 37 addresses.
+- One fixed unsupported probe used zero evidence and model calls. Enterprise registration created
+  one logical app registration and has no separate always-on compute allocation.
+- Bounded acceptance used exactly two successful Standard PayGo model invocations. Diagnostic
+  requests that did not reach the Runtime generated no model call; a transient 429 was not retried
+  until cooldown and no quota or provisioned-throughput purchase was made.
+- The Runtime remains min instances zero, max one, 1 vCPU/1 GiB, so idle waiting does not create a
+  continuously allocated instance. The existing KRW 50,000 alert budget remains unchanged.
 
 ## M3 impact
 

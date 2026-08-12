@@ -116,7 +116,8 @@ uv run --extra agent opspilot agent runtime package --output .tmp/m7-runtime
 The probe is default-off and sends one fixed out-of-scope streaming request only when its process
 gate is enabled. The archive is deterministic and stays ignored under `.tmp`. The Runtime-only
 entrypoint is the official Agent Platform `AdkApp` and publishes only the Gemini Enterprise
-streaming operation. Runtime deployment and registration remain gated until the reviewed apply.
+streaming operation. M7 deployed that boundary, registered it in the existing Enterprise app, and
+accepted one fixed supported request without broadening the Runtime surface.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
@@ -142,9 +143,9 @@ The M1 bootstrap and dev foundation are applied, with separate state prefixes in
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
 remote state contains 36 managed resources after the M7 Runtime create. Its SDK dependency and
 official `AdkApp` pass isolated package validation, operation discovery, and local streaming
-rejection. Terraform now declares the single `streaming_agent_run_with_events` async-stream method
-and its required string input explicitly; the preserved live Runtime awaits the reviewed in-place
-update before probe and Enterprise registration. Local
+rejection. Terraform declares the single `streaming_agent_run_with_events` async-stream method and
+its required string input explicitly; the live Runtime schema, safe probe, Enterprise registration,
+supported request, telemetry, and zero-drift plan passed. Local
 operator plans are the MVP authority; GitHub workflows are retained as manual-only definitions
 and are not completion gates.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
@@ -159,14 +160,11 @@ custom role, its project binding, and one operator Token Creator binding scoped 
 investigator service account. One live SCN-001 collection passed through short-lived
 impersonation with no service-account key.
 
-M7 Terraform is also default-off. Its first separately reviewed Approval 2 plan was exactly five
-creates and one update. The three API addresses, leaf Runtime service-agent grant, and investigator
-role update succeeded. The SDK dependency correction then passed an isolated Python 3.12 import
-gate, and a fresh exact Runtime-only one-create apply reached operation discovery. It failed because
-the exported `LlmAgent` had no Runtime query methods. The final approved Runtime-only one-create
-succeeded with the verified `AdkApp` archive. Dev is now 36/37 and zero drift, but the provider did
-not infer `spec.class_methods`. The source now supplies that one declaration explicitly; registration
-and Preview remain unattempted until the exact Runtime-only in-place update passes.
+M7 Terraform is also default-off. Its approved foundation added only the required API state, leaf
+Runtime service-agent grant, investigator predict permission, and one Runtime. The dependency and
+raw-agent operation blockers were corrected with the pinned SDK and official `AdkApp`. The final
+operation declaration was an exact Runtime-only in-place update. Dev is now 36/37 and zero drift;
+the existing Enterprise app has one enabled, idempotent registration for that Runtime.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform

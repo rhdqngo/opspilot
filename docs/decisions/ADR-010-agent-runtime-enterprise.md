@@ -1,6 +1,6 @@
 # ADR-010: Fixed-scope Agent Runtime and Enterprise boundary
 
-Status: accepted for M7 Approval 1
+Status: accepted and validated for M7
 
 ## Decision
 
@@ -44,8 +44,10 @@ the Gemini Enterprise integration operation; session, memory, artifact, unary-qu
 operations remain outside the MVP surface. The wrapper passed isolated operation discovery and
 streaming rejection tests without changing the graph or deterministic input callback.
 
-Terraform source deployments do not infer the API `classMethods` declaration from that object. The
-final Runtime create succeeded but returned an empty operation schema, so Enterprise integration is
-fail-closed. Approval 5 adds exactly one explicit `spec.class_methods` declaration matching the
-already implemented streaming method and its required string request. It adds no second operation
-or product capability and must reach the live schema before Enterprise registration is attempted.
+Terraform source deployments do not infer the API `classMethods` declaration from that object.
+M7 therefore declares exactly one `spec.class_methods` entry matching the implemented streaming
+method and its required string request. The exact in-place update reached the live schema without
+changing source, identity, IAM, scaling, telemetry, or region. The fixed rejection probe passed,
+the unique Enterprise registration is enabled and idempotent, and the supported Enterprise stream
+finished successfully with the expected two bounded model calls. No second operation or product
+capability was added.

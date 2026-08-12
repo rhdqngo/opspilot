@@ -80,7 +80,7 @@ Remove-Item Env:OPSPILOT_LIVE_MODEL_ENABLED
 All suites have a 200-second aggregate deadline. Keep the gate process-scoped and remove it in a
 `finally` path. Do not store raw model requests or responses. Approval 9 authorizes one
 `m6-rca` execution and, only after it passes, one `m6-safety` execution with no retry. Agent Runtime
-deployment and Gemini Enterprise registration remain later work.
+deployment and Gemini Enterprise registration were completed separately in M7.
 
 Each case result records only safe acceptance facts: report status, root-cause code, citation
 coverage, hypothesis and recommendation counts, unauthorized-action count, approval-flag result,
@@ -138,7 +138,8 @@ diagnostic, and both Terraform zero-drift gates. Its single authorized RCA rerun
 request but produced no successful response before the 20-second node timeout. The result retained
 only `AGENT_TIMEOUT`, category `timeout`, and `retryable=false`; prompt, output, and total token counts
 were all zero. The live gate was removed and no composer request, retry, safety run, taxonomy change,
-or M7 action followed. The status remains `M6-model-deployed / live-acceptance-blocked`.
+or M7 action followed. That historical checkpoint remained
+`M6-model-deployed / live-acceptance-blocked` until the later bounded acceptances passed.
 
 Approval 6 implemented and validated the safe timeout phase contract without a Vertex, Search, or
 live-evidence request. The 20-second node, 60-second graph, and 200-second acceptance limits remain
