@@ -379,10 +379,7 @@ async def test_M5_collector_converts_source_timeout_to_partial(
 
 
 @pytest.mark.asyncio
-async def test_M5_fixture_smoke_is_identifier_free_and_live_gate_defaults_off(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("OPSPILOT_LIVE_EVIDENCE_ENABLED", raising=False)
+async def test_fixture_smoke_is_identifier_free_and_live_bypass_is_not_public() -> None:
     result = await run_evidence_smoke(
         backend=EvidenceBackend.FIXTURE,
         scenario_id="SCN-001",
@@ -396,7 +393,7 @@ async def test_M5_fixture_smoke_is_identifier_free_and_live_gate_defaults_off(
     assert "EV-LOG-0001" in summary
     assert "fixture-token-12345678" not in json.dumps(result.model_dump(mode="json"))
 
-    with pytest.raises(RuntimeError, match="gate is disabled"):
+    with pytest.raises(ValueError, match="fixture-only"):
         await run_evidence_smoke(
             backend=EvidenceBackend.LIVE,
             scenario_id="SCN-001",

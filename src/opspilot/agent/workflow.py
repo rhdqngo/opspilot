@@ -415,15 +415,6 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
     ]
     identified = bool(hypotheses)
     top_code = verified[0].root_cause_code if verified else "INSUFFICIENT_EVIDENCE"
-    resolutions = _state_root_cause_resolutions(ctx)
-    top_resolution = (
-        resolutions[0]
-        if verified and resolutions
-        else RootCauseResolution(
-            model_root_cause_code=top_code,
-            canonical_root_cause_code=top_code,
-        )
-    )
     return IncidentReport(
         report_id=f"RPT-{context.scenario_id}-ADK-001",
         report_version=1,
@@ -456,9 +447,6 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
             "citation_coverage": 1.0,
             "unauthorized_action_count": 0,
             "root_cause_code": top_code,
-            "model_root_cause_code": top_resolution.model_root_cause_code,
-            "canonical_root_cause_code": top_resolution.canonical_root_cause_code,
-            "root_cause_normalized": top_resolution.root_cause_normalized,
         },
     )
 
@@ -528,18 +516,12 @@ def create_root_agent(
     model_id: str | None = None,
     use_fake_model: bool = False,
     request_observer: Callable[[str, int], None] | None = None,
-    model_response_observer: Callable[[str], None] | None = None,
 ) -> Workflow:
     """Build the deployment-compatible deterministic ADK graph."""
 
     configured_model = model_id or os.environ.get("OPSPILOT_MODEL_ID", DEFAULT_MODEL_ID)
 
-    def callbacks_for(
-        node_name: str,
-    ) -> tuple[
-        Callable[[Context, LlmRequest], LlmResponse | None],
-        Callable[[Context, LlmResponse], LlmResponse | None],
-    ]:
+    def callback_for(node_name: str) -> Callable[[Context, LlmRequest], LlmResponse | None]:
         def validate_and_observe(
             callback_context: Context, llm_request: LlmRequest
         ) -> LlmResponse | None:
@@ -549,18 +531,7 @@ def create_root_agent(
                 request_observer(node_name, size)
             return None
 
-        def observe_model_response(
-            callback_context: Context, llm_response: LlmResponse
-        ) -> LlmResponse | None:
-            del callback_context, llm_response
-            if model_response_observer is not None:
-                model_response_observer(node_name)
-            return None
-
-        return validate_and_observe, observe_model_response
-
-    rca_before_model, rca_after_model = callbacks_for("rca_analyst")
-    composer_before_model, composer_after_model = callbacks_for("report_composer")
+        return validate_and_observe
 
     rca_agent = Agent(
         name="rca_analyst",
@@ -574,8 +545,7 @@ def create_root_agent(
         mode="single_turn",
         timeout=MODEL_NODE_TIMEOUT_SECONDS,
         generate_content_config=_generation_config(0.0),
-        before_model_callback=rca_before_model,
-        after_model_callback=rca_after_model,
+        before_model_callback=callback_for("rca_analyst"),
     )
     composer_agent = Agent(
         name="report_composer",
@@ -589,8 +559,7 @@ def create_root_agent(
         mode="single_turn",
         timeout=MODEL_NODE_TIMEOUT_SECONDS,
         generate_content_config=_generation_config(0.1),
-        before_model_callback=composer_before_model,
-        after_model_callback=composer_after_model,
+        before_model_callback=callback_for("report_composer"),
     )
     return Workflow(
         name="opspilot_incident_commander",

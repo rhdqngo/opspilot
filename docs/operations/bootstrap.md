@@ -50,7 +50,8 @@ correction succeeded and uploaded one redacted `No changes` text artifact withou
 
 ## Safety invariants
 
-- Use only the current gcloud default project verified by `opspilot access-check`.
+- Use only the operator-confirmed current gcloud default project. Do not pass a project ID through
+  product CLI commands or store it in versioned files.
 - Never commit `backend.hcl`, `*.tfvars`, state, plan binaries, account IDs, or project IDs.
 - Review bootstrap and dev plans separately.
 - Bootstrap apply and dev apply require separate approvals.

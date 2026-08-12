@@ -1,146 +1,39 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M7 applied; Runtime and Enterprise MVP path accepted
-Data classification: synthetic only
+Status: deployed MVP boundary; no IAM change in the lean cut
 
-| Principal | Scope | Allowed in M1 | Explicitly excluded |
-| --- | --- | --- | --- |
-| Developer / `Edu_687` operator | Current dev project and the investigator SA | Local read checks, completed M1-M4 applies, bounded private invocation, and Approval 2 leaf-SA impersonation after apply | Project-wide impersonation, destroy, repeated Search smoke, unapproved import, billing model changes, unreviewed IAM broadening |
-| GitHub CI plan identity | Dev project and state bucket | M1 reads, Cloud Run get/list/getIamPolicy, applied Search data store/schema/engine get/list, service usage consumption, state object read | Search/import, API enable/disable, IAM write, Artifact Registry write, Cloud Run update, budget/state write |
-| Investigator identity | Dev project | Seven-permission M5 read role; one accepted bounded live collection; no user-managed key | Private logs, every Logging/Monitoring/Run/Search write, IAM, Secret, invoke, remediation operation |
-| Agent Runtime service agent | Existing investigator SA only | Approval 1 source defines one future leaf Token Creator grant | Project-wide token creation, project role, key, runtime query outside Approval 2 |
-| Order runtime identity | Payment and inventory services | `roles/run.invoker` on the two leaf services only | Project roles, keys, secrets, IAM, remediation, arbitrary Cloud Run invocation |
-| Payment / inventory runtime identities | Their own Cloud Run revisions | No IAM role or user-managed key | Cross-service invocation, project roles, secrets, IAM, remediation writes |
-| Remediation identity | Not created | None | All execution permissions until M8 |
+| Principal | Allowed purpose | Explicitly excluded |
+| --- | --- | --- |
+| Local operator | Reviewed Terraform apply, bounded manual validation | Automatic remediation, broad runtime role |
+| Terraform plan identity | Remote-state read and resource get/list needed for manual plans | Apply, API enable/disable, IAM write, import, model query |
+| Investigator/Runtime SA | Read bounded Logging/Monitoring/Run/Search evidence; invoke the fixed Vertex model | Keys, IAM write, Cloud Run update/invoke, Search import/write, Storage object read, remediation |
+| Order runtime SA | Invoke payment and inventory Cloud Run services | Project-wide role, key, other service invocation |
+| Payment/inventory runtime SAs | Run their private services | Project role, key, downstream invocation |
+| Reasoning Engine service agent | Mint short-lived credentials for the investigator SA only | Project-wide Token Creator grant |
 
-## CI plan custom role
+## Investigator custom role
 
-The project custom role is limited to the following permissions:
-
-- `artifactregistry.repositories.get`
-- `artifactregistry.repositories.list`
-- `aiplatform.reasoningEngines.get`
-- `aiplatform.reasoningEngines.list`
-- `billing.resourcebudgets.read`
-- `discoveryengine.dataStores.get`
-- `discoveryengine.dataStores.list`
-- `discoveryengine.engines.get`
-- `discoveryengine.engines.list`
-- `discoveryengine.schemas.get`
-- `discoveryengine.schemas.list`
-- `iam.serviceAccounts.get`
-- `iam.serviceAccounts.getIamPolicy`
-- `iam.serviceAccounts.list`
-- `iam.roles.get`
-- `monitoring.notificationChannels.get`
-- `monitoring.notificationChannels.list`
-- `resourcemanager.projects.get`
-- `resourcemanager.projects.getIamPolicy`
-- `run.services.get`
-- `run.services.getIamPolicy`
-- `run.services.list`
-- `serviceusage.services.get`
-- `serviceusage.services.list`
-- `serviceusage.services.use`
-- `storage.buckets.get`
-
-The state bucket grants `roles/storage.objectViewer` separately. Dev remote-state plans run with
-`-lock=false`; the CI identity has no state object write permissions. The single
-`serviceusage.services.use` permission lets the identity consume quota for already enabled read
-APIs; it does not grant API enable or disable permission.
-
-GitHub admission uses immutable numeric owner and repository IDs. It does not trust a reusable
-repository name, owner name, actor name, branch name, or fork-provided secret.
-
-## Apply boundary
-
-The repository defines resources but grants no automated apply identity. Approval 2 applied the
-reviewed custom-role update separately from the exact dev 10-create plan. Service-account keys,
-`allUsers`, broad project roles, and automated apply remain prohibited. Safe-path recovery changed
-only the three service images and probes; runtime keys, project runtime roles, and public principals
-remain zero. The manual hosted plan gate is enabled with the unchanged read-only identity.
-
-## M3 scenario boundary
-
-M3 added no principal, role, IAM binding, service, or job. Approval 2 reused the existing developer
-ID-token path for exactly three bounded live runs and updated only the existing Cloud Run
-revisions. Runtime user-managed keys, runtime project roles, public principals, and unexpected leaf
-invokers remain zero. The order runtime identity retains only its two leaf `roles/run.invoker`
-grants. Scenario context is strict request-scoped synthetic data; it neither authorizes a request
-nor grants access, and Cloud Run IAM continues to enforce invocation.
-
-## M4 knowledge boundary
-
-The operator's redacted permission check covers bucket/object operations, Search data store/schema/
-engine management, document import, operation status, and bounded search. The dedicated bucket,
-data store, schema, and engine are now Terraform-owned; they are not candidate conflicts.
-
-Terraform manages only four knowledge resources and no IAM binding. The existing investigator
-identity remains unprivileged, and document import/search never runs in hosted Terraform. One
-operator FULL import, one fixed probe, and one ten-query acceptance batch succeeded. The hosted
-plan identity has the six Search get/list permissions plus the minimum service-usage consumption
-permission required by Google APIs. The corrected manual plan returned zero drift. Existing Search
-assets are not attached, imported, renamed, or modified.
-
-## M5 live evidence boundary
-
-The applied investigator custom role contains exactly:
-
-- `discoveryengine.servingConfigs.search`
 - `logging.logEntries.list`
 - `monitoring.timeSeries.list`
-- `resourcemanager.projects.get`
-- `run.revisions.list`
 - `run.services.get`
+- `run.revisions.list`
+- `discoveryengine.servingConfigs.search`
+- `aiplatform.endpoints.predict`
 - `serviceusage.services.use`
+- `resourcemanager.projects.get`
 
-The project binding and operator leaf-SA binding are gated by `enable_live_evidence=false` in
-source and explicitly enabled in the approved live environment.
-Private-log access, invoke, update, IAM, import, Storage read, key creation, and every telemetry or
-Search write permission remain excluded from the investigator. The operator receives
-`roles/iam.serviceAccountTokenCreator` only on the investigator service account so the live adapter
-can use a short-lived OAuth token without a key. The hosted plan role adds only `iam.roles.get`,
-`resourcemanager.projects.getIamPolicy`, and `iam.serviceAccounts.getIamPolicy` to refresh the three
-Terraform IAM resources.
+The application further restricts these project-level reads with fixed service, region, time,
+metric, and filter builders. The caller cannot pass a project ID, URL, token, resource name, raw
+Logging/Monitoring filter, or serving config.
 
-Approval 2 applied an exact bootstrap custom-role one-update followed by an exact dev three-create
-plan. Dev state contains 31 managed resources and 32 total addresses. The operator minted one
-short-lived investigator token path for acceptance; no key, broad predefined project role, public
-principal, runtime project role, or extra leaf invoker was created. Operator and hosted plans are
-zero drift.
+## Runtime and workload boundary
 
-## M6 agent boundary
+- Three Cloud Run services remain private; only the order identity has the two leaf invoker grants.
+- The managed Runtime reuses the investigator SA and publishes one async-stream operation.
+- No public principal, service-account key, broad predefined runtime role, OAuth delegation,
+  session/memory permission, VPC permission, or remediation principal exists.
+- Existing Enterprise registration is managed through the official console; registration mutation
+  code is not part of the product.
 
-M6 Approval 1 changes no principal, role, binding, API, workload, or Terraform resource. The ADK
-graph consumes only the already-normalized `EvidenceCollectionResult`; model nodes receive no
-Google Cloud client, token provider, tool, project identifier, URL, filter, or runtime identity.
-The fake model is the only enabled CI path. A later Vertex evaluation may reuse operator ADC only
-behind a process-scoped gate and separate approval; it does not expand investigator IAM.
-
-## M7 runtime boundary
-
-Approval 1 applies nothing. Source defaults keep Runtime resources and IAM disabled. A separately
-approved deployment would add only `aiplatform.endpoints.predict` to the existing investigator
-custom role and grant the Vertex Reasoning Engine service agent
-`roles/iam.serviceAccountTokenCreator` on that investigator service account alone. The Runtime
-reuses the same identity and receives no key, broad predefined role, invoke permission, IAM write,
-Storage read, Secret access, or remediation capability.
-
-M7 does not change or apply the hosted plan identity while GitHub workflows are skipped for the
-MVP. The operator M7 check covers Runtime create/update/get/list/query, operation read,
-investigator actAs and leaf IAM, plus Enterprise agent create/get/list/update. Results contain
-booleans, missing permission names, and collision counts only.
-
-The first M7 apply persisted only the approved API state, investigator-role predict permission,
-and Reasoning Engine service-agent Token Creator leaf grant. The SDK dependency was subsequently
-fixed without another IAM change. The exact Runtime-only retry failed operation discovery because
-the raw ADK agent exposes no Runtime query method. The official `AdkApp` wrapper now exposes only
-the Enterprise async-stream operation and needs no additional permission. The grant is preserved,
-and no registration, public principal, key, broad project role, or hosted-reader expansion was
-created.
-
-The final Runtime create required no IAM change and succeeded. The subsequent exact in-place update
-declared one async-stream class method and changed no IAM. The out-of-scope probe used zero evidence
-and model calls, and the unique Enterprise registration is enabled for the same Runtime. No public
-principal, user-managed key, broad predefined role, OAuth grant, hosted-reader expansion, or second
-Runtime operation was added.
+The MVP lean cut changes source packaging and pre-release interfaces only. IAM bindings, roles,
+service accounts, APIs, WIF resources, and Enterprise registration remain unchanged.

@@ -79,14 +79,14 @@ authorization headers, account identifiers, or tokens.
 - The current Cloud Run inventory contains only the three managed M2 candidates. An earlier note
   about one non-candidate service was based on an incorrect local JSON-array count and is retired.
 
-Run the repeatable redacted diagnostic without supplying a project identifier:
+Inspect a service directly when operational troubleshooting is required:
 
 ```powershell
-uv run opspilot route-check --account-alias Edu_687 --format summary
+gcloud run services describe SERVICE --region=asia-northeast3 --format="value(status.conditions)"
 ```
 
-The updated diagnostic calls `/health`. See `cloud-run-mvp-recovery.md` for the new-image rollout
-and acceptance sequence.
+Authenticated acceptance uses `/health` and `/ready`; the retired `z`-suffix paths are not demo
+service contracts.
 
 ## M3 completion
 

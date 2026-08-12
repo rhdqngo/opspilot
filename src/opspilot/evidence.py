@@ -5,10 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import os
 import re
-import shutil
-import subprocess
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
@@ -21,7 +18,7 @@ from urllib.request import Request, urlopen
 
 from pydantic import BaseModel, Field, model_validator
 
-from opspilot.catalog import ServiceCatalog, load_service_catalog
+from opspilot.catalog import ServiceCatalog
 from opspilot.domain import (
     EvidenceDirection,
     EvidenceItem,
@@ -31,8 +28,7 @@ from opspilot.domain import (
     ToolMeta,
     ToolResult,
 )
-from opspilot.fixtures import load_scenario_fixture
-from opspilot.knowledge import (
+from opspilot.knowledge_search import (
     KnowledgeHit,
     SearchKnowledgeInput,
     build_agent_search_request,
@@ -513,42 +509,6 @@ def _http_failure(status: int) -> LiveEvidenceFailure:
     )
 
 
-class GcloudImpersonationTokenProvider:
-    def __init__(self, project_id: str, environment: str) -> None:
-        self._project_id = project_id
-        self._environment = environment
-
-    async def get_token(self) -> str:
-        executable = shutil.which("gcloud.cmd") or shutil.which("gcloud") or "gcloud"
-        service_account = (
-            f"opspilot-{self._environment}-agent@{self._project_id}.iam.gserviceaccount.com"
-        )
-        try:
-            completed = await asyncio.to_thread(
-                subprocess.run,
-                [
-                    executable,
-                    "auth",
-                    "print-access-token",
-                    f"--impersonate-service-account={service_account}",
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            completed = None
-        if completed is None or completed.returncode != 0 or not completed.stdout.strip():
-            raise LiveEvidenceFailure(
-                "EVIDENCE_IMPERSONATION_FAILED",
-                ToolErrorCategory.AUTH,
-                retryable=False,
-                safe_message="The investigator identity could not be impersonated.",
-            )
-        return completed.stdout.strip()
-
-
 class WorkloadAdcTokenProvider:
     """Mint a short-lived access token from the runtime workload ADC."""
 
@@ -587,6 +547,8 @@ class FixtureEvidenceClient:
         *,
         fail_sources: frozenset[SourceType] = frozenset(),
     ) -> None:
+        from opspilot.fixtures import load_scenario_fixture
+
         self._fixture = load_scenario_fixture(scenario_id)
         self._fail_sources = fail_sources
 
@@ -1359,21 +1321,6 @@ async def collect_evidence(
     )
 
 
-def _gcloud_value(arguments: Sequence[str]) -> str:
-    executable = shutil.which("gcloud.cmd") or shutil.which("gcloud") or "gcloud"
-    try:
-        completed = subprocess.run(
-            [executable, *arguments],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
-    return completed.stdout.strip() if completed.returncode == 0 else ""
-
-
 async def run_evidence_smoke(
     *,
     backend: EvidenceBackend,
@@ -1383,33 +1330,18 @@ async def run_evidence_smoke(
 ) -> EvidenceCollectionResult:
     if environment != "dev":
         raise ValueError("evidence environment must be dev")
+    if backend != EvidenceBackend.FIXTURE:
+        raise ValueError("public evidence smoke is fixture-only")
     end_time = now or datetime.now(UTC)
-    scenario_run_id = os.environ.get("OPSPILOT_SCENARIO_RUN_ID")
     request = EvidenceCollectionRequest(
         scenario_id=scenario_id,
         environment="dev",
         start_time=end_time - timedelta(minutes=30),
         end_time=end_time,
         services=["payment-service"],
-        scenario_run_id=scenario_run_id,
+        scenario_run_id=None,
     )
-    if backend == EvidenceBackend.FIXTURE:
-        return await collect_evidence(FixtureEvidenceClient(scenario_id), request)
-    if os.environ.get("OPSPILOT_LIVE_EVIDENCE_ENABLED") != "true":
-        raise RuntimeError("live evidence gate is disabled")
-    if not scenario_run_id:
-        raise RuntimeError("live evidence requires process-scoped scenario correlation")
-    project_id = _gcloud_value(("config", "get-value", "project"))
-    if not project_id:
-        raise RuntimeError("default Google Cloud project is unavailable")
-    catalog = load_service_catalog()
-    client = LiveEvidenceClient(
-        project_id,
-        catalog=catalog,
-        token_provider=GcloudImpersonationTokenProvider(project_id, environment),
-        transport=UrllibJsonTransport(),
-    )
-    return await collect_evidence(client, request)
+    return await collect_evidence(FixtureEvidenceClient(scenario_id), request)
 
 
 def render_evidence_summary(result: EvidenceCollectionResult) -> str:

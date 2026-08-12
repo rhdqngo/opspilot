@@ -1,53 +1,30 @@
-# ADR-010: Fixed-scope Agent Runtime and Enterprise boundary
+# ADR-010: Minimal managed Runtime and Enterprise connection
 
-Status: accepted and validated for M7
+Status: implemented
 
 ## Decision
 
-Deploy the existing OpsPilot graph through a separate ADK discovery entrypoint. A public async
-`before_agent_callback` deterministically validates natural-language input and always returns the
-final response, so no upper routing model is called. Only `payment-service` and the recent
-30-minute read-only investigation are in the MVP contract.
+Deploy one `vertexai.agent_engines.AdkApp` in `asia-northeast3`, reusing the read-only investigator
+service account. It exposes only `streaming_agent_run_with_events` and is registered with the
+existing global Gemini Enterprise app.
 
-Use workload ADC with the existing investigator service account. Add only Vertex prediction to its
-existing read role. The Vertex Reasoning Engine service agent receives Token Creator on that one
-service account, not at project scope. Runtime packaging is deterministic, source-inline,
-identifier-free, and generated only in ignored storage.
+The deterministic entry adapter accepts only `payment-service` over the recent 30-minute window.
+Unsupported requests stop before evidence or model calls. Runtime output is an `IncidentReport` or
+one fixed safe error message.
 
-Register into one existing global Gemini Enterprise app only after a separate deployment approval.
-Registration uses one fixed display name, is plan-first and idempotent, and stops on app, runtime,
-or display-name ambiguity.
+## Packaging
 
-During the MVP, GitHub workflows remain available only through `workflow_dispatch` and are not
-acceptance gates. Local operator validation and zero-drift plans are authoritative. The existing
-WIF infrastructure is preserved, but M7 adds no hosted-reader permission and performs no bootstrap
-apply.
+The Runtime archive is built from an explicit production allowlist. It contains only the entrypoint,
+fixed input handling, live evidence/Search contracts, graph/model code, domain models, catalog, and
+redaction/reporting support. CLI, API/demo, fixtures, corpus sync, tests, docs, Terraform,
+registration, probes, and milestone acceptance code are excluded.
 
 ## Consequences
 
-- Existing M6 local discovery, fixture, evaluation, prompts, graph, and report contracts remain
-  unchanged.
-- Out-of-scope input incurs zero evidence and model calls.
-- Approval 1 changes no cloud resource, IAM policy, repository variable, or Enterprise app.
-- A fixed gated rejection probe validates the deployed boundary without accepting arbitrary input
-  or exposing provider response data.
-- Sessions, Memory Bank, OAuth user delegation, Agent Gateway, VPC, Model Armor, alert intake,
-  remediation, dashboards, and multi-project operation remain post-MVP.
-
-## Deployment checkpoint
-
-The source package now includes the pinned Agent Platform SDK and passes isolated Python 3.12
-imports. A managed Runtime still cannot expose the raw ADK `LlmAgent` directly: operation discovery
-requires a supported query-capable wrapper. The Runtime-only entrypoint therefore uses the official
-`AdkApp` wrapper and publishes only `streaming_agent_run_with_events` in async-stream mode. This is
-the Gemini Enterprise integration operation; session, memory, artifact, unary-query, and bidi
-operations remain outside the MVP surface. The wrapper passed isolated operation discovery and
-streaming rejection tests without changing the graph or deterministic input callback.
-
-Terraform source deployments do not infer the API `classMethods` declaration from that object.
-M7 therefore declares exactly one `spec.class_methods` entry matching the implemented streaming
-method and its required string request. The exact in-place update reached the live schema without
-changing source, identity, IAM, scaling, telemetry, or region. The fixed rejection probe passed,
-the unique Enterprise registration is enabled and idempotent, and the supported Enterprise stream
-finished successfully with the expected two bounded model calls. No second operation or product
-capability was added.
+- Runtime scales from zero to one with message-content capture disabled.
+- Sessions, Memory Bank, OAuth delegation, Agent Gateway, VPC, Model Armor, remediation, and extra
+  operations are not part of the MVP.
+- Registration is an operator console procedure, not product code.
+- GitHub workflows are manual-only; local validation and operator plans are authoritative.
+- A Google-internal Preview mint expiry is treated as an external authentication-bridge blocker,
+  not a reason to broaden IAM or Runtime scope.

@@ -106,9 +106,10 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "docker build --platform linux/amd64" in pull_request_checks
     assert "docker compose up -d --no-build" in pull_request_checks
     assert "opspilot knowledge validate" in pull_request_checks
-    assert "opspilot knowledge smoke --backend local" in pull_request_checks
-    assert "opspilot agent runtime validate" in pull_request_checks
-    assert "opspilot agent runtime smoke --backend fixture" in pull_request_checks
+    assert "opspilot knowledge smoke --format summary" in pull_request_checks
+    assert "opspilot agent runtime package" in pull_request_checks
+    assert "opspilot agent runtime validate" not in pull_request_checks
+    assert "opspilot agent runtime smoke" not in pull_request_checks
     assert "opspilot agent runtime package" in pull_request_checks
     bootstrap_source = (TERRAFORM_ROOT / "bootstrap" / "main.tf").read_text(encoding="utf-8")
     assert "aiplatform.reasoningEngines.get" not in bootstrap_source
