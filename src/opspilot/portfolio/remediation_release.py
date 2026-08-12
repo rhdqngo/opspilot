@@ -67,6 +67,10 @@ def _run_process(
     return ProcessResult(completed.returncode, completed.stdout)
 
 
+def _gcloud_executable() -> str:
+    return shutil.which("gcloud.cmd") or shutil.which("gcloud") or "gcloud"
+
+
 def _bounded_output(root: Path, output: Path) -> Path:
     resolved_root = root.resolve()
     allowed = (resolved_root / ".tmp").resolve()
@@ -169,7 +173,10 @@ class GoogleM8PhaseProbe:
         return value
 
     def _process(self, command: Sequence[str]) -> ProcessResult:
-        return self.process_runner(command, self.root, self.environment)
+        resolved = list(command)
+        if resolved and resolved[0] == "gcloud":
+            resolved[0] = _gcloud_executable()
+        return self.process_runner(resolved, self.root, self.environment)
 
     def _json_process(self, command: Sequence[str]) -> dict[str, object]:
         result = self._process(command)
@@ -601,6 +608,7 @@ class RemediationReleaseRunner:
 
     def preflight(self) -> tuple[int, dict[str, object]]:
         self.output.mkdir(parents=True, exist_ok=True)
+        gcloud = _gcloud_executable()
         commands = {
             "git_diff_check": ("git", "diff", "--check"),
             "local_release_gate": (
@@ -637,7 +645,7 @@ class RemediationReleaseRunner:
                 "--mode",
                 "plan",
                 "--auth",
-                "gcloud",
+                gcloud,
             ),
             "reset_plan": (
                 "uv",
@@ -676,7 +684,7 @@ class RemediationReleaseRunner:
                 "--filter=status:ACTIVE",
                 "--format=value(account)",
             ),
-            "gcloud_project": ("gcloud", "config", "get-value", "project"),
+            "gcloud_project": (gcloud, "config", "get-value", "project"),
             "docker_daemon": ("docker", "info", "--format={{.ServerVersion}}"),
         }
         checks: dict[str, bool] = {}
