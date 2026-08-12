@@ -1,6 +1,6 @@
 # M7 Agent Runtime Runbook
 
-Status: Runtime startup blocked; required Agent Platform SDK missing from source archive
+Status: Runtime package fixed and locally validated; corrective one-create plan pending
 
 ## MVP contract
 
@@ -30,9 +30,11 @@ environment files, tests, docs, scenario data, Terraform, and temporary state. D
 archive as a CI artifact.
 
 The first Approval 2 deployment proved that determinism and file allowlisting alone are
-insufficient: the archive must also contain the pinned
-`google-cloud-aiplatform[agent_engines,adk]` dependency required by the source-based ADK Runtime.
-The current archive does not contain it and must not be redeployed unchanged.
+insufficient. Approval 3 therefore pins `google-cloud-aiplatform[agent-engines]==1.153.1`
+alongside `google-adk==2.5.0`. It intentionally does not use the SDK's `adk` extra because that
+extra targets ADK 1.x. Two generated archives matched byte-for-byte, and a clean Python 3.12
+environment installed their requirements and imported the SDK, Agent Engines module, and Runtime
+entrypoint without a cloud call.
 
 The probe is live and remains disabled unless `OPSPILOT_RUNTIME_PROBE_ENABLED=true` is set for one
 process. It discovers only the fixed Runtime and sends one fixed unsupported-service request. Its
@@ -49,9 +51,9 @@ capture no prompt, response, or user identity content in telemetry.
 That exact plan was applied once. The three API addresses, leaf service-agent grant, and
 investigator-role update succeeded, while Runtime startup failed with a redacted
 `ModuleNotFoundError` for `google.cloud.aiplatform`. Dev state is therefore `35 managed / 36
-addresses`, with no Runtime in state or live inventory. Do not repeat the apply, run the probe, or
-register with Enterprise until a separately approved archive dependency fix is validated and a
-fresh plan contains only the missing Runtime create.
+addresses`, with no Runtime in state or live inventory. The dependency fix is now validated, but
+do not run the probe or register with Enterprise until a fresh plan contains only the missing
+Runtime create and that exact plan succeeds.
 
 Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander`.
 Planning is read-only. Apply additionally requires the process-scoped

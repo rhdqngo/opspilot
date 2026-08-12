@@ -525,6 +525,7 @@ def _runtime_files() -> list[tuple[str, bytes]]:
         (
             "google-adk==2.5.0",
             "google-auth==2.56.3",
+            "google-cloud-aiplatform[agent-engines]==1.153.1",
             "pydantic==2.13.4",
             "pyyaml==6.0.3",
             "",

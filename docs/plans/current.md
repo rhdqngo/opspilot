@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-runtime-deploy-blocked / package-dependency-fix-required
+phase: M7-runtime-package-fixed / runtime-create-ready
 updated: 2026-08-12
 
 ## Objective
@@ -53,13 +53,13 @@ updated: 2026-08-12
 - The single approved apply recorded the three API addresses, leaf IAM member, and investigator
   role update, then the Runtime failed its first startup. Dev now has `35 managed / 36 addresses`;
   no Reasoning Engine remains in Terraform state or live Runtime inventory.
-- Redacted Runtime logs identify `ModuleNotFoundError: No module named 'google.cloud.aiplatform'`.
-  The deterministic archive omitted the officially required
-  `google-cloud-aiplatform[agent_engines,adk]` runtime dependency. No second apply, Runtime probe,
-  Enterprise registration, or Enterprise investigation was attempted.
-- Adding that production runtime dependency and performing one corrective Runtime create require
-  a separate approval. Existing partial API/IAM state and the failed-run recovery files are
-  preserved until that decision.
+- Redacted Runtime logs identified `ModuleNotFoundError: No module named 'google.cloud.aiplatform'`.
+  Approval 3 pins `google-cloud-aiplatform[agent-engines]==1.153.1` alongside the existing ADK 2.5
+  requirement without using the incompatible ADK 1.x extra.
+- Two deterministic archives produced the same hash. A clean Python 3.12 environment installed
+  the packaged requirements and imported `google.cloud.aiplatform`, `vertexai.agent_engines`, and
+  the Runtime entrypoint with zero cloud calls. Existing partial API/IAM state and the failed-run
+  recovery files remain preserved until the reviewed one-create plan succeeds.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -427,7 +427,7 @@ updated: 2026-08-12
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | M7 runtime adapter | pass | Fixed payment/30-minute intent; unsupported service/window/action stops with zero cloud/model calls |
 | M7 fixture runtime smoke | pass | Existing seven-node graph; exactly two fake model calls; citation coverage 100% |
-| M7 runtime package | blocked | Deterministic tar.gz/SHA and allowlist passed, but live startup proved the pinned requirements omitted the required Agent Platform SDK |
+| M7 runtime package | pass | Pinned Agent Platform SDK; deterministic hash and isolated Python 3.12 SDK/Agent Engines/entrypoint imports passed with zero cloud calls |
 | M7 Terraform static | pass | Default-off existing graph; enabled mock graph adds five addresses and one role update only |
 | M7 hosted static CI | skipped-by-policy | All three workflows are manual-only; no hosted job or M7 repository gate is required for the MVP |
 | M7 local operator gate | pass | Full Python/fixture/package regression, Linux/amd64 non-root Compose 10/10 and SCN-001, TFLint, bootstrap/dev validate and mock plans |
@@ -444,9 +444,6 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Separately approve adding a pinned `google-cloud-aiplatform[agent_engines,adk]` production
-  requirement to the deterministic Runtime archive. Validate the archive imports
-  `google.cloud.aiplatform` before any new cloud plan.
 - Reconfirm bootstrap zero drift and dev `35 managed / 36 addresses`, then review a fresh plan that
   creates only the missing Runtime. Do not repeat the already persisted API or IAM changes.
 - After a successful one-create apply, run one unsupported request first and require zero

@@ -152,6 +152,7 @@ def test_M7_runtime_package_is_deterministic_and_allowlisted() -> None:
     assert "opspilot/agent/runtime_agent.py" in names
     assert "opspilot/resources/services.yaml" in names
     assert "google-adk==2.5.0" in requirement_text
+    assert "google-cloud-aiplatform[agent-engines]==1.153.1" in requirement_text
     assert all(not name.startswith(("tests/", "docs/", "infra/", ".git", ".env")) for name in names)
     assert all(not name.startswith("scenarios/") for name in names)
     assert first_path.read_bytes() == second_path.read_bytes()
