@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 complete; M7 Runtime operation contract ready after partial API/IAM apply
+Status: M6 complete; M7 Runtime deployed, operation schema blocked
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -84,8 +84,9 @@ Future work must not add any cost-bearing resource without a separate plan and a
   request, evidence call, or model call exists, so this attempt adds no ongoing Runtime instance
   cost.
 - The final deployment uses the verified official `AdkApp` wrapper and exact Runtime-only
-  one-create gate. It introduces no new dependency, IAM, API, data, or optional feature. Before a
-  successful create, paid Runtime, evidence, model, and Preview request counts remain zero.
+  one-create gate. The create succeeded and dev reached 36/37 with min instances zero and zero
+  drift. Its operation schema is empty, so probe, evidence, model, registration, and Preview request
+  counts remain zero. No follow-up update or destroy was performed.
 
 ## M3 impact
 

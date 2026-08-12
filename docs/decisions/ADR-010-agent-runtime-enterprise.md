@@ -43,3 +43,8 @@ requires a supported query-capable wrapper. The Runtime-only entrypoint therefor
 the Gemini Enterprise integration operation; session, memory, artifact, unary-query, and bidi
 operations remain outside the MVP surface. The wrapper passed isolated operation discovery and
 streaming rejection tests without changing the graph or deterministic input callback.
+
+Terraform source deployments do not infer the API `classMethods` declaration from that object. The
+final Runtime create succeeded but returned an empty operation schema, so Enterprise integration is
+fail-closed. A separate decision may add exactly one `spec.class_methods` declaration matching the
+already implemented streaming method; it must not add another operation or product capability.

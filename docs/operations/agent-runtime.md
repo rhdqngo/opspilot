@@ -1,6 +1,6 @@
 # M7 Agent Runtime Runbook
 
-Status: Runtime package and supported operation contract ready; deployment pending
+Status: Runtime deployed; explicit class-method declaration blocked
 
 ## MVP contract
 
@@ -48,9 +48,9 @@ Runtime resource, URL, token, prompt, user identifier, or raw response.
 
 ## Deployment gate
 
-Source default `deploy_agent_runtime=false` preserves the current dev state. Hosted validation is
-skipped during the MVP, so the bootstrap source remains zero drift and is not applied. Approval 2
-reviews only the exact dev `5 create / 1 update` plan. The runtime must remain in
+Source default `deploy_agent_runtime=false` preserves an unconfigured environment. Hosted
+validation is skipped during the MVP, so the bootstrap source remains zero drift and is not
+applied. The runtime must remain in
 `asia-northeast3`, use the existing investigator service account, scale from zero to one, and
 capture no prompt, response, or user identity content in telemetry.
 
@@ -63,9 +63,15 @@ discovery but failed because the exported ADK `LlmAgent` implements none of the 
 stream-query operations. Dev remains `35 managed / 36 addresses`; Runtime, probe, registration,
 and Enterprise query counts remain zero.
 
-Do not reapply either failed archive. The final approval uses the new `AdkApp` archive only after
-reconfirming an exact Runtime-only one-create plan. Any plan difference or deployment failure stops
-the run without a retry.
+Neither failed archive was reapplied. The final approval used the new `AdkApp` archive only after
+reconfirming an exact Runtime-only one-create plan.
+
+The final one-create plan passed and the Runtime is now managed with `36 managed / 37 addresses`
+and zero drift. The live Runtime nevertheless returned an empty operation schema. The Google
+provider exposes `spec.class_methods` as an explicit JSON string and did not infer it from the
+packaged wrapper. Probe, registration, and Preview are therefore blocked. Do not query or update
+the Runtime until a separate approval reviews a one-update plan that adds only the single
+`streaming_agent_run_with_events` async-stream declaration.
 
 Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander`.
 Planning is read-only. Apply additionally requires the process-scoped

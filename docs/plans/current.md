@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-runtime-operation-ready / final-deploy-in-progress
+phase: M7-runtime-deployed / operation-schema-blocked
 updated: 2026-08-12
 
 ## Objective
@@ -73,6 +73,14 @@ updated: 2026-08-12
 - The packaged entrypoint passed isolated Python 3.12 installation, exact operation discovery, and
   a real local streaming rejection with zero evidence/model calls. The fixed live probe now uses
   `streamQuery` with a 64-KiB total response cap and preserves the identifier-free output contract.
+- The reviewed final plan was exactly one Runtime create and applied successfully. Dev now contains
+  `36 managed / 37 addresses`, and the post-apply operator plan is zero drift.
+- The live resource returned no `classMethods`. Provider schema inspection confirmed that source
+  deployment requires an explicit `spec.class_methods` JSON declaration; the wrapper method alone
+  is not copied into that API field by Terraform. This is a hard acceptance blocker.
+- Per the stop condition, Runtime probe, Enterprise registration, Preview investigation, evidence
+  calls, and model calls remain zero. The Runtime is preserved; no update, retry, destroy, or IAM
+  change was attempted.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -238,6 +246,7 @@ updated: 2026-08-12
 | M6 Approval 9: MVP latency calibration | complete | RCA 1/1 and safety 2/2 passed with 6/6 calls, no timeout, and zero cloud drift |
 | M7 Approval 1: Runtime and Enterprise preparation | complete | Fixed natural-language adapter, workload ADC, deterministic package, default-off IaC, guarded registration; cloud changes 0 |
 | M7 Approval 2: local-gated deployment | blocked | Exact plan applied once; API/IAM changes persisted, Runtime startup failed because the packaged Agent Platform SDK dependency was missing; no probe or registration |
+| M7 Final Approval: AdkApp recovery | blocked | Exact Runtime 1-create succeeded, but live `classMethods` is empty; dev 36/37 zero drift; probe/registration/Preview 0 |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -445,7 +454,7 @@ updated: 2026-08-12
 | M7 hosted static CI | skipped-by-policy | All three workflows are manual-only; no hosted job or M7 repository gate is required for the MVP |
 | M7 local operator gate | pass | Full Python/fixture/package regression, Linux/amd64 non-root Compose 10/10 and SCN-001, TFLint, bootstrap/dev validate and mock plans |
 | M7 Runtime operation contract | pass | Official `AdkApp`; only `streaming_agent_run_with_events`; isolated streaming rejection; evidence/model calls 0 |
-| M7 cloud/IAM/runtime/app change | pending | Dev remains 35/36 before the final reviewed Runtime-only one-create; registration, probe, and Enterprise query remain 0 |
+| M7 cloud/IAM/runtime/app change | blocked | Runtime 1-create succeeded and dev is 36/37 zero drift; live operation schema is empty; registration, probe, and Enterprise query remain 0 |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -458,11 +467,12 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Reconfirm bootstrap zero drift and dev `35 managed / 36 addresses`, then require the final exact
-  Runtime-only one-create plan using the verified `AdkApp` archive. Do not repeat the already
-  persisted API or IAM changes.
-- Only after a successful Ready Runtime and zero-drift plan may one unsupported streaming probe,
-  one registration, and one supported payment-service 30-minute Preview investigation run.
+- Separately approve the minimal Terraform `spec.class_methods` declaration for only
+  `streaming_agent_run_with_events` in `async_stream` mode. Require a fresh plan limited to one
+  in-place Runtime update, with resource count remaining 36/37 and no source, identity, IAM, API,
+  scaling, telemetry, or network change.
+- Only after the live operation schema contains exactly that one method may one unsupported
+  streaming probe, one registration, and one supported payment-service Preview investigation run.
 - Do not infer deployment authority from Approval 1. Sessions, Memory Bank, OAuth delegation,
   Agent Gateway, VPC, Model Armor, alert intake, remediation, dashboards, and multi-project work
   remain outside the MVP gate.

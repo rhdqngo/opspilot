@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M5 applied; M7 API/IAM prerequisites applied, Runtime operation contract ready
+Status: M1-M5 applied; M7 Runtime deployed, explicit operation declaration blocked
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
@@ -136,5 +136,9 @@ and Reasoning Engine service-agent Token Creator leaf grant. The SDK dependency 
 fixed without another IAM change. The exact Runtime-only retry failed operation discovery because
 the raw ADK agent exposes no Runtime query method. The official `AdkApp` wrapper now exposes only
 the Enterprise async-stream operation and needs no additional permission. The grant is preserved,
-but no Runtime,
-registration, public principal, key, broad project role, or hosted-reader expansion was created.
+and no registration, public principal, key, broad project role, or hosted-reader expansion was
+created.
+
+The final Runtime create required no IAM change and succeeded. The live resource has no registered
+class method because Terraform source did not declare `spec.class_methods`; no probe, registration,
+or Preview call was made. A future operation declaration must not add IAM or broaden this matrix.

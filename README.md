@@ -140,10 +140,10 @@ uv build
 
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
-remote state contains 35 managed resources after the partial M7 API/IAM apply. The Agent Runtime
-itself is not deployed. Its SDK dependency now passes isolated package validation, and the raw ADK
-`LlmAgent` has been replaced at the Runtime-only boundary by an official `AdkApp` that passed local
-operation discovery and streaming rejection. Local
+remote state contains 36 managed resources after the M7 Runtime create. Its SDK dependency and
+official `AdkApp` pass isolated package validation, operation discovery, and local streaming
+rejection. The live resource is preserved but has an empty explicit `classMethods` field, so probe
+and Enterprise registration remain blocked. Local
 operator plans are the MVP authority; GitHub workflows are retained as manual-only definitions
 and are not completion gates.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
@@ -162,9 +162,10 @@ M7 Terraform is also default-off. Its first separately reviewed Approval 2 plan 
 creates and one update. The three API addresses, leaf Runtime service-agent grant, and investigator
 role update succeeded. The SDK dependency correction then passed an isolated Python 3.12 import
 gate, and a fresh exact Runtime-only one-create apply reached operation discovery. It failed because
-the exported `LlmAgent` had no Runtime query methods. Dev remains at 35 managed resources with no
-Runtime or Enterprise registration. The final approved deployment uses the verified `AdkApp`
-archive and remains limited to one Runtime create.
+the exported `LlmAgent` had no Runtime query methods. The final approved Runtime-only one-create
+succeeded with the verified `AdkApp` archive. Dev is now 36/37 and zero drift, but the provider did
+not infer `spec.class_methods`; registration and Preview remain unattempted pending one explicit
+method declaration.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform
