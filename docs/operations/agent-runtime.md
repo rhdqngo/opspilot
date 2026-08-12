@@ -1,6 +1,6 @@
 # Agent Runtime Runbook
 
-Status: M7 deployed; lean archive update pending
+Status: M7 deployed; lean archive applied; Enterprise Preview Runtime execution blocked
 
 ## Product contract
 
@@ -38,17 +38,23 @@ fresh dev plan. Apply only if the plan is exactly `0 create / 1 update / 0 delet
 and the sole change is the Runtime source archive/hash. Identity, IAM, APIs, region, scaling,
 telemetry, labels, class methods, and deletion policy must remain unchanged.
 
-After apply, require `36 managed / 37 addresses`, Runtime Ready, and an operator `No changes` plan.
-An unsupported-service request must be rejected before evidence/model work. Run one supported
-question in Gemini Enterprise Preview:
+The lean archive was applied as the sole in-place Runtime update. Dev remains
+`36 managed / 37 addresses`, and the post-apply operator plan is `No changes`. Local product tests
+verify that an unsupported-service request is rejected before evidence/model work.
+
+The single approved supported question was submitted in Gemini Enterprise Preview:
 
 ```text
 payment-service 최근 30분 상태를 근거와 함께 분석해줘
 ```
 
-A repeated `GaiaMint invalid` or `mint used too late` result is a Google Preview authentication
-bridge blocker. Do not broaden IAM, expose the Runtime publicly, retry indefinitely, or change the
-model, prompt, timeout, and product scope in response.
+Preview returned a generic Runtime `INTERNAL` failure. The current operator has neither project log
+read nor investigator impersonation permission, so no Runtime traceback was available inside the
+approved least-privilege boundary. Classify this checkpoint as `runtime_execution_blocked` until an
+authorized operator can inspect the failed execution. Do not broaden IAM, expose the Runtime
+publicly, repeat the request, or change the model, prompt, timeout, and product scope without a new
+approved diagnostic plan. A future `GaiaMint invalid` or `mint used too late` response remains a
+separate Google Preview authentication-bridge blocker.
 
 Enterprise registration already exists. Re-registration code is intentionally absent; use the
 official console procedure only if an operator explicitly needs to repair registration.

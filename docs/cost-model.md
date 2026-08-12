@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: MVP deployed; lean Runtime update pending
+Status: MVP deployed; lean Runtime update applied
 
 | Guardrail | Value |
 | --- | --- |
@@ -35,8 +35,9 @@ adds no resource, minimum instance, query, import, or model request by itself.
 - Runtime supported request: evidence collection is bounded and model calls are capped at two.
 - No retries, scheduled load, custom metric, alert intake, or automatic remediation.
 
-One Enterprise Preview acceptance request is allowed after the Runtime update. If the Google
-Preview authentication bridge returns an internal expired mint, do not loop or broaden IAM.
+The single approved Enterprise Preview request was consumed and returned a generic Runtime
+`INTERNAL` failure. Do not repeat it or broaden IAM under this lean-cut scope. A future diagnostic or
+acceptance request requires a separate bounded plan.
 
 ## Cleanup order
 

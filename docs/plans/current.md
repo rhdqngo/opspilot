@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-complete / MVP-lean-runtime-update-pending
+phase: M7-complete / MVP-lean-cut-complete / enterprise-preview-runtime-blocked
 updated: 2026-08-12
 
 ## Delivered MVP
@@ -13,16 +13,16 @@ updated: 2026-08-12
 - M5: bounded read-only Logging, Monitoring, revision, and Search evidence collection.
 - M6: seven-node ADK graph, deterministic citation review, verified-evidence taxonomy, and two
   tool-free model nodes with 30/75-second limits.
-- M7: managed `AdkApp` Runtime, one async-stream operation, existing Gemini Enterprise app
-  registration, and successful supported-request validation.
+- M7: managed `AdkApp` Runtime, one async-stream operation, and existing Gemini Enterprise app
+  registration. The current Preview validation blocker is recorded separately below.
 
-## Active lean cut
+## Completed lean cut
 
-- Remove milestone-only access, route, Search diagnostic, model acceptance, Runtime probe, and
+- Removed milestone-only access, route, Search diagnostic, model acceptance, Runtime probe, and
   Enterprise registration interfaces.
-- Keep the investigation API, demo workload, replay/scenario tools, corpus validation/sync/local
+- Kept the investigation API, demo workload, replay/scenario tools, corpus validation/sync/local
   retrieval, fixture evidence smoke, seven-case fake evaluation, and deterministic Runtime package.
-- Package only the production Runtime dependency closure. CLI, API/demo, fixtures, tests, docs,
+- The Runtime archive contains only the production dependency closure. CLI, API/demo, fixtures, tests, docs,
   Terraform, corpus sync, and diagnostic modules must not enter the archive.
 - Runtime responses contain only an `IncidentReport` or one fixed safe error. Model-origin taxonomy
   and acceptance/timing diagnostics are not public output.
@@ -39,13 +39,16 @@ updated: 2026-08-12
 
 - Cloud resources, IAM, Enterprise registration, model, prompt, schema, data, and scaling remain
   unchanged.
-- Current dev baseline is `36 managed / 37 addresses` and must be zero drift before deployment.
-- The only permitted cloud change is one Runtime in-place update containing the new source archive
-  and hash: `0 create / 1 update / 0 delete / 0 replacement`.
-- After apply: state remains `36/37`, operator plan is `No changes`, and an out-of-scope request
-  must stop before evidence/model work.
-- One supported Enterprise Preview request is allowed. A repeated internal GaiaMint expiry is a
-  Google Preview authentication-bridge blocker, not authorization to expand code or IAM.
+- The reviewed plan and apply were exactly one Runtime source archive/hash in-place update:
+  `0 create / 1 update / 0 delete / 0 replacement`.
+- Dev remains `36 managed / 37 addresses` and the post-apply operator plan is `No changes`.
+- One supported Enterprise Preview request was executed without retry. It reached the registered
+  agent but returned a generic Runtime `INTERNAL` failure. The operator cannot read Runtime logs and
+  cannot impersonate the investigator identity under the current least-privilege boundary, so the
+  root cause is unverified. No IAM, code, model, timeout, registration, or data expansion was made.
+- Local product tests prove that an out-of-scope request stops before evidence/model work. The same
+  assertion remains unverified against the deployed Runtime because direct operator invocation is
+  intentionally not granted.
 
 ## Validation authority
 
