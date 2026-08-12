@@ -32,10 +32,17 @@ locals {
     "telemetry.googleapis.com",
   ]) : toset([])
 
+  m8_project_services = var.enable_remediation ? toset([
+    "firestore.googleapis.com",
+    "workflowexecutions.googleapis.com",
+    "workflows.googleapis.com",
+  ]) : toset([])
+
   project_services = setunion(
     local.m1_project_services,
     local.m2_project_services,
     local.m7_project_services,
+    local.m8_project_services,
   )
 
   demo_service_names = var.deploy_demo ? toset([
@@ -45,7 +52,6 @@ locals {
   ]) : toset([])
 
   demo_leaf_service_names = var.deploy_demo ? toset([
-    "payment",
     "inventory",
   ]) : toset([])
 
@@ -489,6 +495,114 @@ resource "google_cloud_run_v2_service" "demo_leaf" {
   depends_on = [google_project_service.m1]
 }
 
+moved {
+  from = google_cloud_run_v2_service.demo_leaf["payment"]
+  to   = google_cloud_run_v2_service.demo_payment[0]
+}
+
+resource "google_cloud_run_v2_service" "demo_payment" {
+  count = var.deploy_demo ? 1 : 0
+
+  project              = var.project_id
+  name                 = "opspilot-${var.environment}-payment"
+  location             = var.region
+  description          = "OpsPilot synthetic payment demo service"
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = false
+  deletion_protection  = false
+  labels               = local.labels
+
+  scaling {
+    min_instance_count = 0
+    max_instance_count = 2
+  }
+
+  template {
+    service_account                  = google_service_account.demo["payment"].email
+    timeout                          = "10s"
+    max_instance_request_concurrency = 20
+    labels = merge(local.labels, {
+      release_phase = "m2-mvp"
+    })
+
+    containers {
+      image = var.demo_image_uri
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "256Mi"
+        }
+        cpu_idle          = true
+        startup_cpu_boost = false
+      }
+
+      env {
+        name  = "OPSPILOT_DEMO_SERVICE"
+        value = "payment"
+      }
+
+      env {
+        name  = "OPSPILOT_ENVIRONMENT"
+        value = var.environment
+      }
+
+      env {
+        name  = "OPSPILOT_PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name  = "OPSPILOT_DOWNSTREAM_AUTH"
+        value = "metadata"
+      }
+
+      dynamic "env" {
+        for_each = var.enable_scenarios ? [1] : []
+        content {
+          name  = "OPSPILOT_SCENARIOS_ENABLED"
+          value = "true"
+        }
+      }
+
+      startup_probe {
+        failure_threshold = 5
+        period_seconds    = 2
+        timeout_seconds   = 1
+
+        http_get {
+          path = "/ready"
+        }
+      }
+
+      liveness_probe {
+        failure_threshold = 3
+        period_seconds    = 10
+        timeout_seconds   = 1
+
+        http_get {
+          path = "/health"
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [traffic]
+
+    precondition {
+      condition     = can(regex("@sha256:[0-9a-f]{64}$", nonsensitive(var.demo_image_uri)))
+      error_message = "demo_image_uri must be an immutable Artifact Registry digest."
+    }
+  }
+
+  depends_on = [google_project_service.m1]
+}
+
 resource "google_cloud_run_v2_service" "demo_order" {
   count = var.deploy_demo ? 1 : 0
 
@@ -560,7 +674,7 @@ resource "google_cloud_run_v2_service" "demo_order" {
 
       env {
         name  = "OPSPILOT_PAYMENT_SERVICE_URL"
-        value = google_cloud_run_v2_service.demo_leaf["payment"].uri
+        value = google_cloud_run_v2_service.demo_payment[0].uri
       }
 
       env {
@@ -606,6 +720,21 @@ resource "google_cloud_run_v2_service_iam_member" "order_invokes_leaf" {
   project  = var.project_id
   location = var.region
   name     = google_cloud_run_v2_service.demo_leaf[each.key].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.demo["order"].email}"
+}
+
+moved {
+  from = google_cloud_run_v2_service_iam_member.order_invokes_leaf["payment"]
+  to   = google_cloud_run_v2_service_iam_member.order_invokes_payment[0]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "order_invokes_payment" {
+  count = var.deploy_demo ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.demo_payment[0].name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.demo["order"].email}"
 }

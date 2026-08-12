@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import os
+import secrets
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
@@ -63,6 +64,13 @@ def build_parser() -> argparse.ArgumentParser:
     scenario_run.add_argument("--scenario", default="SCN-001")
     scenario_run.add_argument("--auth", choices=("local", "gcloud"), default="local")
     scenario_run.add_argument("--format", choices=("json", "summary"), default="summary")
+    for command_name in ("prepare", "reset"):
+        scenario_change = scenario_commands.add_parser(
+            command_name, help=f"Plan or execute SCN-008 {command_name}"
+        )
+        scenario_change.add_argument("--scenario", choices=("SCN-008",), default="SCN-008")
+        scenario_change.add_argument("--mode", choices=("plan", "execute"), default="plan")
+        scenario_change.add_argument("--auth", choices=("gcloud",), default="gcloud")
     knowledge = subcommands.add_parser("knowledge", help="Validate and synchronize knowledge")
     knowledge_commands = knowledge.add_subparsers(dest="knowledge_command", required=True)
     knowledge_validate = knowledge_commands.add_parser(
@@ -108,6 +116,40 @@ def build_parser() -> argparse.ArgumentParser:
         "package", help="Create a deterministic runtime source archive under .tmp"
     )
     runtime_package.add_argument("--output", default=".tmp/m7-runtime")
+    remediation = subcommands.add_parser(
+        "remediation", help="Use the approval-gated remediation control API"
+    )
+    remediation_commands = remediation.add_subparsers(dest="remediation_command", required=True)
+    remediation_request = remediation_commands.add_parser(
+        "request", help="Request approval for a report action"
+    )
+    remediation_request.add_argument("--incident", required=True)
+    remediation_request.add_argument("--report", required=True)
+    remediation_request.add_argument("--action", choices=("ACT-01",), required=True)
+    remediation_show = remediation_commands.add_parser("show", help="Show remediation state")
+    remediation_show.add_argument("--id", required=True)
+    remediation_decide = remediation_commands.add_parser(
+        "decide", help="Approve or reject a remediation"
+    )
+    remediation_decide.add_argument("--id", required=True)
+    remediation_decide.add_argument("--decision", choices=("approve", "reject"), required=True)
+    remediation_decide.add_argument("--plan-hash", required=True)
+    remediation_decide.add_argument("--comment", default="")
+    remediation_serve = remediation_commands.add_parser(
+        "serve-control", help="Serve the authenticated remediation control API"
+    )
+    remediation_serve.add_argument("--host", default="0.0.0.0")
+    remediation_serve.add_argument("--port", type=int, default=None)
+    executor_serve = remediation_commands.add_parser(
+        "serve-executor", help="Serve the private remediation executor"
+    )
+    executor_serve.add_argument("--host", default="0.0.0.0")
+    executor_serve.add_argument("--port", type=int, default=None)
+    remediation_eval = remediation_commands.add_parser(
+        "eval", help="Run the remediation-v1 release gate"
+    )
+    remediation_eval.add_argument("--suite", choices=("remediation",), default="remediation")
+    remediation_eval.add_argument("--format", choices=("summary", "json"), default="summary")
     return parser
 
 
@@ -161,6 +203,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(render_scenario_summary(scenario_result), end="")
         return 0 if scenario_result.ground_truth_matched and scenario_result.recovered else 2
+    if args.command == "scenario" and args.scenario_command in {"prepare", "reset"}:
+        from opspilot.remediation.scenario import (
+            ScenarioMode,
+            ScenarioOperation,
+            render_scenario_command,
+            run_scn008_command,
+        )
+
+        result = asyncio.run(
+            run_scn008_command(
+                operation=cast(ScenarioOperation, str(args.scenario_command)),
+                mode=cast(ScenarioMode, str(args.mode)),
+                auth=str(args.auth),
+            )
+        )
+        print(render_scenario_command(result), end="")
+        return 0
     if args.command == "knowledge" and args.knowledge_command == "validate":
         validation = validate_knowledge()
         if args.format == "json":
@@ -231,4 +290,52 @@ def main(argv: Sequence[str] | None = None) -> int:
             package_result = package_runtime(Path(str(args.output)))
             print(render_runtime_summary(package_result), end="")
             return 0 if package_result.succeeded else 2
+    if args.command == "remediation":
+        if args.remediation_command == "eval":
+            from opspilot.remediation.evaluation import (
+                render_remediation_evaluation,
+                run_remediation_evaluation,
+            )
+
+            remediation_result = run_remediation_evaluation()
+            print(render_remediation_evaluation(remediation_result, str(args.format)), end="")
+            return 0 if remediation_result.passed else 2
+        if args.remediation_command in {"serve-control", "serve-executor"}:
+            factory = (
+                "opspilot.remediation.api:create_app"
+                if args.remediation_command == "serve-control"
+                else "opspilot.remediation.api:create_executor_app"
+            )
+            port = int(args.port) if args.port is not None else int(os.environ.get("PORT", "8080"))
+            uvicorn.run(factory, factory=True, host=str(args.host), port=port, access_log=False)
+            return 0
+        from opspilot.remediation.client import RemediationApiClient, render_remediation
+        from opspilot.remediation.config import RemediationCliSettings
+
+        remediation_settings = RemediationCliSettings()
+        client = RemediationApiClient(
+            remediation_settings.url, remediation_settings.control_audience
+        )
+        idempotency_key = f"cli-{secrets.token_hex(16)}"
+        if args.remediation_command == "request":
+            record = client.request(
+                incident_id=str(args.incident),
+                report_id=str(args.report),
+                action_id=str(args.action),
+                idempotency_key=idempotency_key,
+            )
+        elif args.remediation_command == "show":
+            record = client.show(str(args.id))
+        elif args.remediation_command == "decide":
+            record = client.decide(
+                remediation_id=str(args.id),
+                decision=str(args.decision),
+                plan_hash=str(args.plan_hash),
+                comment=str(args.comment),
+                idempotency_key=idempotency_key,
+            )
+        else:
+            raise AssertionError("unreachable remediation command")
+        print(render_remediation(record), end="")
+        return 0
     raise AssertionError("unreachable command")

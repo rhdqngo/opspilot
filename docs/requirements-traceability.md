@@ -2,7 +2,8 @@
 
 Status: implemented baseline verified locally
 
-This matrix compares the M0-M10 North Star specification with the deployed read-only Lean MVP v1.
+This matrix compares the M0-M10 North Star specification with the deployed read-only Lean MVP v1
+and the locally implemented, not-yet-deployed M8 control plane.
 `Implemented` means a current test or operator record covers the requirement. `Partial` means the
 MVP implements only a bounded subset. `Deferred` is an intentional product boundary, not an
 accidental omission.
@@ -23,14 +24,14 @@ accidental omission.
 | FR-010 | Implemented | Forged, missing, duplicate, and direction-mismatched evidence references are rejected. |
 | FR-011 | Partial | Fixture reports classify advisory actions; live Runtime deliberately emits no actions. |
 | FR-012 | Implemented | Investigator identity and public surfaces are read-only. |
-| FR-013 | Deferred | No remediation request object or route exists. |
-| FR-014 | Deferred | Approval lifecycle is post-MVP. |
-| FR-015 | Deferred | Post-action verification is post-MVP. |
+| FR-013 | Partial | The default-off M8 control API supports only canonical `ROLLBACK_CLOUD_RUN` plans for SCN-008 `opspilot-dev-payment`; cloud execution is not yet authorized or verified. |
+| FR-014 | Partial | Firestore transactions, a 15-minute Workflow callback, hash-bound approval, TTL cleanup, and audit events are implemented locally; deployed IAM/E2E evidence is pending. |
+| FR-015 | Partial | The executor requires exact traffic state and 10/10 bounded order recovery; deployed metric-window and traffic verification evidence is pending. |
 | FR-016 | Partial | API correlation IDs, demo traces, and anonymous Runtime/agent run IDs exist; no persisted cross-system trace index exists. |
 | FR-017 | Partial | Evidence metadata and privacy-safe Runtime run summaries are structured; raw inputs and identities are intentionally excluded. |
 | FR-018 | Implemented | Versioned 7-case core and 40-case portfolio evaluation suites enforce deterministic gates. |
 | FR-019 | Deferred | User feedback persistence is post-MVP. |
-| FR-020 | Partial | Seven offline scenarios replay; only SCN-001 executes against the live demo workload. |
+| FR-020 | Partial | Seven offline scenarios replay, SCN-001 executes against the local workload, and SCN-008 has plan/execute/reset operators whose cloud execute path remains approval-gated. |
 | FR-021 | Deferred | Public backend switching was removed; each surface has a fixed documented execution mode. |
 | FR-022 | Implemented | Agent Runtime and Gemini Enterprise Preview acceptance are recorded. |
 | FR-023 | Partial | JSON and Markdown are produced; API storage is process-local rather than durable. |
@@ -42,7 +43,7 @@ accidental omission.
 | ID | Status | Lean MVP evidence or boundary |
 | --- | --- | --- |
 | NFR-001 | Implemented | Custom IAM role and Runtime package contain read-only evidence operations. |
-| NFR-002 | Deferred | No write operation exists, so executor identity and approval tokens are not provisioned. |
+| NFR-002 | Partial | M8 defines isolated control, Workflow, and payment-only executor identities without changing Runtime IAM; cloud IAM negative smoke is pending. |
 | NFR-003 | Implemented | Project, resource, filter, metric, and URL inputs are server-built from allowlists. |
 | NFR-004 | Implemented | Malicious knowledge content stays evidence and has no tool authority. |
 | NFR-005 | Implemented | Source failures and zero-point metrics produce partial/inconclusive reports. |
@@ -71,5 +72,7 @@ uv run ruff check .
 uv run --extra agent mypy src tests
 uv run --extra agent opspilot agent eval --suite core --format summary
 uv run --extra agent opspilot agent eval --suite portfolio --format summary --output .tmp/evaluation
+uv run opspilot remediation eval --suite remediation --format summary
+uv run --extra agent opspilot scenario prepare --scenario SCN-008 --mode plan --auth gcloud
 uv run opspilot cleanup plan --format summary
 ```

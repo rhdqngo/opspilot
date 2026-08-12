@@ -4,7 +4,8 @@
 
 OpsPilot is a portfolio-first, production-minded incident commander for a synthetic ecommerce
 environment. It collects bounded read-only evidence, verifies every cited claim against typed
-evidence, and never executes remediation.
+evidence, and keeps that investigation plane read-only. A separate, default-off M8 control plane
+can execute one exact payment revision rollback only after an authenticated approval.
 
 Current verified surfaces:
 
@@ -13,12 +14,23 @@ Current verified surfaces:
 - bounded Logging, Monitoring, revision, and Agent Search evidence;
 - Gemini Enterprise through a fixed single-turn `payment-service`/30-minute managed Runtime;
 - deterministic Runtime packaging, Terraform, safety tests, and a non-executing cleanup plan.
+- default-off M8 approval control plane for one SCN-008 payment revision rollback; it is implemented
+  and locally tested but not deployed or authorized for cloud execution.
 
 <!-- BEGIN GENERATED:PORTFOLIO_METRICS -->
 Latest published verification: **143/144 pytest**; core **7/7**; portfolio **40/40**.
 RCA top-1/top-3, required-tool recall, citation coverage, and evidence-ID validity: **1.000/1.000/1.000/1.000/1.000**; fixture P50/P95 **12/14 ms**.
 The generated [Markdown evidence](docs/portfolio/results/portfolio-release-v1.md) and [JSON evidence](docs/portfolio/results/portfolio-release-v1.json) are the source of record.
 <!-- END GENERATED:PORTFOLIO_METRICS -->
+
+M8 remains separate from the read-only Runtime. See the
+[remediation operating contract](docs/operations/remediation.md), or inspect its non-executing plan
+and 12-case local gate:
+
+```powershell
+uv run --extra agent opspilot scenario prepare --scenario SCN-008 --mode plan --auth gcloud
+uv run opspilot remediation eval --suite remediation --format summary
+```
 
 [Architecture](docs/portfolio/architecture.md) ·
 [Evaluation](docs/portfolio/evaluation.md) ·

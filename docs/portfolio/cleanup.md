@@ -9,6 +9,9 @@ uv run opspilot cleanup plan --format summary
 ```
 
 An authorized operator may later turn the documented order into reviewed `terraform plan -destroy`
-artifacts. Agent Runtime, demo services, knowledge resources, IAM, remote state, and bootstrap
-resources require separate checkpoints; remote state is retained until environment absence is
-verified. No destroy or apply command is part of the automated portfolio workflow.
+artifacts. If M8 is enabled, the faulty profile must first be reset, outstanding approval callbacks
+must expire, and the control API, Workflow, executor, TTL policies, and named Firestore database
+must be handled as a separate checkpoint. Agent Runtime, demo services, knowledge resources, IAM,
+remote state, and bootstrap resources require separate checkpoints; remote state is retained until
+environment absence is verified. No destroy or apply command is part of the automated portfolio
+workflow.

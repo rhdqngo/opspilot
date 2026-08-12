@@ -96,15 +96,16 @@ def create_app(
                 )
             except ScenarioContextError as exc:
                 return JSONResponse(status_code=400, content={"error_code": str(exc)})
-            if scenario is not None and scenario.inject_payment_failure:
+            fixed_failure = runtime.payment_failure_profile == "payment-failure"
+            if fixed_failure or (scenario is not None and scenario.inject_payment_failure):
                 await asyncio.sleep(0.25)
                 emit_scenario_log(
                     runtime,
                     request_id=_request_id(request),
                     trace_id=extract_trace_id(_trace_context(request)),
-                    scenario_id=scenario.scenario_id,
-                    scenario_run_id=scenario.run_id,
-                    scenario_step=scenario.step,
+                    scenario_id=scenario.scenario_id if scenario else "SCN-008",
+                    scenario_run_id=scenario.run_id if scenario else "RUN-SCN-008-FIXEDPROFILE",
+                    scenario_step=scenario.step if scenario else 1,
                 )
                 return JSONResponse(status_code=503, content={"error_code": "DB_POOL_TIMEOUT"})
             return PaymentAuthorizationResponse(

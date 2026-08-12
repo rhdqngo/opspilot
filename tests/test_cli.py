@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from opspilot.cli import main
+from opspilot.cli import build_parser, main
 from opspilot.demo.models import LoadSummary, ScenarioPhaseSummary, ScenarioRunSummary
 
 
@@ -123,6 +123,25 @@ def test_agent_cli_keeps_fixture_eval_and_runtime_package_only(
     assert main(["agent", "runtime", "package", "--output", ".tmp/test-cli-runtime"]) == 0
     assert "succeeded: True" in capsys.readouterr().out
     assert Path(".tmp/test-cli-runtime/opspilot-agent-runtime.tar.gz").is_file()
+
+
+def test_M8_cli_exposes_plan_only_scn008_and_remediation_gate_without_token_args(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["scenario", "prepare", "--scenario", "SCN-008", "--mode", "plan"]) == 0
+    output = capsys.readouterr().out
+    assert "executed: false" in output
+    assert "capture known-good payment revision" in output
+
+    assert main(["remediation", "eval", "--format", "summary"]) == 0
+    evaluation = capsys.readouterr().out
+    assert "suite_version: remediation-v1" in evaluation
+    assert "passed_cases: 12" in evaluation
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(
+            ["remediation", "show", "--id", "REM-0123456789ABCDEF", "--token", "secret"]
+        )
 
 
 @pytest.mark.parametrize(

@@ -11,13 +11,22 @@ def _terraform_source() -> str:
     return "\n".join(path.read_text(encoding="utf-8") for path in TERRAFORM_ROOT.rglob("*.tf"))
 
 
-def test_M1_terraform_excludes_keys_remediation_and_command_hooks() -> None:
+def test_M1_terraform_excludes_keys_and_command_hooks_while_M8_is_default_off() -> None:
     source = _terraform_source()
+    variables = (TERRAFORM_ROOT / "environments" / "dev" / "variables.tf").read_text(
+        encoding="utf-8"
+    )
 
     assert 'resource "google_service_account_key"' not in source
-    assert "remediation" not in source.lower()
     assert "local-exec" not in source
     assert "remote-exec" not in source
+    remediation_default = re.search(
+        r'variable "enable_remediation"\s*\{.*?default\s*=\s*(\w+)',
+        variables,
+        flags=re.DOTALL,
+    )
+    assert remediation_default is not None
+    assert remediation_default.group(1) == "false"
 
 
 def test_M1_state_bucket_contract_is_protected_in_source() -> None:
@@ -124,7 +133,13 @@ def test_M2_terraform_defines_only_private_bounded_demo_resources() -> None:
 
     assert "default     = false" in variables
     assert "@sha256:[0-9a-f]{64}" in variables
-    assert dev_source.count('resource "google_cloud_run_v2_service"') == 2
+    assert dev_source.count('resource "google_cloud_run_v2_service"') == 3
+    assert 'resource "google_cloud_run_v2_service" "demo_payment"' in dev_source
+    assert 'from = google_cloud_run_v2_service.demo_leaf["payment"]' in dev_source
+    assert (
+        'from = google_cloud_run_v2_service_iam_member.order_invokes_leaf["payment"]' in dev_source
+    )
+    assert "ignore_changes = [traffic]" in dev_source
     assert 'resource "google_service_account" "demo"' in dev_source
     assert 'resource "google_cloud_run_v2_service_iam_member" "order_invokes_leaf"' in dev_source
     assert 'role     = "roles/run.invoker"' in dev_source
@@ -132,7 +147,7 @@ def test_M2_terraform_defines_only_private_bounded_demo_resources() -> None:
     assert "min_instance_count = 0" in dev_source
     assert "max_instance_count = 2" in dev_source
     assert 'memory = "256Mi"' in dev_source
-    assert "firestore" not in dev_source.lower()
+    assert 'resource "google_firestore' not in dev_source
     assert "alert_policy" not in dev_source
     assert 'release_phase = "m2-mvp"' in dev_source
     assert "google_compute_network" not in dev_source

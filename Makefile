@@ -1,4 +1,4 @@
-.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-eval-portfolio agent-runtime-package cleanup-plan portfolio-release-check portfolio-release-publish portfolio-demo demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
+.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run scenario-remediation-plan remediation-eval knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-eval-portfolio agent-runtime-package cleanup-plan portfolio-release-check portfolio-release-publish portfolio-demo demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
 
 TERRAFORM ?= terraform
 TFLINT_IMAGE ?= ghcr.io/terraform-linters/tflint:v0.64.0
@@ -34,6 +34,12 @@ scenario-replay-all:
 
 scenario-run:
 	uv run opspilot scenario run --scenario SCN-001 --auth local --format summary
+
+scenario-remediation-plan:
+	uv run --extra agent opspilot scenario prepare --scenario SCN-008 --mode plan --auth gcloud
+
+remediation-eval:
+	uv run opspilot remediation eval --suite remediation --format summary
 
 knowledge-validate:
 	uv run opspilot knowledge validate --format summary

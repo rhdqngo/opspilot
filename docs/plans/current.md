@@ -1,7 +1,7 @@
 # Current Project State
 
-status: complete
-phase: M7-complete / portfolio-gate-complete / enterprise-preview-stable / mvp-accepted
+status: in_progress
+phase: M8-local-implementation-verified / cloud-plan-approval-pending
 updated: 2026-08-12
 
 ## Delivered MVP
@@ -209,7 +209,7 @@ updated: 2026-08-12
   `docs/portfolio/results/portfolio-release-v1.{json,md}` and drives the README metrics block. It
   records the baseline commit, dirty state, source-tree fingerprint, environment class, metrics,
   and named failures without random run IDs, hostnames, user paths, prompts, or raw exceptions.
-- The final release run passed 144/144 pytest tests, core `7/7`, portfolio `40/40`, all five primary
+- The final release run passed 143 tests with 1 policy skip, core `7/7`, portfolio `40/40`, all five primary
   quality metrics at `1.000`, two identical 17-file Runtime archives, package build, and Terraform
   format/validate/test. Exact fixture durations and the Runtime SHA-256 remain generated values in
   the published artifact rather than copied into this durable narrative.
@@ -220,7 +220,47 @@ updated: 2026-08-12
 - Manual GitHub validation remains `workflow_dispatch` only. It now evaluates both suites and
   uploads the portfolio JSON/Markdown artifact for 30 days even when the gate fails.
 - Docker Desktop was started only to run the local Compose validation. No cloud deployment,
-  Terraform apply, IAM mutation, Enterprise request, Git commit, push, or PR was performed.
+  Terraform apply, IAM mutation, Enterprise request, push, or PR was performed.
+- The baseline was fixed as implementation commit `c4e274b` and evidence commit `9a6146f`.
+  Published evidence intentionally names `c4e274b` as the clean source it verified.
+
+## M8 approval-gated remediation checkpoint
+
+- M8 is a separate control plane. The existing investigation API, Gemini Enterprise Runtime, and
+  investigator identity remain read-only and receive no Firestore, Workflow, executor, or Cloud Run
+  update permission.
+- `opspilot.remediation.api:create_app` implements Group-IAM-backed ID-token verification, public
+  request/show/decision endpoints, canonical idempotency, explicit 15-minute expiry, actor hashing,
+  and development self-approval audit. Callback URLs are held only in a 24-hour TTL collection.
+- The internal executor supports only `opspilot-dev-payment`, rechecks source/target revision,
+  known-good digest, service etag, plan hash, approval expiry, and execution lease, and calls Cloud
+  Run v2 with `updateMask=traffic`. Response loss is resolved by reading the serving target before
+  any retry. It cannot invoke the order service or write terminal state.
+- The control API independently finalizes execution: it confirms target traffic, runs exactly ten
+  authenticated orders, records auxiliary 10-minute Monitoring-window point counts, and stores the
+  terminal verification result in the Firestore remediation transaction.
+- SCN-008 adds a revision-scoped `payment-failure` profile, bounded operator prepare/reset plans,
+  live read-only evidence collection, a versioned report, and ten-order reproduction/recovery
+  checks. Execute mode remains unauthorized until the separate cloud-change checkpoint.
+- `remediation-v1` contains 12 reviewed success and safety cases and now executes the real in-memory
+  coordinator/executor boundaries instead of comparing a static outcome table. Domain/API/executor
+  tests cover hash binding, legal transitions, expiration, conflicting idempotency, self-approval,
+  stale etag, response loss, terminal failures, and twenty concurrent approvals/execution calls
+  with one lease and one traffic update.
+- Terraform defaults `enable_remediation=false`. The enabled plan contains the named Native
+  `opspilot-dev` database, two TTL fields, three isolated service accounts, an external IAM-protected
+  control API, internal-only single-concurrency executor, 15-minute callback Workflow, approver
+  Group binding, and a payment-only conditional update role. The payment resource move preserves
+  state and ignores only traffic drift.
+- The final local M8 release check passed: 167 pytest tests, Ruff format/check, strict mypy over 74
+  source files, wheel/sdist build, core `7/7`, portfolio `40/40`, remediation `12/12`, two identical
+  17-file Runtime archives with unchanged SHA-256
+  `a1eb4b5c548fb6f88396ca506c9e5f16512e093d21e80b23ee239cd87ebaa79b`, Terraform
+  format/validate, bootstrap
+  `1/1`, and dev `7/7` tests. No generated Lean release evidence was republished.
+- Actual image build/push, Terraform plan/apply, IAM negative smoke, faulty revision activation,
+  approval E2E, sanitized cloud evidence, reset, and final `No changes` proof remain blocked on the
+  plan's explicit user approval gates.
 
 ## Validation authority
 
@@ -230,5 +270,6 @@ updated: 2026-08-12
 
 ## Post-MVP
 
-VPC/perimeter controls, Model Armor, alert intake, remediation, managed Sessions/Memory, dashboard,
-multi-project support, and broader evaluation remain optional and require separate approval.
+VPC/perimeter controls, Model Armor, alert intake, generalized remediation, managed Sessions/Memory,
+dashboard, BigQuery, multi-project support, and broader evaluation remain M9+ and require separate
+approval.

@@ -1,0 +1,83 @@
+main:
+  params: [args]
+  steps:
+    - create_callback:
+        call: events.create_callback_endpoint
+        args:
+          http_callback_method: "POST"
+        result: callback_details
+    - register_callback:
+        call: http.post
+        args:
+          url: $${${jsonencode(join("", [control_url, "/internal/v1/remediations/"]))} + args.remediation_id + "/callback"}
+          auth:
+            type: OIDC
+            audience: ${jsonencode(control_audience)}
+          body:
+            callback_url: $${callback_details.url}
+            expires_at: $${args.expires_at}
+    - await_decision:
+        try:
+          call: events.await_callback
+          args:
+            callback: $${callback_details}
+            timeout: 900
+          result: callback_request
+        except:
+          as: error
+          steps:
+            - expire_waiting_remediation:
+                call: http.post
+                args:
+                  url: $${${jsonencode(join("", [control_url, "/internal/v1/remediations/"]))} + args.remediation_id + "/expire"}
+                  auth:
+                    type: OIDC
+                    audience: ${jsonencode(control_audience)}
+            - return_expired:
+                return:
+                  status: "EXPIRED"
+    - route_decision:
+        switch:
+          - condition: $${callback_request.http_request.body.decision == "APPROVE"}
+            next: execute
+        next: return_rejected
+    - execute:
+        call: http.post
+        args:
+          url: $${${jsonencode(join("", [control_url, "/internal/v1/remediations/"]))} + args.remediation_id + "/begin-execution"}
+          auth:
+            type: OIDC
+            audience: ${jsonencode(control_audience)}
+          body:
+            plan_hash: $${callback_request.http_request.body.plan_hash}
+            execution_attempt_id: $${"ATT-" + sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}
+        result: execution_lease
+    - invoke_executor:
+        call: http.post
+        args:
+          url: $${${jsonencode(join("", [executor_url, "/internal/v1/remediations/"]))} + args.remediation_id + "/execute"}
+          auth:
+            type: OIDC
+            audience: ${jsonencode(executor_audience)}
+          body:
+            plan_hash: $${callback_request.http_request.body.plan_hash}
+            execution_attempt_id: $${"ATT-" + sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}
+        result: execution_response
+    - finish_execution:
+        call: http.post
+        args:
+          url: $${${jsonencode(join("", [control_url, "/internal/v1/remediations/"]))} + args.remediation_id + "/finish-execution"}
+          auth:
+            type: OIDC
+            audience: ${jsonencode(control_audience)}
+          body:
+            execution_attempt_id: $${execution_response.body.execution_attempt_id}
+            traffic_update_succeeded: $${execution_response.body.traffic_update_succeeded}
+            safe_failure_code: $${execution_response.body.safe_failure_code}
+        result: final_record
+    - return_execution:
+        return:
+          status: $${final_record.body.status}
+    - return_rejected:
+        return:
+          status: "REJECTED"

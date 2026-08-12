@@ -1,0 +1,81 @@
+{
+  "scenario_id": "SCN-008",
+  "incident_id": "INC-2026-0008",
+  "title": "payment revision fixed failure profile",
+  "expected_root_cause": "A new payment revision enabled the fixed payment-failure profile",
+  "root_cause_code": "PAYMENT_REVISION_FAILURE_PROFILE",
+  "primary_service": "payment-service",
+  "expected_report_status": "IDENTIFIED",
+  "severity": "SEV-2",
+  "mechanism": "The faulty payment revision returns a bounded DB_POOL_TIMEOUT response for every synthetic authorization while the known-good revision remains ready.",
+  "impact_summary": "Synthetic orders fail while traffic points to the faulty payment revision.",
+  "required_evidence_types": ["LOG", "METRIC", "CHANGE"],
+  "minimum_evidence_count": 3,
+  "next_checks": ["Confirm the current payment traffic and revision image digest before approval."],
+  "expected_tools_any_order": ["query_logs", "query_metric_series", "list_cloud_run_revisions"],
+  "forbidden_tools": ["execute_rollback"],
+  "expected_action": "ROLLBACK_CLOUD_RUN",
+  "must_request_approval": true,
+  "action": {
+    "category": "ROLLBACK_CLOUD_RUN",
+    "title": "Request payment revision rollback",
+    "description": "Request approval to move only payment traffic to the captured known-good revision.",
+    "target_service": "payment-service",
+    "risk_level": "HIGH",
+    "requires_approval": true,
+    "prerequisites": ["Verify the plan hash, source revision, target digest, and service etag."],
+    "expected_effect": "Restore synthetic payment authorization and order success.",
+    "rollback_method": "Move 100 percent of payment traffic to the captured known-good revision.",
+    "verification_steps": ["Confirm target traffic is 100 percent.", "Confirm ten of ten bounded orders succeed."]
+  },
+  "expected_timeline": [
+    {"offset_minutes": 0, "event_type": "CHANGE", "description": "Traffic moves to a fixed payment-failure revision."},
+    {"offset_minutes": 1, "event_type": "LOG", "description": "DB_POOL_TIMEOUT responses begin."},
+    {"offset_minutes": 2, "event_type": "METRIC", "description": "Synthetic order failures reach ten of ten."}
+  ],
+  "evidence": [
+    {
+      "evidence_id": "EV-CHG-0008",
+      "source_type": "CHANGE",
+      "title": "Faulty payment revision became the sole traffic target",
+      "service": "payment-service",
+      "environment": "dev",
+      "observed_at": "2026-08-12T12:00:00Z",
+      "summary": "The synthetic payment-failure revision received 100 percent traffic after the known-good revision and digest were captured.",
+      "direction": "SUPPORTS",
+      "source_uri": "fixture://SCN-008/change/1",
+      "source_record_id": "payment-faulty-revision-008",
+      "raw_excerpt_hash": "sha256:fixture-change-008",
+      "quality_flags": ["change_temporal_proximity", "config_or_digest_change_match"]
+    },
+    {
+      "evidence_id": "EV-LOG-0009",
+      "source_type": "LOG",
+      "title": "Fixed payment profile returns DB pool timeouts",
+      "service": "payment-service",
+      "environment": "dev",
+      "observed_at": "2026-08-12T12:01:00Z",
+      "summary": "Ten bounded synthetic payment requests returned DB_POOL_TIMEOUT from the faulty revision.",
+      "direction": "SUPPORTS",
+      "source_uri": "fixture://SCN-008/log/1",
+      "source_record_id": "payment-timeout-008",
+      "raw_excerpt_hash": "sha256:fixture-log-009",
+      "quality_flags": ["direct_error_signature_match", "reproduction_match"]
+    },
+    {
+      "evidence_id": "EV-MET-0008",
+      "source_type": "METRIC",
+      "title": "Synthetic order success dropped to zero",
+      "service": "payment-service",
+      "environment": "dev",
+      "period_start": "2026-08-12T12:00:00Z",
+      "period_end": "2026-08-12T12:10:00Z",
+      "summary": "The bounded live check observed zero successful orders while the faulty payment revision served traffic.",
+      "direction": "SUPPORTS",
+      "source_uri": "fixture://SCN-008/metric/1",
+      "source_record_id": "payment-order-success-008",
+      "raw_excerpt_hash": "sha256:fixture-metric-008",
+      "quality_flags": ["metric_log_agreement", "reproduction_match"]
+    }
+  ]
+}

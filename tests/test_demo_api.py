@@ -306,3 +306,22 @@ def test_M3_payment_injects_only_the_first_six_SCN_001_steps(
     assert '"event_type":"database_timeout"' in rendered
     assert '"scenario_id":"SCN-001"' in rendered
     assert "amount_krw" not in rendered
+
+
+def test_M8_payment_fixed_failure_profile_is_revision_scoped(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    settings = _settings(DemoService.PAYMENT).model_copy(
+        update={"payment_failure_profile": "payment-failure"}
+    )
+    with TestClient(create_app(settings)) as client:
+        response = client.post(
+            "/v1/payments/authorizations",
+            json={"order_id": "ord_0123456789abcdef", "amount_krw": 1000},
+            headers={"X-Request-ID": "req_scn_008_fault"},
+        )
+
+    assert response.status_code == 503
+    rendered = capsys.readouterr().out
+    assert '"scenario_id":"SCN-008"' in rendered
+    assert '"error_code":"DB_POOL_TIMEOUT"' in rendered

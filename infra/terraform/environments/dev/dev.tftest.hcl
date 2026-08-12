@@ -65,8 +65,10 @@ run "bounded_dev_foundation" {
       length(google_project_service.m1) == 10 &&
       length(google_service_account.demo) == 0 &&
       length(google_cloud_run_v2_service.demo_leaf) == 0 &&
+      length(google_cloud_run_v2_service.demo_payment) == 0 &&
       length(google_cloud_run_v2_service.demo_order) == 0 &&
       length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 0 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_payment) == 0 &&
       length(google_storage_bucket.knowledge) == 0 &&
       length(google_discovery_engine_data_store.knowledge) == 0 &&
       length(google_discovery_engine_schema.knowledge) == 0 &&
@@ -75,7 +77,15 @@ run "bounded_dev_foundation" {
       length(google_project_iam_member.investigator_reader) == 0 &&
       length(google_service_account_iam_member.investigator_operator_token_creator) == 0 &&
       length(google_service_account_iam_member.runtime_service_agent_token_creator) == 0 &&
-      length(google_vertex_ai_reasoning_engine.opspilot) == 0
+      length(google_vertex_ai_reasoning_engine.opspilot) == 0 &&
+      length(google_firestore_database.remediation) == 0 &&
+      length(google_firestore_field.remediation_ttl) == 0 &&
+      length(google_service_account.remediation_control) == 0 &&
+      length(google_service_account.remediation_workflow) == 0 &&
+      length(google_service_account.remediation_executor) == 0 &&
+      length(google_cloud_run_v2_service.remediation_control) == 0 &&
+      length(google_cloud_run_v2_service.remediation_executor) == 0 &&
+      length(google_workflows_workflow.remediation) == 0
     )
     error_message = "The default M2 gate must preserve the M1-only resource graph."
   }
@@ -117,18 +127,19 @@ run "m2_deploy_ready_contract" {
   }
 
   assert {
-    condition     = length(google_cloud_run_v2_service.demo_leaf) == 2 && length(google_cloud_run_v2_service.demo_order) == 1
+    condition     = length(google_cloud_run_v2_service.demo_leaf) == 1 && length(google_cloud_run_v2_service.demo_payment) == 1 && length(google_cloud_run_v2_service.demo_order) == 1
     error_message = "M2 must define exactly three Cloud Run services."
   }
 
   assert {
-    condition     = length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2
+    condition     = length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 1 && length(google_cloud_run_v2_service_iam_member.order_invokes_payment) == 1
     error_message = "Only the two order-to-leaf invoker grants are allowed."
   }
 
   assert {
     condition = alltrue(concat(
       [for service in google_cloud_run_v2_service.demo_leaf : service.scaling[0].min_instance_count == 0 && service.scaling[0].max_instance_count == 2],
+      [google_cloud_run_v2_service.demo_payment[0].scaling[0].min_instance_count == 0 && google_cloud_run_v2_service.demo_payment[0].scaling[0].max_instance_count == 2],
       [google_cloud_run_v2_service.demo_order[0].scaling[0].min_instance_count == 0 && google_cloud_run_v2_service.demo_order[0].scaling[0].max_instance_count == 2],
     ))
     error_message = "All M2 services must scale from zero and cap at two instances."
@@ -137,6 +148,7 @@ run "m2_deploy_ready_contract" {
   assert {
     condition = alltrue(concat(
       [for service in google_cloud_run_v2_service.demo_leaf : service.template[0].containers[0].image == var.demo_image_uri],
+      [google_cloud_run_v2_service.demo_payment[0].template[0].containers[0].image == var.demo_image_uri],
       [google_cloud_run_v2_service.demo_order[0].template[0].containers[0].image == var.demo_image_uri],
     ))
     error_message = "All M2 services must share the reviewed immutable image digest."
@@ -145,6 +157,7 @@ run "m2_deploy_ready_contract" {
   assert {
     condition = alltrue(concat(
       [for service in google_cloud_run_v2_service.demo_leaf : service.template[0].containers[0].startup_probe[0].http_get[0].path == "/ready" && service.template[0].containers[0].liveness_probe[0].http_get[0].path == "/health"],
+      [google_cloud_run_v2_service.demo_payment[0].template[0].containers[0].startup_probe[0].http_get[0].path == "/ready" && google_cloud_run_v2_service.demo_payment[0].template[0].containers[0].liveness_probe[0].http_get[0].path == "/health"],
       [google_cloud_run_v2_service.demo_order[0].template[0].containers[0].startup_probe[0].http_get[0].path == "/ready" && google_cloud_run_v2_service.demo_order[0].template[0].containers[0].liveness_probe[0].http_get[0].path == "/health"],
     ))
     error_message = "Cloud Run probes must avoid reserved paths ending in z."
@@ -161,6 +174,7 @@ run "m2_deploy_ready_contract" {
   assert {
     condition = alltrue(concat(
       [for service in google_cloud_run_v2_service.demo_leaf : service.labels["data_classification"] == "synthetic"],
+      [google_cloud_run_v2_service.demo_payment[0].labels["data_classification"] == "synthetic"],
       [google_cloud_run_v2_service.demo_order[0].labels["data_classification"] == "synthetic"],
     ))
     error_message = "All M2 services must retain the synthetic-data label."
@@ -169,6 +183,7 @@ run "m2_deploy_ready_contract" {
   assert {
     condition = alltrue(concat(
       [for service in google_cloud_run_v2_service.demo_leaf : service.ingress == "INGRESS_TRAFFIC_ALL" && service.invoker_iam_disabled == false],
+      [google_cloud_run_v2_service.demo_payment[0].ingress == "INGRESS_TRAFFIC_ALL" && google_cloud_run_v2_service.demo_payment[0].invoker_iam_disabled == false],
       [google_cloud_run_v2_service.demo_order[0].ingress == "INGRESS_TRAFFIC_ALL" && google_cloud_run_v2_service.demo_order[0].invoker_iam_disabled == false],
     ))
     error_message = "The MVP endpoint must remain reachable through Cloud Run ingress with IAM enforced."
@@ -177,6 +192,7 @@ run "m2_deploy_ready_contract" {
   assert {
     condition = alltrue(concat(
       [for service in google_cloud_run_v2_service.demo_leaf : service.template[0].labels["release_phase"] == "m2-mvp"],
+      [google_cloud_run_v2_service.demo_payment[0].template[0].labels["release_phase"] == "m2-mvp"],
       [google_cloud_run_v2_service.demo_order[0].template[0].labels["release_phase"] == "m2-mvp"],
     ))
     error_message = "The controlled MVP refresh marker must create only new service revisions."
@@ -198,6 +214,7 @@ run "m3_scenario_gate_contract" {
   assert {
     condition = alltrue(concat(
       [for service in google_cloud_run_v2_service.demo_leaf : contains([for item in service.template[0].containers[0].env : "${item.name}=${item.value}"], "OPSPILOT_SCENARIOS_ENABLED=true")],
+      [contains([for item in google_cloud_run_v2_service.demo_payment[0].template[0].containers[0].env : "${item.name}=${item.value}"], "OPSPILOT_SCENARIOS_ENABLED=true")],
       [contains([for item in google_cloud_run_v2_service.demo_order[0].template[0].containers[0].env : "${item.name}=${item.value}"], "OPSPILOT_SCENARIOS_ENABLED=true")],
     ))
     error_message = "M3 scenario behavior must remain behind the explicit environment gate."
@@ -207,9 +224,11 @@ run "m3_scenario_gate_contract" {
     condition = (
       length(google_project_service.m1) == 12 &&
       length(google_service_account.demo) == 3 &&
-      length(google_cloud_run_v2_service.demo_leaf) == 2 &&
+      length(google_cloud_run_v2_service.demo_leaf) == 1 &&
+      length(google_cloud_run_v2_service.demo_payment) == 1 &&
       length(google_cloud_run_v2_service.demo_order) == 1 &&
-      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2
+      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_payment) == 1
     )
     error_message = "M3 Approval 1 must not add cloud resources or IAM bindings."
   }
@@ -293,9 +312,11 @@ run "m4_knowledge_apply_ready_contract" {
     condition = (
       length(google_project_service.m1) == 12 &&
       length(google_service_account.demo) == 3 &&
-      length(google_cloud_run_v2_service.demo_leaf) == 2 &&
+      length(google_cloud_run_v2_service.demo_leaf) == 1 &&
+      length(google_cloud_run_v2_service.demo_payment) == 1 &&
       length(google_cloud_run_v2_service.demo_order) == 1 &&
-      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2
+      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_payment) == 1
     )
     error_message = "M4 must not change the existing API, runtime identity, Cloud Run, or IAM graph."
   }
@@ -351,9 +372,11 @@ run "m5_live_evidence_apply_ready_contract" {
     condition = (
       length(google_project_service.m1) == 12 &&
       length(google_service_account.demo) == 3 &&
-      length(google_cloud_run_v2_service.demo_leaf) == 2 &&
+      length(google_cloud_run_v2_service.demo_leaf) == 1 &&
+      length(google_cloud_run_v2_service.demo_payment) == 1 &&
       length(google_cloud_run_v2_service.demo_order) == 1 &&
-      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 2 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_leaf) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.order_invokes_payment) == 1 &&
       length(google_storage_bucket.knowledge) == 1 &&
       length(google_discovery_engine_data_store.knowledge) == 1 &&
       length(google_discovery_engine_schema.knowledge) == 1 &&
@@ -469,5 +492,86 @@ run "m7_agent_runtime_apply_ready_contract" {
       google_vertex_ai_reasoning_engine.opspilot[0].spec[0].source_code_spec[0].python_spec[0].entrypoint_object == "root_agent"
     )
     error_message = "M7 must use the deterministic Python 3.12 runtime entrypoint."
+  }
+}
+
+run "m8_remediation_default_off_and_apply_ready_contract" {
+  command = plan
+
+  variables {
+    project_id                 = "example-project"
+    billing_account_id         = "000000-000000-000000"
+    budget_notification_email  = "operator@example.invalid"
+    deploy_demo                = true
+    enable_scenarios           = true
+    enable_remediation         = true
+    remediation_approver_group = "approvers@example.invalid"
+    demo_image_uri             = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    remediation_image_uri      = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+
+  assert {
+    condition     = length(google_project_service.m1) == 15
+    error_message = "M8 may add only Firestore, Workflows, and Workflow Executions APIs."
+  }
+
+  assert {
+    condition = (
+      length(google_firestore_database.remediation) == 1 &&
+      google_firestore_database.remediation[0].name == "opspilot-dev" &&
+      google_firestore_database.remediation[0].type == "FIRESTORE_NATIVE" &&
+      length(google_firestore_field.remediation_ttl) == 2
+    )
+    error_message = "M8 must create the named Native database and two cleanup TTL policies."
+  }
+
+  assert {
+    condition = (
+      length(google_service_account.remediation_control) == 1 &&
+      length(google_service_account.remediation_workflow) == 1 &&
+      length(google_service_account.remediation_executor) == 1 &&
+      google_service_account.remediation_control[0].account_id == "opspilot-dev-rem-control" &&
+      google_service_account.remediation_workflow[0].account_id == "opspilot-dev-rem-workflow" &&
+      google_service_account.remediation_executor[0].account_id == "opspilot-dev-rem-executor" &&
+      google_service_account.investigator.account_id == "opspilot-dev-agent"
+    )
+    error_message = "Control, workflow, executor, and read-only Runtime identities must remain separate."
+  }
+
+  assert {
+    condition = (
+      google_cloud_run_v2_service.remediation_control[0].ingress == "INGRESS_TRAFFIC_ALL" &&
+      google_cloud_run_v2_service.remediation_executor[0].ingress == "INGRESS_TRAFFIC_INTERNAL_ONLY" &&
+      google_cloud_run_v2_service.remediation_executor[0].scaling[0].max_instance_count == 1 &&
+      google_cloud_run_v2_service.remediation_executor[0].template[0].max_instance_request_concurrency == 1
+    )
+    error_message = "Only the control API is externally reachable; executor ingress and scale remain bounded."
+  }
+
+  assert {
+    condition = (
+      google_cloud_run_v2_service_iam_member.remediation_group_invoker[0].member == "group:approvers@example.invalid" &&
+      google_cloud_run_v2_service_iam_member.workflow_invokes_control[0].role == "roles/run.invoker" &&
+      google_cloud_run_v2_service_iam_member.workflow_invokes_executor[0].role == "roles/run.invoker"
+    )
+    error_message = "Invoker IAM must preserve the approver group and workflow-only internal calls."
+  }
+
+  assert {
+    condition = toset(google_project_iam_custom_role.remediation_executor_cloud_run[0].permissions) == toset([
+      "run.operations.get",
+      "run.revisions.get",
+      "run.services.get",
+      "run.services.update",
+    ])
+    error_message = "Executor permissions must exclude deployment, IAM, environment, and image mutation."
+  }
+
+  assert {
+    condition = (
+      google_project_iam_member.remediation_executor_cloud_run[0].condition[0].expression == "resource.name == 'projects/example-project/locations/asia-northeast3/services/opspilot-dev-payment'" &&
+      !contains(google_project_iam_custom_role.remediation_control[0].permissions, "run.services.update")
+    )
+    error_message = "Traffic update permission must be conditioned on the exact payment service only."
   }
 }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
@@ -16,6 +17,7 @@ class DemoSettings(BaseModel):
     project_id: str = ""
     downstream_auth: DownstreamAuthMode = DownstreamAuthMode.LOCAL
     scenarios_enabled: bool = False
+    payment_failure_profile: Literal["payment-failure"] | None = None
     payment_service_url: HttpUrl | None = None
     inventory_service_url: HttpUrl | None = None
 
@@ -37,6 +39,7 @@ class DemoSettings(BaseModel):
             downstream_auth=os.environ.get("OPSPILOT_DOWNSTREAM_AUTH", "local"),
             scenarios_enabled=os.environ.get("OPSPILOT_SCENARIOS_ENABLED", "false").lower()
             == "true",
+            payment_failure_profile=os.environ.get("OPSPILOT_PAYMENT_FAILURE_PROFILE") or None,
             payment_service_url=os.environ.get("OPSPILOT_PAYMENT_SERVICE_URL") or None,
             inventory_service_url=os.environ.get("OPSPILOT_INVENTORY_SERVICE_URL") or None,
         )

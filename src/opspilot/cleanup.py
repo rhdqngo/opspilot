@@ -20,6 +20,9 @@ def build_cleanup_plan() -> CleanupPlan:
     return CleanupPlan(
         ordered_steps=[
             "capture a final redacted Terraform plan and evaluation artifact",
+            "reset SCN-008 and let outstanding approval callbacks expire if M8 was enabled",
+            "remove M8 control, Workflow, executor, TTL, and Firestore resources through a "
+            "separate reviewed plan",
             "detach the Gemini Enterprise registration through an approved operator procedure",
             "remove the Agent Runtime only through a separately reviewed Terraform destroy plan",
             "remove private demo Cloud Run services and Artifact Registry images",

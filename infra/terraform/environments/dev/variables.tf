@@ -165,3 +165,54 @@ variable "investigator_operator_email" {
     error_message = "investigator_operator_email is required when live evidence is enabled."
   }
 }
+
+variable "enable_remediation" {
+  description = "Approval gate for M8 Firestore, Workflows, control API, and private executor."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_remediation || (var.deploy_demo && var.enable_scenarios)
+    error_message = "M8 remediation requires the deployed, scenario-enabled demo workload."
+  }
+}
+
+variable "remediation_image_uri" {
+  description = "Immutable image shared by the M8 control API and private executor."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      var.remediation_image_uri == "" ||
+      can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/[^/]+/[^/]+/[^@]+@sha256:[0-9a-f]{64}$", var.remediation_image_uri))
+    )
+    error_message = "remediation_image_uri must be empty or an immutable Artifact Registry digest URI."
+  }
+
+  validation {
+    condition     = !var.enable_remediation || can(regex("@sha256:[0-9a-f]{64}$", var.remediation_image_uri))
+    error_message = "remediation_image_uri is required when M8 remediation is enabled."
+  }
+}
+
+variable "remediation_approver_group" {
+  description = "Google Group allowed to invoke the remediation control API."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      var.remediation_approver_group == "" ||
+      can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.remediation_approver_group))
+    )
+    error_message = "remediation_approver_group must be empty or a valid group email."
+  }
+
+  validation {
+    condition     = !var.enable_remediation || length(trimspace(var.remediation_approver_group)) > 0
+    error_message = "remediation_approver_group is required when M8 remediation is enabled."
+  }
+}

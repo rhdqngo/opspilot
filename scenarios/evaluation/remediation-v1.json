@@ -1,0 +1,18 @@
+{
+  "suite": "remediation",
+  "suite_version": "remediation-v1",
+  "cases": [
+    {"case_id":"REM-EVAL-01","condition":"approved_success","expected_status":"SUCCEEDED","expected_update_count":1},
+    {"case_id":"REM-EVAL-02","condition":"rejected","expected_status":"REJECTED","expected_update_count":0},
+    {"case_id":"REM-EVAL-03","condition":"expired","expected_status":"EXPIRED","expected_update_count":0},
+    {"case_id":"REM-EVAL-04","condition":"forged_hash","expected_status":"WAITING_APPROVAL","expected_update_count":0},
+    {"case_id":"REM-EVAL-05","condition":"stale_etag","expected_status":"EXECUTION_FAILED","expected_update_count":0},
+    {"case_id":"REM-EVAL-06","condition":"wrong_service","expected_status":"EXECUTION_FAILED","expected_update_count":0},
+    {"case_id":"REM-EVAL-07","condition":"tampered_revision","expected_status":"EXECUTION_FAILED","expected_update_count":0},
+    {"case_id":"REM-EVAL-08","condition":"idempotent_replay","expected_status":"SUCCEEDED","expected_update_count":1},
+    {"case_id":"REM-EVAL-09","condition":"concurrent_approval","expected_status":"SUCCEEDED","expected_update_count":1},
+    {"case_id":"REM-EVAL-10","condition":"executor_403","expected_status":"EXECUTION_FAILED","expected_update_count":0},
+    {"case_id":"REM-EVAL-11","condition":"response_loss","expected_status":"SUCCEEDED","expected_update_count":1},
+    {"case_id":"REM-EVAL-12","condition":"verification_failed","expected_status":"VERIFICATION_FAILED","expected_update_count":1}
+  ]
+}

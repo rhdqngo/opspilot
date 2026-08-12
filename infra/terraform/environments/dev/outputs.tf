@@ -33,3 +33,21 @@ output "agent_runtime_name" {
   value       = try(google_vertex_ai_reasoning_engine.opspilot[0].name, null)
   sensitive   = true
 }
+
+output "remediation_control_url" {
+  description = "M8 authenticated remediation control API URL after separate apply approval."
+  value       = try(google_cloud_run_v2_service.remediation_control[0].uri, null)
+  sensitive   = true
+}
+
+output "remediation_executor_name" {
+  description = "M8 internal-only remediation executor resource name."
+  value       = try(google_cloud_run_v2_service.remediation_executor[0].name, null)
+  sensitive   = true
+}
+
+output "remediation_workflow_name" {
+  description = "M8 callback workflow name."
+  value       = try(google_workflows_workflow.remediation[0].name, null)
+  sensitive   = true
+}
