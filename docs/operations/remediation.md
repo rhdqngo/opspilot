@@ -49,14 +49,44 @@ records 10-minute Monitoring windows as auxiliary evidence, and alone writes the
 ```powershell
 uv run --extra agent opspilot scenario prepare --scenario SCN-008 --mode plan --auth gcloud
 uv run --extra agent opspilot scenario reset --scenario SCN-008 --mode plan --auth gcloud
+uv run --extra agent opspilot scenario abort --scenario SCN-008 --mode plan --auth gcloud
 uv run opspilot remediation eval --suite remediation --format summary
+uv run python scripts/m8_release.py preflight --output .tmp/m8-release
 ```
 
 The plan commands perform no cloud call. Execute mode requires explicit cloud-change approval and
-environment-only project, immutable image, order URL, and control URL configuration. The CLI obtains
+environment-only project, immutable image, order URL, and control URL configuration. The payment
+known-good image is `OPSPILOT_SCN008_KNOWN_GOOD_IMAGE_URI`; Terraform's
+`TF_VAR_remediation_image_uri` is reserved for the control/executor image and must never be reused
+as the payment input. The CLI obtains
 an ID token for `OPSPILOT_REMEDIATION_CONTROL_AUDIENCE` from
 `gcloud auth print-identity-token`; `OPSPILOT_REMEDIATION_URL` is only the request base URL. It
 accepts and prints no token value.
+
+Request and decision commands accept an explicit `--idempotency-key`. Network retries reuse that
+same value, allowing an operator to recover a lost response without creating another remediation
+or decision. `remediation show --format json` is the machine-readable polling contract.
+
+## Emergency abort
+
+`scenario prepare --mode execute` writes a recovery record only under
+`.tmp/m8-release/recovery.json` and stores the same trusted target in Firestore before sending the
+faulty orders. The record includes the captured source/target revisions, digest, etag, and bounded
+order counts; it is ignored by Git.
+
+`scenario abort --mode execute` accepts no project, service, revision, digest, etag, or URL. It
+loads the Firestore SCN-008 target and requires an exact match with the local recovery record when
+both exist. It then rechecks the fixed payment service, both revision digests, Ready/serving state,
+and captured etag. Only a 100-percent faulty serving revision can be moved to the known-good
+revision; an already recovered target is an idempotent success. The payment-failure template value
+is removed after traffic recovery. Any stale or mismatched fact produces zero updates.
+
+Prepare records a 20-minute fault deadline and automatically attempts the same guarded abort if
+faulty-order, evidence, or report work fails or is cancelled. An abort is operational recovery, not
+a successful portfolio run. It permanently marks the local
+record `abort_used=true`, and the release publisher refuses that E2E. Invoke abort immediately on
+prepare/request/approval/verification failure or cancellation, and no later than 20 minutes after
+fault activation.
 
 ## Deployment checkpoint
 
@@ -67,3 +97,48 @@ approval, executor call, or reset is authorized by the committed configuration a
 The cloud checkpoint must prove, in order: authentication negative smoke, zero execution before
 approval, ten faulty orders, one traffic update, ten recovered orders, complete actor-hash events,
 reset, and a final Terraform `No changes` plan.
+
+## Release gates
+
+The release helper performs only local or read-only checks. It contains no Docker push, Terraform
+apply, scenario execute, or remediation decision command.
+
+```powershell
+uv run python scripts/m8_release.py preflight --output .tmp/m8-release
+uv run python scripts/m8_release.py verify --phase post-apply --output .tmp/m8-release
+uv run python scripts/m8_release.py verify --phase e2e --output .tmp/m8-release
+uv run python scripts/m8_release.py publish --output .tmp/m8-release
+```
+
+Before post-apply verification, save the reviewed plan JSON at
+`.tmp/m8-release/terraform-plan.json`. Its resource actions must contain one or more creates and no
+update, delete, or replacement. The human-reviewed binary plan remains under `.tmp` and is the only
+plan eligible for the separately approved apply.
+
+Gate order:
+
+1. Run preflight from a clean safeguard commit. It must pass the complete local release gate,
+   remediation 12/12, all three scenario plans, gcloud configuration, required tools, and Docker
+   daemon readiness.
+2. After image-push approval, build Linux/amd64, verify non-root control/executor health, push one
+   commit-SHA tag, resolve its digest, and inject only the digest URI.
+3. Generate and review the remote-state Terraform plan. Stop on any existing-resource update,
+   delete, replacement, Runtime/investigator/demo change, or permission expansion. Apply only that
+   reviewed binary plan after a new approval.
+4. Post-apply verification checks Ready state, internal executor ingress, named Firestore/TTL,
+   active Workflow, no public invoker, Group control access, workflow-only executor invocation,
+   unauthenticated denial, investigator denial, and external executor denial.
+5. After a separate fault approval, execute prepare once. Require baseline 10/10, faulty 0/10,
+   identified report, and CHANGE-grounded `ACT-01`.
+6. Create a remediation with a fixed request key. Wait for callback readiness, verify zero executor
+   traffic updates, and present the plan hash/digest/expiry before the separate approve decision.
+7. Poll for at most five minutes. Require `WAITING_APPROVAL -> APPROVED -> EXECUTING -> SUCCEEDED`,
+   one execution attempt/update, target traffic 100 percent, and verification 10/10.
+8. Execute reset, require another 10/10, no active Workflow, and Terraform `No changes`; then run
+   E2E verification and publish.
+
+Only a clean passed preflight, passed post-apply verification, passed non-aborted E2E, and final
+zero-drift plan may create `docs/portfolio/results/remediation-release-v1.{json,md}`. Published
+evidence contains aggregate actions, checks, orders, transitions, hash-presence booleans, and safe
+failure codes only. It excludes project, region, URLs, emails, actual actor hashes, revision,
+workflow, callback, remediation, execution, and request identifiers.

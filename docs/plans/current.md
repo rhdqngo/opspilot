@@ -1,7 +1,7 @@
 # Current Project State
 
 status: in_progress
-phase: M8-local-implementation-verified / cloud-plan-approval-pending
+phase: M8-cloud-release-safeguards-verified / safeguard-commit-pending
 updated: 2026-08-12
 
 ## Delivered MVP
@@ -261,6 +261,29 @@ updated: 2026-08-12
 - Actual image build/push, Terraform plan/apply, IAM negative smoke, faulty revision activation,
   approval E2E, sanitized cloud evidence, reset, and final `No changes` proof remain blocked on the
   plan's explicit user approval gates.
+
+## M8 cloud release safeguards checkpoint
+
+- SCN-008 now separates the captured payment image input as
+  `OPSPILOT_SCN008_KNOWN_GOOD_IMAGE_URI`; `TF_VAR_remediation_image_uri` is control/executor-only.
+- Prepare requires a healthy 10/10 baseline before fault activation and persists the trusted
+  recovery target before faulty orders or investigation work. Reset verifies a final 10/10.
+- The new caller-input-free abort path compares local and Firestore recovery facts, revalidates the
+  exact service, etag, both same-digest revisions and traffic, restores known-good traffic, removes
+  the failure profile, and is idempotent after successful recovery. Abort makes portfolio publish
+  permanently ineligible for that run.
+- Remediation request/decision commands accept stable idempotency keys and reuse them across three
+  bounded transport retries. Show supports JSON polling.
+- `scripts/m8_release.py` provides read-only preflight, post-apply, E2E, and publish phases. It
+  rejects unsafe Terraform action summaries, aborted/incomplete E2E, non-zero drift, and sensitive
+  identifiers. No cloud evidence exists until all separately approved gates pass.
+- The safeguard release gate passed 180 pytest tests, Ruff format/check, strict mypy over 78 source
+  files, package build, core `7/7`, portfolio `40/40`, remediation `12/12`, two identical 17-file
+  Runtime archives with the unchanged SHA-256
+  `a1eb4b5c548fb6f88396ca506c9e5f16512e093d21e80b23ee239cd87ebaa79b`, Terraform format/validate,
+  bootstrap `1/1`, dev `7/7`, and all prepare/reset/abort plan commands.
+- The safeguard commit is the next checkpoint. Image push, Terraform apply, faulty activation,
+  approval, and cloud evidence remain separately blocked.
 
 ## Validation authority
 

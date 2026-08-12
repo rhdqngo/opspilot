@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -89,18 +90,29 @@ class RemediationApiClient:
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
         request = Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
-        try:
-            with urlopen(request, timeout=30) as response:
-                body = json.loads(response.read())
-        except HTTPError as error:
-            error.close()
-            raise RuntimeError(f"remediation API returned HTTP {error.code}") from error
-        except (URLError, TimeoutError) as error:
-            raise RuntimeError("remediation API is unavailable") from error
+        body: object | None = None
+        for attempt in range(3):
+            try:
+                with urlopen(request, timeout=30) as response:
+                    body = json.loads(response.read())
+                break
+            except HTTPError as error:
+                retryable = error.code == 429 or error.code >= 500
+                error.close()
+                if not retryable or attempt == 2:
+                    raise RuntimeError(f"remediation API returned HTTP {error.code}") from error
+            except (URLError, TimeoutError) as error:
+                if attempt == 2:
+                    raise RuntimeError("remediation API is unavailable") from error
+            time.sleep(0.2 * (attempt + 1))
+        if body is None:
+            raise RuntimeError("remediation API returned no response")
         return RemediationRecord.model_validate(body)
 
 
-def render_remediation(record: RemediationRecord) -> str:
+def render_remediation(record: RemediationRecord, output_format: str = "summary") -> str:
+    if output_format == "json":
+        return json.dumps(record.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n"
     return "\n".join(
         [
             f"remediation_id: {record.remediation_id}",

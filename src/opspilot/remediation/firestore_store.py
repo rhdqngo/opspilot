@@ -62,6 +62,40 @@ class FirestoreRemediationStore:
         batch.create(report_ref, report.model_dump(mode="python"))
         await asyncio.to_thread(batch.commit)
 
+    async def save_recovery_target(
+        self,
+        *,
+        incident_id: str,
+        target: RemediationTarget,
+        scenario_id: str,
+        updated_at: datetime,
+    ) -> None:
+        payload = {
+            "incident_id": incident_id,
+            "scenario_id": scenario_id,
+            "remediation_target": target.model_dump(mode="python"),
+            "updated_at": updated_at,
+        }
+        batch = self.client.batch()
+        batch.set(self.client.collection("incidents").document(incident_id), payload, merge=True)
+        batch.set(self.client.collection("scenario_recovery").document(scenario_id), payload)
+        await asyncio.to_thread(batch.commit)
+
+    async def get_latest_scenario_target(
+        self, scenario_id: str
+    ) -> tuple[str, RemediationTarget] | None:
+        snapshot = await asyncio.to_thread(
+            self.client.collection("scenario_recovery").document(scenario_id).get
+        )
+        if not snapshot.exists:
+            return None
+        data = cast(dict[str, Any], snapshot.to_dict())
+        incident_id = data.get("incident_id")
+        target = data.get("remediation_target")
+        if not isinstance(incident_id, str) or target is None:
+            return None
+        return incident_id, RemediationTarget.model_validate(target)
+
     async def get_report(self, incident_id: str, report_id: str) -> IncidentReport | None:
         snapshot = await asyncio.to_thread(
             self.client.collection("incidents")
@@ -148,6 +182,19 @@ class FirestoreRemediationStore:
         if not snapshot.exists:
             return None
         return RemediationRecord.model_validate(snapshot.to_dict())
+
+    async def get_latest_remediation_for_incident(
+        self, incident_id: str
+    ) -> RemediationRecord | None:
+        query = self.client.collection("remediations").order_by(
+            "created_at", direction=firestore.Query.DESCENDING
+        )
+        snapshots = await asyncio.to_thread(lambda: list(query.limit(20).stream()))
+        for snapshot in snapshots:
+            record = RemediationRecord.model_validate(snapshot.to_dict())
+            if record.incident_id == incident_id:
+                return record
+        return None
 
     async def set_workflow_execution(
         self, remediation_id: str, workflow_execution: str, now: datetime

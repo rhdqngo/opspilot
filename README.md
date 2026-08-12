@@ -29,8 +29,15 @@ and 12-case local gate:
 
 ```powershell
 uv run --extra agent opspilot scenario prepare --scenario SCN-008 --mode plan --auth gcloud
+uv run --extra agent opspilot scenario abort --scenario SCN-008 --mode plan --auth gcloud
 uv run opspilot remediation eval --suite remediation --format summary
+uv run python scripts/m8_release.py preflight --output .tmp/m8-release
 ```
+
+The M8 release runner is read-only: it cannot push images, apply Terraform, activate SCN-008, or
+submit an approval. The known-good payment digest uses
+`OPSPILOT_SCN008_KNOWN_GOOD_IMAGE_URI`; `TF_VAR_remediation_image_uri` remains exclusive to the
+control and executor image. No M8 cloud evidence has been published yet.
 
 [Architecture](docs/portfolio/architecture.md) ·
 [Evaluation](docs/portfolio/evaluation.md) ·

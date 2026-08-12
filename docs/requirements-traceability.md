@@ -31,7 +31,7 @@ accidental omission.
 | FR-017 | Partial | Evidence metadata and privacy-safe Runtime run summaries are structured; raw inputs and identities are intentionally excluded. |
 | FR-018 | Implemented | Versioned 7-case core and 40-case portfolio evaluation suites enforce deterministic gates. |
 | FR-019 | Deferred | User feedback persistence is post-MVP. |
-| FR-020 | Partial | Seven offline scenarios replay, SCN-001 executes against the local workload, and SCN-008 has plan/execute/reset operators whose cloud execute path remains approval-gated. |
+| FR-020 | Partial | Seven offline scenarios replay, SCN-001 executes against the local workload, and SCN-008 has plan/execute/reset plus trusted-target abort operators whose cloud execute path remains approval-gated. |
 | FR-021 | Deferred | Public backend switching was removed; each surface has a fixed documented execution mode. |
 | FR-022 | Implemented | Agent Runtime and Gemini Enterprise Preview acceptance are recorded. |
 | FR-023 | Partial | JSON and Markdown are produced; API storage is process-local rather than durable. |
@@ -74,5 +74,7 @@ uv run --extra agent opspilot agent eval --suite core --format summary
 uv run --extra agent opspilot agent eval --suite portfolio --format summary --output .tmp/evaluation
 uv run opspilot remediation eval --suite remediation --format summary
 uv run --extra agent opspilot scenario prepare --scenario SCN-008 --mode plan --auth gcloud
+uv run --extra agent opspilot scenario abort --scenario SCN-008 --mode plan --auth gcloud
+uv run python scripts/m8_release.py preflight --output .tmp/m8-release
 uv run opspilot cleanup plan --format summary
 ```

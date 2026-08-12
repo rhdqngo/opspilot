@@ -64,7 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     scenario_run.add_argument("--scenario", default="SCN-001")
     scenario_run.add_argument("--auth", choices=("local", "gcloud"), default="local")
     scenario_run.add_argument("--format", choices=("json", "summary"), default="summary")
-    for command_name in ("prepare", "reset"):
+    for command_name in ("prepare", "reset", "abort"):
         scenario_change = scenario_commands.add_parser(
             command_name, help=f"Plan or execute SCN-008 {command_name}"
         )
@@ -126,8 +126,10 @@ def build_parser() -> argparse.ArgumentParser:
     remediation_request.add_argument("--incident", required=True)
     remediation_request.add_argument("--report", required=True)
     remediation_request.add_argument("--action", choices=("ACT-01",), required=True)
+    remediation_request.add_argument("--idempotency-key", default=None)
     remediation_show = remediation_commands.add_parser("show", help="Show remediation state")
     remediation_show.add_argument("--id", required=True)
+    remediation_show.add_argument("--format", choices=("summary", "json"), default="summary")
     remediation_decide = remediation_commands.add_parser(
         "decide", help="Approve or reject a remediation"
     )
@@ -135,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     remediation_decide.add_argument("--decision", choices=("approve", "reject"), required=True)
     remediation_decide.add_argument("--plan-hash", required=True)
     remediation_decide.add_argument("--comment", default="")
+    remediation_decide.add_argument("--idempotency-key", default=None)
     remediation_serve = remediation_commands.add_parser(
         "serve-control", help="Serve the authenticated remediation control API"
     )
@@ -203,7 +206,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(render_scenario_summary(scenario_result), end="")
         return 0 if scenario_result.ground_truth_matched and scenario_result.recovered else 2
-    if args.command == "scenario" and args.scenario_command in {"prepare", "reset"}:
+    if args.command == "scenario" and args.scenario_command in {"prepare", "reset", "abort"}:
         from opspilot.remediation.scenario import (
             ScenarioMode,
             ScenarioOperation,
@@ -316,7 +319,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         client = RemediationApiClient(
             remediation_settings.url, remediation_settings.control_audience
         )
-        idempotency_key = f"cli-{secrets.token_hex(16)}"
+        configured_key = getattr(args, "idempotency_key", None)
+        idempotency_key = str(configured_key or f"cli-{secrets.token_hex(16)}")
         if args.remediation_command == "request":
             record = client.request(
                 incident_id=str(args.incident),
@@ -336,6 +340,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         else:
             raise AssertionError("unreachable remediation command")
-        print(render_remediation(record), end="")
+        print(render_remediation(record, str(getattr(args, "format", "summary"))), end="")
         return 0
     raise AssertionError("unreachable command")
