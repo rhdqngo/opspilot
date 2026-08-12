@@ -134,6 +134,8 @@ def test_M8_preflight_is_read_only_and_aggregates_failures(
     assert not any("terraform apply" in value for value in joined)
     assert not any("--mode execute" in value for value in joined)
     assert not any("remediation decide" in value for value in joined)
+    assert any("--auth gcloud" in value for value in joined if "scenario prepare" in value)
+    assert any(value.startswith("available auth list") for value in joined)
 
 
 def test_M8_verify_sanitizes_results_and_abort_blocks_e2e(tmp_path: Path) -> None:

@@ -645,7 +645,7 @@ class RemediationReleaseRunner:
                 "--mode",
                 "plan",
                 "--auth",
-                gcloud,
+                "gcloud",
             ),
             "reset_plan": (
                 "uv",
@@ -660,7 +660,7 @@ class RemediationReleaseRunner:
                 "--mode",
                 "plan",
                 "--auth",
-                "gcloud",
+                gcloud,
             ),
             "abort_plan": (
                 "uv",
@@ -678,7 +678,7 @@ class RemediationReleaseRunner:
                 "gcloud",
             ),
             "gcloud_active_account": (
-                "gcloud",
+                gcloud,
                 "auth",
                 "list",
                 "--filter=status:ACTIVE",
