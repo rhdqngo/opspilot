@@ -35,9 +35,11 @@ approval cross those boundaries.
 | Runtime credential broadening | Existing investigator SA, workload ADC, eight explicit permissions, no key; Runtime service agent gets leaf Token Creator only | Project-wide telemetry read remains bounded by synthetic-only project and server-side filters |
 | Package contamination | Deterministic file allowlist, pinned requirements, packaged catalog, ignored output, no archive artifact | Dependency supply-chain review remains CI/static rather than attestation-based |
 | Ambiguous Enterprise registration | One global app, one fixed-name runtime, one fixed-name registration; ambiguity hard-stops and apply is process-gated | Existing app administrator must still review the Approval 2 mutation |
+| Runtime acceptance leakage | One gated fixed rejection probe caps the response, discards raw payloads, and emits only counts and blocker codes | Supported Enterprise output still requires a post-run log scan |
 
 ## Deferred reviews
 
-Agent Runtime deployment and Gemini Enterprise registration remain deferred to Approval 2.
+Agent Runtime deployment and Gemini Enterprise registration remain deferred until reauthentication
+and an exact local operator plan. GitHub workflows are manual-only and skipped as MVP gates.
 Sessions, Memory Bank, OAuth user delegation, Agent Gateway, VPC, Model Armor, approval state, and
 remediation remain excluded. M7 Approval 1 grants no runtime identity and persists no session.

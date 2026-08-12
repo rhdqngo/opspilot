@@ -60,6 +60,8 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - A future Approval 2 runtime remains min 0/max 1 at 1 vCPU and 1 GiB, concurrency 3. The project
   KRW 50,000 budget remains the operational ceiling; no subscription or provisioned throughput is
   enabled.
+- GitHub workflows are manual-only and skipped as MVP gates. No M7 hosted-reader permission or
+  bootstrap apply is required; the existing WIF infrastructure remains unchanged.
 
 ## M3 impact
 

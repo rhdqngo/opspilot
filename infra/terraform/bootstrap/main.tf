@@ -80,8 +80,6 @@ resource "google_project_iam_custom_role" "ci_plan_reader" {
   permissions = [
     "artifactregistry.repositories.get",
     "artifactregistry.repositories.list",
-    "aiplatform.reasoningEngines.get",
-    "aiplatform.reasoningEngines.list",
     "billing.resourcebudgets.read",
     "discoveryengine.dataStores.get",
     "discoveryengine.dataStores.list",

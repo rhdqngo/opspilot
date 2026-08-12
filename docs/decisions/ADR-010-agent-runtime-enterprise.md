@@ -18,11 +18,18 @@ Register into one existing global Gemini Enterprise app only after a separate de
 Registration uses one fixed display name, is plan-first and idempotent, and stops on app, runtime,
 or display-name ambiguity.
 
+During the MVP, GitHub workflows remain available only through `workflow_dispatch` and are not
+acceptance gates. Local operator validation and zero-drift plans are authoritative. The existing
+WIF infrastructure is preserved, but M7 adds no hosted-reader permission and performs no bootstrap
+apply.
+
 ## Consequences
 
 - Existing M6 local discovery, fixture, evaluation, prompts, graph, and report contracts remain
   unchanged.
 - Out-of-scope input incurs zero evidence and model calls.
 - Approval 1 changes no cloud resource, IAM policy, repository variable, or Enterprise app.
+- A fixed gated rejection probe validates the deployed boundary without accepting arbitrary input
+  or exposing provider response data.
 - Sessions, Memory Bank, OAuth user delegation, Agent Gateway, VPC, Model Armor, alert intake,
   remediation, dashboards, and multi-project operation remain post-MVP.

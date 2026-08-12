@@ -151,6 +151,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     runtime_smoke.add_argument("--backend", choices=("fixture",), default="fixture")
     runtime_smoke.add_argument("--format", choices=("json", "summary"), default="summary")
+    runtime_probe = runtime_commands.add_parser(
+        "probe", help="Send one gated fixed out-of-scope request to the deployed Runtime"
+    )
+    runtime_probe.add_argument("--format", choices=("json", "summary"), default="summary")
     runtime_package = runtime_commands.add_parser(
         "package", help="Create a deterministic runtime source archive under .tmp"
     )
@@ -308,6 +312,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             from opspilot.agent.runtime import (
                 package_runtime,
                 render_runtime_summary,
+                run_runtime_probe,
                 smoke_runtime,
                 validate_runtime,
             )
@@ -366,6 +371,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             else:
                 print(render_runtime_summary(runtime_result), end="")
             return 0 if runtime_result.succeeded else 2
+        if args.agent_command == "runtime" and args.runtime_command == "probe":
+            probe_result = asyncio.run(run_runtime_probe())
+            if args.format == "json":
+                print(json.dumps(probe_result.model_dump(mode="json"), indent=2))
+            else:
+                print(render_runtime_summary(probe_result), end="")
+            return 0 if probe_result.succeeded else 2
         if args.agent_command == "runtime" and args.runtime_command == "package":
             package_result = package_runtime(Path(str(args.output)))
             print(render_runtime_summary(package_result), end="")

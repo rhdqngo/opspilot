@@ -1,4 +1,4 @@
-.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run access-check knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-diagnose agent-accept agent-runtime-validate agent-runtime-smoke agent-runtime-package demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
+.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run access-check knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-diagnose agent-accept agent-runtime-validate agent-runtime-smoke agent-runtime-probe agent-runtime-package demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
 
 TERRAFORM ?= terraform
 TFLINT_IMAGE ?= ghcr.io/terraform-linters/tflint:v0.64.0
@@ -67,6 +67,9 @@ agent-runtime-validate:
 
 agent-runtime-smoke:
 	uv run --extra agent opspilot agent runtime smoke --backend fixture --format summary
+
+agent-runtime-probe:
+	uv run --extra agent opspilot agent runtime probe --format summary
 
 agent-runtime-package:
 	uv run --extra agent opspilot agent runtime package --output .tmp/m7-runtime

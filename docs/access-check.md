@@ -79,6 +79,10 @@ post-deploy investigator target remains the fixed eight-permission contract. App
 the same gate before any apply without recording discovered app, runtime, agent, project, or
 service-account identifiers.
 
+The latest pre-Approval-2 attempt found the user credential and ADC expired. It made no cloud
+change and its candidate counts are not accepted as current evidence. Interactive reauthentication
+and a fresh redacted check are hard gates before reading remote state or planning an apply.
+
 ## Location decisions
 
 | Capability | Location | State |

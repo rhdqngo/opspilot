@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-code-complete / hosted-static-blocked
+phase: M7-local-gate-ready / reauthentication-required
 updated: 2026-08-12
 
 ## Objective
@@ -35,14 +35,20 @@ updated: 2026-08-12
 - Enterprise registration is plan-first, fixed-name, unique-app/runtime, idempotent, redacted, and
   process-gated. Approval 1 performed only redacted read-only inventory; no registration or paid
   runtime call occurred.
+- GitHub workflows are retained as `workflow_dispatch` only and are skipped as MVP completion
+  gates. Local tests and operator zero-drift plans are authoritative. M7 removes its unneeded
+  hosted-reader permission diff, so bootstrap requires no apply.
+- A fixed gated Runtime probe sends one unsupported-service request, requires zero evidence/model
+  calls, and exposes only bounded counts and blocker codes. Runtime output carries a safe audit
+  footer without project, Runtime, URL, prompt, token, or user identity values.
 
 ## Active blocker
 
-- The M7 commit reached private `main`, but both hosted static workflows were rejected before any
-  job step started because the GitHub account currently has a payment or Actions spending-limit
-  issue. Local Python/container/Terraform validation and the read-only M7 access gate passed.
-- Restore the GitHub Actions billing/spending state, then rerun the two existing workflows. No code,
-  Google Cloud, IAM, Runtime, Enterprise, or Terraform change is needed to clear this blocker.
+- The current `Edu_687` user credential and ADC require interactive reauthentication. The most
+  recent read-only attempt could not authenticate and therefore did not establish current state,
+  billing, permission, app, or Runtime inventory evidence.
+- No cloud plan or apply may run until both credential paths pass, the intended default project and
+  KRW billing are reconfirmed, and remote state matches bootstrap `14/15` and dev `31/32`.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -207,6 +213,7 @@ updated: 2026-08-12
 | M6 Approval 8: evidence classification | blocked | Classifier and static CI passed; live RCA stopped at composer response timeout and safety was not run |
 | M6 Approval 9: MVP latency calibration | complete | RCA 1/1 and safety 2/2 passed with 6/6 calls, no timeout, and zero cloud drift |
 | M7 Approval 1: Runtime and Enterprise preparation | complete | Fixed natural-language adapter, workload ADC, deterministic package, default-off IaC, guarded registration; cloud changes 0 |
+| M7 Approval 2: local-gated deployment | in progress | Manual-only workflows, bootstrap zero-drift source, safe ADC failure, fixed rejection probe; reauthentication required before apply |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -353,7 +360,7 @@ updated: 2026-08-12
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 166 pytest tests, including M7 scope rejection, callback routing, package determinism, registration gating, prior M6 acceptance, citation, failure, budget, and redaction contracts |
+| Tests | pass | 176 pytest tests, including M7 scope rejection, fixed live-probe gating, safe ADC failure, callback routing, package determinism, prior M6 acceptance, citation, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -411,7 +418,8 @@ updated: 2026-08-12
 | M7 fixture runtime smoke | pass | Existing seven-node graph; exactly two fake model calls; citation coverage 100% |
 | M7 runtime package | pass | Deterministic tar.gz/SHA; packaged catalog and pinned requirements; forbidden repository content absent |
 | M7 Terraform static | pass | Default-off existing graph; enabled mock graph adds five addresses and one role update only |
-| M7 hosted static CI | blocked | GitHub rejected Python/container and Terraform jobs before startup due to account payment or Actions spending-limit state |
+| M7 hosted static CI | skipped-by-policy | All three workflows are manual-only; no hosted job or M7 repository gate is required for the MVP |
+| M7 local operator gate | pass | Full Python/fixture/package regression, Linux/amd64 non-root Compose 10/10 and SCN-001, TFLint, bootstrap/dev validate and mock plans |
 | M7 cloud/IAM/runtime/app change | pass | Zero changes in Approval 1; deployment and registration remain separately gated |
 | UI render / input | not-applicable | No end-user UI |
 
@@ -425,11 +433,10 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- First clear the GitHub Actions account billing/spending blocker and rerun the existing hosted
-  Python/container and Terraform workflows. Only after both pass is M7 Approval 1 ready to close.
-- M7 Approval 2 must then separately review and apply the bootstrap one-update and dev exact
-  `5 create / 1 update` plans, then deploy the Runtime and register it once into the unique existing
-  global Enterprise app.
+- Reauthenticate the `Edu_687` user credential and ADC, then rerun the identifier-free access and
+  remote-state gates. Do not trust counts from the failed credential attempt.
+- Require a bootstrap `No changes` plan and apply only the dev exact `5 create / 1 update` plan,
+  then deploy the Runtime and register it once into the unique existing global Enterprise app.
 - Run one unsupported request first and require zero evidence/model calls. Then run exactly one
   supported payment-service 30-minute investigation with bounded evidence and two model calls.
 - Do not infer deployment authority from Approval 1. Sessions, Memory Bank, OAuth delegation,

@@ -109,11 +109,13 @@ package it locally without a cloud call:
 ```powershell
 uv run --extra agent opspilot agent runtime validate --format summary
 uv run --extra agent opspilot agent runtime smoke --backend fixture --format summary
+uv run --extra agent opspilot agent runtime probe --format summary
 uv run --extra agent opspilot agent runtime package --output .tmp/m7-runtime
 ```
 
-The archive is deterministic and stays ignored under `.tmp`. Runtime deployment and Gemini
-Enterprise registration remain default-off and require M7 Approval 2.
+The probe is default-off and sends one fixed out-of-scope request only when its process gate is
+enabled. The archive is deterministic and stays ignored under `.tmp`. Runtime deployment and
+Gemini Enterprise registration remain default-off until the reviewed local operator apply.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
@@ -137,8 +139,9 @@ uv build
 
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
-remote state contains 31 managed resources after the M5 IAM apply; operator and hosted read-only
-plans are zero drift.
+remote state contains 31 managed resources after the M5 IAM apply. Local operator plans are the
+MVP authority; GitHub workflows are retained as manual-only definitions and are not completion
+gates.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
 ignored backend files, and GitHub repository variables.
 
@@ -176,8 +179,8 @@ See `docs/operations/demo-services.md` for the workload runbook and
 - Logs are redacted before they become evidence.
 - Reports can recommend an approval-gated action but R0 exposes no remediation endpoint.
 - Google account, project, OAuth, and billing identifiers are never stored in the repository.
-- Pull requests run static Terraform checks without cloud credentials.
-- Pull requests build the Linux/amd64 image and exercise all three roles only on a local network.
+- Python/container and Terraform workflows are `workflow_dispatch` only during the MVP; equivalent
+  local commands are mandatory before an apply or release commit.
 - The live Terraform plan workflow is manual, uses WIF, and has no apply or state-write identity.
 - The live plan is additionally gated by `TF_M2_IMAGE_READY=true` and remains manual/read-only.
 - M3 scenario deployment additionally requires `TF_M3_IMAGE_READY=true`. The variable is enabled
@@ -188,5 +191,5 @@ See `docs/operations/demo-services.md` for the workload runbook and
   investigator IAM apply and bounded live acceptance passed.
 - M6 model calls are default-off. Offline CI uses the deterministic fake model, and the optional
   Vertex path requires a process-scoped gate plus a separate live-model approval.
-- M7 hosted plans additionally require `TF_M7_RUNTIME_READY=true`; Approval 1 does not create this
-  repository variable, deploy a Runtime, or register an Enterprise agent.
+- M7 does not set `TF_M7_RUNTIME_READY` or dispatch a hosted plan. Existing WIF resources remain
+  unchanged so hosted validation can be restored after the MVP.

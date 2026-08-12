@@ -11,6 +11,8 @@ from opspilot.agent.enterprise import (
     run_enterprise_registration,
 )
 from opspilot.agent.runtime import RUNTIME_DISPLAY_NAME
+from opspilot.domain import ToolErrorCategory
+from opspilot.evidence import LiveEvidenceFailure, WorkloadAdcTokenProvider
 
 
 class FakeInventory:
@@ -131,3 +133,24 @@ def test_M7_enterprise_normalizes_failures_without_raw_errors(failure: str) -> N
     assert result.succeeded is False
     assert result.blocker_code == failure
     assert "hidden" not in result.model_dump_json()
+
+
+def test_M7_enterprise_normalizes_expired_adc_without_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def expired_adc(_provider: WorkloadAdcTokenProvider) -> str:
+        raise LiveEvidenceFailure(
+            "EVIDENCE_WORKLOAD_ADC_FAILED",
+            ToolErrorCategory.AUTH,
+            retryable=False,
+            safe_message="credential unavailable",
+        )
+
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "hidden-project")
+    monkeypatch.setattr(WorkloadAdcTokenProvider, "get_token", expired_adc)
+
+    result = run_enterprise_registration("plan")
+
+    assert result.succeeded is False
+    assert result.blocker_code == "unauthorized"
+    assert "hidden-project" not in result.model_dump_json()

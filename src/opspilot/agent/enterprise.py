@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 from pydantic import BaseModel, Field
 
 from opspilot.agent.runtime import RUNTIME_DISPLAY_NAME, RUNTIME_REGION
-from opspilot.evidence import WorkloadAdcTokenProvider
+from opspilot.evidence import LiveEvidenceFailure, WorkloadAdcTokenProvider
 
 REGISTER_GATE = "OPSPILOT_ENTERPRISE_REGISTER_ENABLED"
 SAFE_FAILURE_CODES = frozenset(
@@ -88,7 +88,10 @@ class RestEnterpriseInventory:
         import asyncio
 
         try:
-            token = asyncio.run(self._token_provider.get_token())
+            try:
+                token = asyncio.run(self._token_provider.get_token())
+            except LiveEvidenceFailure:
+                raise EnterpriseApiFailure("unauthorized") from None
             request = Request(
                 url,
                 data=json.dumps(body).encode() if body is not None else None,

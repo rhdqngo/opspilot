@@ -193,3 +193,20 @@ def test_M7_cli_runtime_validate_and_fixture_smoke_are_redacted(
     assert "token" not in combined
     assert "http" not in combined
     assert "payment database" not in combined
+
+
+def test_M7_cli_runtime_probe_is_default_off_and_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.delenv("OPSPILOT_RUNTIME_PROBE_ENABLED", raising=False)
+
+    assert main(["agent", "runtime", "probe", "--format", "json"]) == 2
+
+    output = capsys.readouterr().out
+    assert '"executed_query_count": 0' in output
+    assert '"blocker_code": "gate_disabled"' in output
+    assert "project" not in output
+    assert "runtime_name" not in output
+    assert "token" not in output
+    assert "http" not in output

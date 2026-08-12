@@ -2,17 +2,24 @@ from __future__ import annotations
 
 import hashlib
 import tarfile
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pytest
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
 from opspilot.agent.runtime import (
+    RUNTIME_DISPLAY_NAME,
+    RUNTIME_PROBE_GATE,
     RuntimeInvocationResult,
+    RuntimeProbeBlocker,
+    RuntimeProbeFailure,
     create_runtime_root_agent,
     package_runtime,
     process_runtime_input,
+    run_runtime_probe,
     smoke_runtime,
     validate_runtime,
     validate_runtime_input,
@@ -63,6 +70,9 @@ async def test_M7_rejection_makes_zero_evidence_and_model_calls() -> None:
     assert result.model_calls == 0
     assert result.evidence_api_calls == 0
     assert calls == 0
+    assert "rejection_code: `unsupported_service`" in result.output_markdown
+    assert "evidence_api_calls: `0`" in result.output_markdown
+    assert "model_calls: `0`" in result.output_markdown
 
 
 async def test_M7_fixture_runtime_preserves_existing_two_model_node_graph() -> None:
@@ -74,6 +84,8 @@ async def test_M7_fixture_runtime_preserves_existing_two_model_node_graph() -> N
     assert result.citation_coverage == 1.0
     assert result.unauthorized_action_count == 0
     assert "EV-" in result.output_markdown
+    assert "citation_coverage: `1.00`" in result.output_markdown
+    assert "unauthorized_action_count: `0`" in result.output_markdown
 
 
 async def test_M7_public_callback_skips_the_upper_routing_model() -> None:
@@ -148,3 +160,76 @@ def test_M7_runtime_package_is_deterministic_and_allowlisted() -> None:
 def test_M7_runtime_package_cannot_escape_tmp(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"under \.tmp"):
         package_runtime(tmp_path)
+
+
+class FakeProbeClient:
+    def __init__(self, *, runtimes: int = 1, failure: RuntimeProbeBlocker | None = None) -> None:
+        self.runtimes = runtimes
+        self.failure = failure
+        self.queries = 0
+
+    async def list_runtimes(self) -> list[Mapping[str, Any]]:
+        if self.failure:
+            raise RuntimeProbeFailure(self.failure)
+        return [
+            {"name": f"hidden-runtime-{index}", "displayName": RUNTIME_DISPLAY_NAME}
+            for index in range(self.runtimes)
+        ]
+
+    async def query(self, _runtime_name: str) -> Mapping[str, Any]:
+        self.queries += 1
+        return {
+            "output": (
+                "## Runtime acceptance audit\n"
+                "- rejection_code: `unsupported_service`\n"
+                "- evidence_api_calls: `0`\n"
+                "- model_calls: `0`\n"
+            )
+        }
+
+
+async def test_M7_runtime_probe_is_default_off_and_executes_no_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(RUNTIME_PROBE_GATE, raising=False)
+    client = FakeProbeClient()
+
+    result = await run_runtime_probe(client=client)
+
+    assert result.succeeded is False
+    assert result.blocker_code == "gate_disabled"
+    assert result.executed_query_count == 0
+    assert client.queries == 0
+
+
+async def test_M7_runtime_probe_sends_one_fixed_request_and_returns_only_safe_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_PROBE_GATE, "true")
+    client = FakeProbeClient()
+
+    result = await run_runtime_probe(client=client)
+
+    assert result.succeeded is True
+    assert result.runtime_match_count == 1
+    assert result.executed_query_count == 1
+    assert result.safe_rejection_observed is True
+    assert result.rejection_code == "unsupported_service"
+    assert client.queries == 1
+    assert "hidden-runtime" not in result.model_dump_json()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["unauthorized", "forbidden", "not_found", "upstream_error", "invalid_response"],
+)
+async def test_M7_runtime_probe_normalizes_failures_without_raw_response(
+    monkeypatch: pytest.MonkeyPatch, failure: RuntimeProbeBlocker
+) -> None:
+    monkeypatch.setenv(RUNTIME_PROBE_GATE, "true")
+
+    result = await run_runtime_probe(client=FakeProbeClient(failure=failure))
+
+    assert result.succeeded is False
+    assert result.blocker_code == failure
+    assert result.executed_query_count == 0

@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M5 applied and hosted zero drift; M7 runtime IAM default-off
+Status: M1-M5 applied; M7 runtime IAM default-off with local operator validation
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
@@ -126,7 +126,7 @@ custom role and grant the Vertex Reasoning Engine service agent
 reuses the same identity and receives no key, broad predefined role, invoke permission, IAM write,
 Storage read, Secret access, or remediation capability.
 
-The hosted plan identity source adds only `aiplatform.reasoningEngines.get/list`. The operator M7
-check covers Runtime create/update/get/list/query, operation read, investigator actAs and leaf IAM,
-plus Enterprise agent create/get/list/update. Results contain booleans, missing permission names,
-and collision counts only.
+M7 does not change or apply the hosted plan identity while GitHub workflows are skipped for the
+MVP. The operator M7 check covers Runtime create/update/get/list/query, operation read,
+investigator actAs and leaf IAM, plus Enterprise agent create/get/list/update. Results contain
+booleans, missing permission names, and collision counts only.

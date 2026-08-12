@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
 import gzip
 import hashlib
 import io
+import json
 import os
 import re
 import tarfile
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, Protocol
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from google.adk.agents import LlmAgent
@@ -26,6 +31,7 @@ from opspilot.catalog import load_service_catalog
 from opspilot.evidence import (
     EvidenceCollectionRequest,
     LiveEvidenceClient,
+    LiveEvidenceFailure,
     UrllibJsonTransport,
     WorkloadAdcTokenProvider,
     collect_evidence,
@@ -36,6 +42,9 @@ RUNTIME_REGION = "asia-northeast3"
 RUNTIME_SERVICE = "payment-service"
 RUNTIME_WINDOW_MINUTES = 30
 RUNTIME_DISPLAY_NAME = "OpsPilot Incident Commander"
+RUNTIME_PROBE_GATE = "OPSPILOT_RUNTIME_PROBE_ENABLED"
+RUNTIME_PROBE_MESSAGE = "inventory-service 최근 30분 상태를 분석해줘"
+MAX_PROBE_RESPONSE_BYTES = 64 * 1024
 MIN_INPUT_CHARS = 3
 MAX_INPUT_CHARS = 500
 ACTION_PATTERN = re.compile(
@@ -111,7 +120,121 @@ class RuntimePackageResult(BaseModel):
     archive_name: str = "opspilot-agent-runtime.tar.gz"
 
 
+RuntimeProbeBlocker = Literal[
+    "none",
+    "gate_disabled",
+    "configuration_unavailable",
+    "runtime_not_unique",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "upstream_error",
+    "invalid_response",
+    "rejection_not_observed",
+]
+
+
+class RuntimeProbeResult(BaseModel):
+    succeeded: bool
+    runtime_match_count: int = Field(default=0, ge=0)
+    executed_query_count: int = Field(default=0, ge=0, le=1)
+    safe_rejection_observed: bool = False
+    rejection_code: str = "none"
+    blocker_code: RuntimeProbeBlocker = "none"
+
+
 RuntimeHandler = Callable[[RuntimeInputDecision], Awaitable[RuntimeInvocationResult]]
+
+
+class RuntimeProbeClient(Protocol):
+    async def list_runtimes(self) -> list[Mapping[str, Any]]: ...
+
+    async def query(self, runtime_name: str) -> Mapping[str, Any]: ...
+
+
+class RuntimeProbeFailure(RuntimeError):
+    def __init__(self, code: RuntimeProbeBlocker) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+class RestRuntimeProbeClient:
+    """ADC-backed fixed Runtime probe that keeps resource identifiers private."""
+
+    def __init__(self) -> None:
+        self._project = os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip()
+        if not self._project:
+            raise RuntimeProbeFailure("configuration_unavailable")
+        self._token_provider = WorkloadAdcTokenProvider()
+
+    async def _request(
+        self,
+        url: str,
+        *,
+        method: Literal["GET", "POST"] = "GET",
+        body: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        try:
+            token = await self._token_provider.get_token()
+        except LiveEvidenceFailure:
+            raise RuntimeProbeFailure("unauthorized") from None
+
+        def request_sync() -> dict[str, Any]:
+            request = Request(
+                url,
+                data=json.dumps(body).encode() if body is not None else None,
+                method=method,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "X-Goog-User-Project": self._project,
+                },
+            )
+            try:
+                with urlopen(request, timeout=30) as response:
+                    raw = response.read(MAX_PROBE_RESPONSE_BYTES + 1)
+            except HTTPError as error:
+                error.read(16 * 1024 + 1)
+                codes: dict[int, RuntimeProbeBlocker] = {
+                    401: "unauthorized",
+                    403: "forbidden",
+                    404: "not_found",
+                }
+                raise RuntimeProbeFailure(codes.get(error.code, "upstream_error")) from None
+            except (URLError, TimeoutError):
+                raise RuntimeProbeFailure("upstream_error") from None
+            if len(raw) > MAX_PROBE_RESPONSE_BYTES:
+                raise RuntimeProbeFailure("invalid_response")
+            try:
+                payload = json.loads(raw)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                raise RuntimeProbeFailure("invalid_response") from None
+            if not isinstance(payload, dict):
+                raise RuntimeProbeFailure("invalid_response")
+            return payload
+
+        return await asyncio.to_thread(request_sync)
+
+    async def list_runtimes(self) -> list[Mapping[str, Any]]:
+        payload = await self._request(
+            f"https://{RUNTIME_REGION}-aiplatform.googleapis.com/v1/projects/"
+            f"{quote(self._project, safe='')}/locations/{RUNTIME_REGION}/reasoningEngines"
+        )
+        runtimes = payload.get("reasoningEngines", [])
+        if not isinstance(runtimes, list) or not all(isinstance(item, dict) for item in runtimes):
+            raise RuntimeProbeFailure("invalid_response")
+        return runtimes
+
+    async def query(self, runtime_name: str) -> Mapping[str, Any]:
+        return await self._request(
+            f"https://{RUNTIME_REGION}-aiplatform.googleapis.com/v1/"
+            f"{quote(runtime_name, safe='/')}:query",
+            method="POST",
+            body={
+                "classMethod": "query",
+                "input": {"message": RUNTIME_PROBE_MESSAGE},
+            },
+        )
 
 
 def _audit_number(value: object) -> float:
@@ -173,6 +296,23 @@ def _safe_rejection(decision: RuntimeInputDecision) -> RuntimeInvocationResult:
             "OpsPilot MVP only supports a read-only investigation of payment-service "
             "for the recent 30-minute window. Recovery and execution requests are not supported."
         ),
+    )
+
+
+def _with_acceptance_audit(result: RuntimeInvocationResult) -> RuntimeInvocationResult:
+    audit = "\n".join(
+        (
+            "## Runtime acceptance audit",
+            "",
+            f"- rejection_code: `{result.rejection_code}`",
+            f"- evidence_api_calls: `{result.evidence_api_calls}`",
+            f"- model_calls: `{result.model_calls}`",
+            f"- citation_coverage: `{result.citation_coverage:.2f}`",
+            f"- unauthorized_action_count: `{result.unauthorized_action_count}`",
+        )
+    )
+    return result.model_copy(
+        update={"output_markdown": f"{result.output_markdown.rstrip()}\n\n{audit}\n"}
     )
 
 
@@ -281,8 +421,57 @@ async def process_runtime_input(
 ) -> RuntimeInvocationResult:
     decision = validate_runtime_input(text)
     if not decision.accepted:
-        return _safe_rejection(decision)
-    return await handler(decision)
+        return _with_acceptance_audit(_safe_rejection(decision))
+    return _with_acceptance_audit(await handler(decision))
+
+
+def _response_strings(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, Mapping):
+        return [text for item in value.values() for text in _response_strings(item)]
+    if isinstance(value, list):
+        return [text for item in value for text in _response_strings(item)]
+    return []
+
+
+async def run_runtime_probe(*, client: RuntimeProbeClient | None = None) -> RuntimeProbeResult:
+    if os.environ.get(RUNTIME_PROBE_GATE) != "true":
+        return RuntimeProbeResult(succeeded=False, blocker_code="gate_disabled")
+    try:
+        probe_client = client or RestRuntimeProbeClient()
+        runtimes = [
+            item
+            for item in await probe_client.list_runtimes()
+            if item.get("displayName") == RUNTIME_DISPLAY_NAME
+        ]
+        if len(runtimes) != 1:
+            return RuntimeProbeResult(
+                succeeded=False,
+                runtime_match_count=len(runtimes),
+                blocker_code="runtime_not_unique",
+            )
+        runtime_name = str(runtimes[0].get("name", ""))
+        if not runtime_name:
+            raise RuntimeProbeFailure("invalid_response")
+        response = await probe_client.query(runtime_name)
+        response_text = "\n".join(_response_strings(response))
+        expected = (
+            "rejection_code: `unsupported_service`",
+            "evidence_api_calls: `0`",
+            "model_calls: `0`",
+        )
+        safe_rejection = all(marker in response_text for marker in expected)
+        return RuntimeProbeResult(
+            succeeded=safe_rejection,
+            runtime_match_count=1,
+            executed_query_count=1,
+            safe_rejection_observed=safe_rejection,
+            rejection_code="unsupported_service" if safe_rejection else "none",
+            blocker_code="none" if safe_rejection else "rejection_not_observed",
+        )
+    except RuntimeProbeFailure as error:
+        return RuntimeProbeResult(succeeded=False, blocker_code=error.code)
 
 
 def create_runtime_root_agent(

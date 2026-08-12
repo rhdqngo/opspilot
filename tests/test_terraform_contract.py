@@ -71,6 +71,12 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert action_refs
     assert all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in action_refs)
 
+    for workflow_name in ("pr-checks.yml", "terraform-checks.yml", "terraform-plan.yml"):
+        workflow = (workflow_root / workflow_name).read_text(encoding="utf-8")
+        assert "workflow_dispatch:" in workflow
+        assert "pull_request:" not in workflow
+        assert "push:" not in workflow
+
     live_plan = (workflow_root / "terraform-plan.yml").read_text(encoding="utf-8")
     assert "workflow_dispatch:" in live_plan
     assert "pull_request:" not in live_plan
@@ -104,6 +110,9 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "opspilot agent runtime validate" in pull_request_checks
     assert "opspilot agent runtime smoke --backend fixture" in pull_request_checks
     assert "opspilot agent runtime package" in pull_request_checks
+    bootstrap_source = (TERRAFORM_ROOT / "bootstrap" / "main.tf").read_text(encoding="utf-8")
+    assert "aiplatform.reasoningEngines.get" not in bootstrap_source
+    assert "aiplatform.reasoningEngines.list" not in bootstrap_source
 
 
 def test_M2_terraform_defines_only_private_bounded_demo_resources() -> None:
