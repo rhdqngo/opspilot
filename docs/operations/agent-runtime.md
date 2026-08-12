@@ -1,6 +1,6 @@
 # M7 Agent Runtime Runbook
 
-Status: local operator gate prepared; reauthentication required before deployment
+Status: Runtime startup blocked; required Agent Platform SDK missing from source archive
 
 ## MVP contract
 
@@ -29,6 +29,11 @@ the packaged service catalog, and pinned runtime requirements; it excludes repos
 environment files, tests, docs, scenario data, Terraform, and temporary state. Do not upload this
 archive as a CI artifact.
 
+The first Approval 2 deployment proved that determinism and file allowlisting alone are
+insufficient: the archive must also contain the pinned
+`google-cloud-aiplatform[agent_engines,adk]` dependency required by the source-based ADK Runtime.
+The current archive does not contain it and must not be redeployed unchanged.
+
 The probe is live and remains disabled unless `OPSPILOT_RUNTIME_PROBE_ENABLED=true` is set for one
 process. It discovers only the fixed Runtime and sends one fixed unsupported-service request. Its
 output contains no project, Runtime resource, URL, token, prompt, or raw response.
@@ -40,6 +45,13 @@ skipped during the MVP, so the bootstrap source remains zero drift and is not ap
 reviews only the exact dev `5 create / 1 update` plan. The runtime must remain in
 `asia-northeast3`, use the existing investigator service account, scale from zero to one, and
 capture no prompt, response, or user identity content in telemetry.
+
+That exact plan was applied once. The three API addresses, leaf service-agent grant, and
+investigator-role update succeeded, while Runtime startup failed with a redacted
+`ModuleNotFoundError` for `google.cloud.aiplatform`. Dev state is therefore `35 managed / 36
+addresses`, with no Runtime in state or live inventory. Do not repeat the apply, run the probe, or
+register with Enterprise until a separately approved archive dependency fix is validated and a
+fresh plan contains only the missing Runtime create.
 
 Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander`.
 Planning is read-only. Apply additionally requires the process-scoped

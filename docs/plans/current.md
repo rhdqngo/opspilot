@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-local-gate-ready / reauthentication-required
+phase: M7-runtime-deploy-blocked / package-dependency-fix-required
 updated: 2026-08-12
 
 ## Objective
@@ -44,11 +44,22 @@ updated: 2026-08-12
 
 ## Active blocker
 
-- The current `Edu_687` user credential and ADC require interactive reauthentication. The most
-  recent read-only attempt could not authenticate and therefore did not establish current state,
-  billing, permission, app, or Runtime inventory evidence.
-- No cloud plan or apply may run until both credential paths pass, the intended default project and
-  KRW billing are reconfirmed, and remote state matches bootstrap `14/15` and dev `31/32`.
+- `Edu_687` user credentials and ADC were reauthenticated. The identifier-free gate reconfirmed
+  the intended default project, KRW billing, the unique existing Enterprise app, zero Runtime or
+  registration name conflicts, and the required M7 operator permissions.
+- Bootstrap remained zero drift. The reviewed dev plan was exactly `5 create / 1 update / 0 delete
+  / 0 replacement`, with only the approved APIs, leaf token-creator grant, Runtime, and investigator
+  role permission change.
+- The single approved apply recorded the three API addresses, leaf IAM member, and investigator
+  role update, then the Runtime failed its first startup. Dev now has `35 managed / 36 addresses`;
+  no Reasoning Engine remains in Terraform state or live Runtime inventory.
+- Redacted Runtime logs identify `ModuleNotFoundError: No module named 'google.cloud.aiplatform'`.
+  The deterministic archive omitted the officially required
+  `google-cloud-aiplatform[agent_engines,adk]` runtime dependency. No second apply, Runtime probe,
+  Enterprise registration, or Enterprise investigation was attempted.
+- Adding that production runtime dependency and performing one corrective Runtime create require
+  a separate approval. Existing partial API/IAM state and the failed-run recovery files are
+  preserved until that decision.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -213,7 +224,7 @@ updated: 2026-08-12
 | M6 Approval 8: evidence classification | blocked | Classifier and static CI passed; live RCA stopped at composer response timeout and safety was not run |
 | M6 Approval 9: MVP latency calibration | complete | RCA 1/1 and safety 2/2 passed with 6/6 calls, no timeout, and zero cloud drift |
 | M7 Approval 1: Runtime and Enterprise preparation | complete | Fixed natural-language adapter, workload ADC, deterministic package, default-off IaC, guarded registration; cloud changes 0 |
-| M7 Approval 2: local-gated deployment | in progress | Manual-only workflows, bootstrap zero-drift source, safe ADC failure, fixed rejection probe; reauthentication required before apply |
+| M7 Approval 2: local-gated deployment | blocked | Exact plan applied once; API/IAM changes persisted, Runtime startup failed because the packaged Agent Platform SDK dependency was missing; no probe or registration |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -416,11 +427,11 @@ updated: 2026-08-12
 | M6 cloud/IAM/Terraform change | pass | Zero changes; existing M5 state and hosted gates untouched |
 | M7 runtime adapter | pass | Fixed payment/30-minute intent; unsupported service/window/action stops with zero cloud/model calls |
 | M7 fixture runtime smoke | pass | Existing seven-node graph; exactly two fake model calls; citation coverage 100% |
-| M7 runtime package | pass | Deterministic tar.gz/SHA; packaged catalog and pinned requirements; forbidden repository content absent |
+| M7 runtime package | blocked | Deterministic tar.gz/SHA and allowlist passed, but live startup proved the pinned requirements omitted the required Agent Platform SDK |
 | M7 Terraform static | pass | Default-off existing graph; enabled mock graph adds five addresses and one role update only |
 | M7 hosted static CI | skipped-by-policy | All three workflows are manual-only; no hosted job or M7 repository gate is required for the MVP |
 | M7 local operator gate | pass | Full Python/fixture/package regression, Linux/amd64 non-root Compose 10/10 and SCN-001, TFLint, bootstrap/dev validate and mock plans |
-| M7 cloud/IAM/runtime/app change | pass | Zero changes in Approval 1; deployment and registration remain separately gated |
+| M7 cloud/IAM/runtime/app change | blocked | One exact apply persisted 3 API addresses, 1 leaf IAM member, and 1 role update; Runtime startup failed and left no Runtime resource; registration/query 0 |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -433,12 +444,14 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Reauthenticate the `Edu_687` user credential and ADC, then rerun the identifier-free access and
-  remote-state gates. Do not trust counts from the failed credential attempt.
-- Require a bootstrap `No changes` plan and apply only the dev exact `5 create / 1 update` plan,
-  then deploy the Runtime and register it once into the unique existing global Enterprise app.
-- Run one unsupported request first and require zero evidence/model calls. Then run exactly one
-  supported payment-service 30-minute investigation with bounded evidence and two model calls.
+- Separately approve adding a pinned `google-cloud-aiplatform[agent_engines,adk]` production
+  requirement to the deterministic Runtime archive. Validate the archive imports
+  `google.cloud.aiplatform` before any new cloud plan.
+- Reconfirm bootstrap zero drift and dev `35 managed / 36 addresses`, then review a fresh plan that
+  creates only the missing Runtime. Do not repeat the already persisted API or IAM changes.
+- After a successful one-create apply, run one unsupported request first and require zero
+  evidence/model calls. Only then register once and run exactly one supported payment-service
+  30-minute investigation with bounded evidence and two model calls.
 - Do not infer deployment authority from Approval 1. Sessions, Memory Bank, OAuth delegation,
   Agent Gateway, VPC, Model Armor, alert intake, remediation, dashboards, and multi-project work
   remain outside the MVP gate.

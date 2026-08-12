@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 complete; M7 Approval 1 creates no cost-bearing resource
+Status: M6 complete; M7 Runtime startup blocked after partial API/IAM apply
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -62,6 +62,18 @@ Future work must not add any cost-bearing resource without a separate plan and a
   enabled.
 - GitHub workflows are manual-only and skipped as MVP gates. No M7 hosted-reader permission or
   bootstrap apply is required; the existing WIF infrastructure remains unchanged.
+
+## M7 Approval 2 checkpoint
+
+- One reviewed `5 create / 1 update` apply was attempted. Three managed API addresses, one leaf IAM
+  member, and the investigator-role update succeeded; the Runtime failed startup and no Runtime
+  remains deployed.
+- No Runtime probe, Enterprise registration, supported investigation, Search request, evidence
+  collection, or model request was issued. The failed Runtime therefore adds no ongoing instance
+  cost.
+- A corrective deploy is not authorized by this checkpoint. It requires a pinned Agent Platform
+  SDK dependency, a new exact plan, and separate approval while the KRW 50,000 budget remains in
+  force.
 
 ## M3 impact
 

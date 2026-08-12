@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M5 applied; M7 runtime IAM default-off with local operator validation
+Status: M1-M5 applied; M7 API/IAM prerequisites applied, Runtime startup blocked
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
@@ -130,3 +130,8 @@ M7 does not change or apply the hosted plan identity while GitHub workflows are 
 MVP. The operator M7 check covers Runtime create/update/get/list/query, operation read,
 investigator actAs and leaf IAM, plus Enterprise agent create/get/list/update. Results contain
 booleans, missing permission names, and collision counts only.
+
+The first M7 apply persisted only the approved API state, investigator-role predict permission,
+and Reasoning Engine service-agent Token Creator leaf grant. Runtime startup then failed because
+the source archive lacked the required Agent Platform SDK. The grant is preserved, but no Runtime,
+registration, public principal, key, broad project role, or hosted-reader expansion was created.

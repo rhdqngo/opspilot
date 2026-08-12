@@ -139,9 +139,10 @@ uv build
 
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
-remote state contains 31 managed resources after the M5 IAM apply. Local operator plans are the
-MVP authority; GitHub workflows are retained as manual-only definitions and are not completion
-gates.
+remote state contains 35 managed resources after the partial M7 API/IAM apply. The Agent Runtime
+itself is not deployed because its first startup exposed a missing required Agent Platform SDK
+dependency in the source archive. Local operator plans are the MVP authority; GitHub workflows are
+retained as manual-only definitions and are not completion gates.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
 ignored backend files, and GitHub repository variables.
 
@@ -154,10 +155,11 @@ custom role, its project binding, and one operator Token Creator binding scoped 
 investigator service account. One live SCN-001 collection passed through short-lived
 impersonation with no service-account key.
 
-M7 Terraform is also default-off. Enabling it in a separately reviewed Approval 2 plan adds three
-managed API addresses, one leaf Runtime service-agent grant, and one Agent Runtime while updating
-the investigator custom role with only Vertex prediction. The current 31-resource dev state is not
-changed by Approval 1.
+M7 Terraform is also default-off. Its first separately reviewed Approval 2 plan was exactly five
+creates and one update. The three API addresses, leaf Runtime service-agent grant, and investigator
+role update succeeded; Runtime startup failed because the deterministic requirements omitted
+`google-cloud-aiplatform[agent_engines,adk]`. Dev now has 35 managed resources and no Runtime.
+A corrected package and Runtime-only plan require separate approval.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform
