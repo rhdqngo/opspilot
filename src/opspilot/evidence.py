@@ -194,6 +194,8 @@ class EvidenceCollectionResult(BaseModel):
     evidence: list[EvidenceItem] = Field(default_factory=list)
     tool_errors: list[ToolError] = Field(default_factory=list)
     data_gaps: list[str] = Field(default_factory=list)
+    tool_trajectory: list[str] = Field(default_factory=list)
+    source_error_codes: dict[str, str] = Field(default_factory=dict)
     budget: CollectionBudgetUsage
 
     @property
@@ -597,12 +599,14 @@ class LiveEvidenceClient:
         token_provider: TokenProvider,
         transport: JsonTransport,
         region: str = "asia-northeast3",
+        request_timeout_seconds: float = TOOL_TIMEOUT_SECONDS,
     ) -> None:
         self._project_id = project_id
         self._catalog = catalog
         self._token_provider = token_provider
         self._transport = transport
         self._region = region
+        self._request_timeout_seconds = request_timeout_seconds
 
     async def collect_source(
         self, source: SourceType, request: EvidenceCollectionRequest
@@ -678,6 +682,7 @@ class LiveEvidenceClient:
                     "orderBy": "timestamp desc",
                     "pageSize": request.max_entries,
                 },
+                timeout_seconds=self._request_timeout_seconds,
             )
             api_calls = 1
             data = normalize_log_response(payload, request)
@@ -736,6 +741,7 @@ class LiveEvidenceClient:
                 f"{quote(self._project_id, safe='')}/timeSeries?{params}",
                 token=token,
                 quota_project=self._project_id,
+                timeout_seconds=self._request_timeout_seconds,
             )
             api_calls = 1
             data = normalize_metric_response(payload, request)
@@ -792,6 +798,7 @@ class LiveEvidenceClient:
                 f"https://run.googleapis.com/v2/{parent}/services/{quote(service_id, safe='')}",
                 token=token,
                 quota_project=self._project_id,
+                timeout_seconds=self._request_timeout_seconds,
             )
             api_calls = 1
             params = urlencode({"pageSize": request.max_revisions})
@@ -801,6 +808,7 @@ class LiveEvidenceClient:
                 f"{parent}/services/{quote(service_id, safe='')}/revisions?{params}",
                 token=token,
                 quota_project=self._project_id,
+                timeout_seconds=self._request_timeout_seconds,
             )
             api_calls = 2
             revisions = normalize_revision_response(service_payload, revision_payload, request)
@@ -846,6 +854,7 @@ class LiveEvidenceClient:
                 token=token,
                 quota_project=self._project_id,
                 body=build_agent_search_request(request),
+                timeout_seconds=self._request_timeout_seconds,
             )
             api_calls = 1
             hits = normalize_search_response(payload, request)
@@ -1247,8 +1256,19 @@ def _normalize_knowledge_result(
 async def collect_evidence(
     client: EvidenceClient,
     request: EvidenceCollectionRequest,
+    *,
+    tool_timeout_seconds: float | None = None,
+    collection_deadline_seconds: float | None = None,
 ) -> EvidenceCollectionResult:
     started_clock = perf_counter()
+    effective_tool_timeout = (
+        TOOL_TIMEOUT_SECONDS if tool_timeout_seconds is None else tool_timeout_seconds
+    )
+    effective_collection_deadline = (
+        COLLECTION_DEADLINE_SECONDS
+        if collection_deadline_seconds is None
+        else collection_deadline_seconds
+    )
     sources = (SourceType.LOG, SourceType.METRIC, SourceType.CHANGE, SourceType.KNOWLEDGE)
     semaphore = asyncio.Semaphore(4)
 
@@ -1256,7 +1276,7 @@ async def collect_evidence(
         async with semaphore:
             try:
                 return await asyncio.wait_for(
-                    client.collect_source(source, request), timeout=TOOL_TIMEOUT_SECONDS
+                    client.collect_source(source, request), timeout=effective_tool_timeout
                 )
             except TimeoutError:
                 now = datetime.now(UTC)
@@ -1273,14 +1293,14 @@ async def collect_evidence(
                         request_id=f"TOOL-{source.value}",
                         started_at=now,
                         finished_at=now,
-                        duration_ms=round(TOOL_TIMEOUT_SECONDS * 1_000),
+                        duration_ms=round(effective_tool_timeout * 1_000),
                         source_project="current-default",
                     ),
                 )
 
     results = await asyncio.wait_for(
         asyncio.gather(*(bounded(source) for source in sources)),
-        timeout=COLLECTION_DEADLINE_SECONDS,
+        timeout=effective_collection_deadline,
     )
     api_calls = sum(result.meta.api_call_count for result in results)
     if len(results) > MAX_TOOL_CALLS or api_calls > MAX_API_CALLS:
@@ -1293,19 +1313,37 @@ async def collect_evidence(
     source_status = {
         source.value: result.ok for source, result in zip(sources, results, strict=True)
     }
-    gaps = [
+    semantic_tool_names = {
+        SourceType.LOG: "query_logs",
+        SourceType.METRIC: "query_metric_series",
+        SourceType.CHANGE: "list_cloud_run_revisions",
+        SourceType.KNOWLEDGE: "search_knowledge",
+    }
+    source_gaps = [
         f"{source.value} evidence was unavailable."
         for source, result in zip(sources, results, strict=True)
         if not result.ok
     ]
+    metric_gaps = [
+        f"{item.title} returned no bounded points in the requested window."
+        for item in evidence
+        if item.source_type == SourceType.METRIC and "missing_points" in item.quality_flags
+    ]
+    gaps = [*source_gaps, *metric_gaps]
     return EvidenceCollectionResult(
         backend=client.backend,
         scenario_id=request.scenario_id,
-        complete=all(source_status.values()),
+        complete=all(source_status.values()) and not metric_gaps,
         source_status=source_status,
         evidence=evidence,
         tool_errors=errors,
         data_gaps=gaps,
+        tool_trajectory=[semantic_tool_names[source] for source in sources],
+        source_error_codes={
+            source.value: result.error.code
+            for source, result in zip(sources, results, strict=True)
+            if result.error is not None
+        },
         budget=CollectionBudgetUsage(
             logical_tool_calls=len(results),
             api_calls=api_calls,

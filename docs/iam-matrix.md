@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: deployed MVP boundary; no IAM change in the lean cut
+Status: deployed MVP boundary; no IAM change in the session recovery
 
 | Principal | Allowed purpose | Explicitly excluded |
 | --- | --- | --- |
@@ -30,10 +30,12 @@ Logging/Monitoring filter, or serving config.
 
 - Three Cloud Run services remain private; only the order identity has the two leaf invoker grants.
 - The managed Runtime reuses the investigator SA and publishes one async-stream operation.
+- Enterprise-supplied session IDs are handled only by an in-process `InMemorySessionService`.
+  `aiplatform.sessions.create` is intentionally not granted; no session or user identity is persisted.
 - No public principal, service-account key, broad predefined runtime role, OAuth delegation,
   session/memory permission, VPC permission, or remediation principal exists.
 - Existing Enterprise registration is managed through the official console; registration mutation
   code is not part of the product.
 
-The MVP lean cut changes source packaging and pre-release interfaces only. IAM bindings, roles,
-service accounts, APIs, WIF resources, and Enterprise registration remain unchanged.
+The MVP session recovery changes only Runtime source packaging. IAM bindings, roles, service
+accounts, APIs, WIF resources, and Enterprise registration remain unchanged.

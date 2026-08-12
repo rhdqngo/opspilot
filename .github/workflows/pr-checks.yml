@@ -35,7 +35,23 @@ jobs:
       - name: Run fixture evidence smoke
         run: uv run opspilot evidence smoke --scenario SCN-001 --env dev --format summary
       - name: Run deterministic ADK agent evaluation
-        run: uv run --extra agent opspilot agent eval --format summary
+        run: uv run --extra agent opspilot agent eval --suite core --format summary
+      - name: Run portfolio release gate
+        run: >-
+          uv run --extra agent opspilot agent eval
+          --suite portfolio
+          --format summary
+          --output .tmp/ci-portfolio-evaluation
+      - name: Upload portfolio evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: opspilot-portfolio-evaluation-${{ github.sha }}
+          path: |
+            .tmp/ci-portfolio-evaluation/portfolio-v1.json
+            .tmp/ci-portfolio-evaluation/portfolio-v1.md
+          if-no-files-found: warn
+          retention-days: 30
       - name: Package the lean Agent Runtime
         run: uv run --extra agent opspilot agent runtime package --output .tmp/runtime
       - name: Build

@@ -36,6 +36,8 @@ def test_FR_023_investigation_api_returns_json_and_markdown_report() -> None:
         started = cast(dict[str, Any], response.json())
         completed = _wait_for_completion(client, cast(str, started["investigation_id"]))
         assert completed["status"] == "COMPLETE"
+        assert completed["execution_mode"] == "fixture"
+        assert completed["scenario_id"] == "SCN-001"
         incident_id = cast(str, completed["incident_id"])
         json_report = client.get(f"/api/v1/incidents/{incident_id}/reports/latest")
         assert json_report.status_code == 200
@@ -58,6 +60,24 @@ def test_API_returns_404_and_422_for_invalid_requests() -> None:
             json={"query": "unknown-service 오류를 분석해줘"},
         )
         assert response.status_code == 422
+        unsupported_scope = client.post(
+            "/api/v1/investigations",
+            json={"query": "order-service 오류를 분석해줘"},
+        )
+        assert unsupported_scope.status_code == 422
+        implicit_all_services = client.post(
+            "/api/v1/investigations",
+            json={"query": "최근 오류를 분석해줘"},
+        )
+        assert implicit_all_services.status_code == 422
+        unsupported_incident = client.post(
+            "/api/v1/investigations",
+            json={
+                "query": "payment-service 오류를 분석해줘",
+                "incident_id": "INC-2026-0002",
+            },
+        )
+        assert unsupported_incident.status_code == 422
 
 
 def test_NFR_002_R0_exposes_no_remediation_route() -> None:

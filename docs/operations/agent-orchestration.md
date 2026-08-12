@@ -7,7 +7,9 @@ Status: MVP production contract
 ```powershell
 uv sync --frozen --extra agent
 uv run --extra agent opspilot agent run --scenario SCN-001 --format summary
-uv run --extra agent opspilot agent eval --format summary
+uv run --extra agent opspilot agent eval --suite core --format summary
+uv run --extra agent opspilot agent eval --suite portfolio --format summary `
+  --output .tmp/evaluation
 ```
 
 The evaluation must pass seven fixtures with fourteen model calls. The fixed trajectory is:

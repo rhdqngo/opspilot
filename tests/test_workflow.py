@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from opspilot.domain import ReportStatus, SourceType
+from opspilot.domain import OutputLanguage, ReportStatus, SourceType
 from opspilot.reporting import render_markdown
 from opspilot.workflow import run_fixture_investigation
 
@@ -72,6 +72,16 @@ async def test_FR_010_insufficient_data_does_not_recommend_action() -> None:
     assert report.status == ReportStatus.INCONCLUSIVE
     assert report.hypotheses == []
     assert report.recommended_actions == []
+    markdown = render_markdown(report)
+    assert "## Root-cause hypotheses\n\n- None verified with the available evidence." in markdown
+    knowledge_ids = {
+        item.evidence_id for item in report.evidence if item.source_type == SourceType.KNOWLEDGE
+    }
+    assert knowledge_ids
+    assert knowledge_ids.isdisjoint(
+        evidence_id for event in report.timeline for evidence_id in event.evidence_ids
+    )
+    assert all(f"`{evidence_id}`" in markdown for evidence_id in knowledge_ids)
 
 
 @pytest.mark.asyncio
@@ -80,3 +90,24 @@ async def test_FR_023_markdown_contains_every_material_evidence_id() -> None:
     markdown = render_markdown(report)
     for evidence_id in report.hypotheses[0].supporting_evidence_ids:
         assert evidence_id in markdown
+
+
+@pytest.mark.asyncio
+async def test_korean_markdown_localizes_structure_and_preserves_evidence_titles() -> None:
+    report = await run_fixture_investigation(
+        "SCN-001",
+        fail_sources=frozenset({SourceType.LOG, SourceType.METRIC, SourceType.CHANGE}),
+    )
+
+    markdown = render_markdown(report, language=OutputLanguage.KO)
+
+    assert "## 요약" in markdown
+    assert "## 타임라인" in markdown
+    assert "## 근본 원인 가설" in markdown
+    assert "- 사용 가능한 증거로 검증된 가설이 없습니다." in markdown
+    assert "## 권장 조치" in markdown
+    assert "- 사용 가능한 증거로 권장할 조치가 없습니다." in markdown
+    assert "## 데이터 공백" in markdown
+    assert "## 출처" in markdown
+    knowledge = next(item for item in report.evidence if item.source_type == SourceType.KNOWLEDGE)
+    assert f"`{knowledge.evidence_id}` - {knowledge.title}" in markdown

@@ -84,11 +84,42 @@ def test_knowledge_and_evidence_cli_are_local_only(capsys: pytest.CaptureFixture
     assert "project_id" not in output
 
 
+def test_cleanup_plan_never_executes_or_claims_approval(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["cleanup", "plan", "--format", "json"]) == 0
+    output = capsys.readouterr().out
+    assert '"destructive_execution_enabled": false' in output
+    assert '"requires_separate_approval": true' in output
+    assert "terraform apply" not in output.casefold()
+
+
 def test_agent_cli_keeps_fixture_eval_and_runtime_package_only(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     assert main(["agent", "eval", "--format", "summary"]) == 0
     assert "passed_cases: 7" in capsys.readouterr().out
+    assert (
+        main(
+            [
+                "agent",
+                "eval",
+                "--suite",
+                "portfolio",
+                "--format",
+                "summary",
+                "--output",
+                ".tmp/test-evaluation-artifacts",
+            ]
+        )
+        == 0
+    )
+    portfolio = capsys.readouterr().out
+    assert "suite_version: portfolio-v1" in portfolio
+    assert "passed_cases: 40" in portfolio
+    assert "gate_failures: none" in portfolio
+    assert Path(".tmp/test-evaluation-artifacts/portfolio-v1.json").is_file()
+    assert Path(".tmp/test-evaluation-artifacts/portfolio-v1.md").is_file()
     assert main(["agent", "runtime", "package", "--output", ".tmp/test-cli-runtime"]) == 0
     assert "succeeded: True" in capsys.readouterr().out
     assert Path(".tmp/test-cli-runtime/opspilot-agent-runtime.tar.gz").is_file()

@@ -14,7 +14,7 @@ from opspilot import __version__
 from opspilot.catalog import load_service_catalog
 from opspilot.domain import IncidentReport, RequestedDepth
 from opspilot.reporting import render_markdown
-from opspilot.service import InvestigationCoordinator, InvestigationRecord
+from opspilot.service import InvestigationCoordinator, InvestigationExecutor, InvestigationRecord
 
 
 class StartInvestigationRequest(BaseModel):
@@ -33,9 +33,9 @@ def _coordinator(request: Request) -> InvestigationCoordinator:
     return cast(InvestigationCoordinator, request.app.state.coordinator)
 
 
-def create_app() -> FastAPI:
+def create_app(executor: InvestigationExecutor | None = None) -> FastAPI:
     catalog = load_service_catalog()
-    coordinator = InvestigationCoordinator(catalog)
+    coordinator = InvestigationCoordinator(catalog, executor=executor)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:

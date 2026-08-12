@@ -12,6 +12,7 @@ from typing import cast
 
 import uvicorn
 
+from opspilot.cleanup import build_cleanup_plan, render_cleanup_plan
 from opspilot.demo.load import run_load
 from opspilot.demo.scenario_runner import render_scenario_summary, run_scenario
 from opspilot.evidence import (
@@ -39,6 +40,12 @@ def build_parser() -> argparse.ArgumentParser:
     serve = subcommands.add_parser("serve", help="Run the local FastAPI service")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
+    cleanup = subcommands.add_parser("cleanup", help="Render non-executing cleanup plans")
+    cleanup_commands = cleanup.add_subparsers(dest="cleanup_command", required=True)
+    cleanup_plan = cleanup_commands.add_parser(
+        "plan", help="Render the ordered teardown approval plan"
+    )
+    cleanup_plan.add_argument("--format", choices=("json", "summary"), default="summary")
     demo = subcommands.add_parser("demo", help="Run or exercise synthetic demo services")
     demo_commands = demo.add_subparsers(dest="demo_command", required=True)
     demo_serve = demo_commands.add_parser("serve", help="Serve the configured demo role")
@@ -90,7 +97,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_run.add_argument("--format", choices=("json", "markdown", "summary"), default="summary")
     agent_eval = agent_commands.add_parser("eval", help="Run the seven-case agent fixture suite")
+    agent_eval.add_argument("--suite", choices=("core", "portfolio"), default="core")
     agent_eval.add_argument("--format", choices=("json", "summary"), default="summary")
+    agent_eval.add_argument("--output", default=None)
     agent_runtime = agent_commands.add_parser(
         "runtime", help="Package the fixed-scope Agent Runtime"
     )
@@ -119,6 +128,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         uvicorn.run(
             "opspilot.api:create_app", factory=True, host=str(args.host), port=int(args.port)
         )
+        return 0
+    if args.command == "cleanup" and args.cleanup_command == "plan":
+        print(render_cleanup_plan(build_cleanup_plan(), str(args.format)), end="")
         return 0
     if args.command == "demo" and args.demo_command == "serve":
         port = int(args.port) if args.port is not None else int(os.environ.get("PORT", "8080"))
@@ -191,6 +203,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 render_agent_result,
                 run_agent_eval,
                 run_agent_investigation,
+                write_evaluation_artifacts,
             )
             from opspilot.agent.runtime import package_runtime, render_runtime_summary
         except ImportError:
@@ -207,7 +220,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(render_agent_result(agent_result, str(args.format)), end="")
             return 0 if agent_result.succeeded else 2
         if args.agent_command == "eval":
-            eval_result = asyncio.run(run_agent_eval(model_backend=ModelBackend.FAKE))
+            eval_result = asyncio.run(
+                run_agent_eval(suite=str(args.suite), model_backend=ModelBackend.FAKE)
+            )
+            if args.output is not None:
+                write_evaluation_artifacts(eval_result, Path(str(args.output)))
             print(render_agent_eval(eval_result, str(args.format)), end="")
             return 0 if eval_result.passed else 2
         if args.agent_command == "runtime" and args.runtime_command == "package":

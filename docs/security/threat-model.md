@@ -2,6 +2,11 @@
 
 Status: active
 
+Anonymous `RUN-…` identifiers are generated independently for each agent/Runtime invocation. They
+are not derived from Enterprise user or session identifiers and cannot authorize any action.
+Runtime summaries expose only source status/error codes and reasoning outcome; prompts, projects,
+evidence payloads, raw exceptions, and identities remain excluded.
+
 | Threat | Control | Residual risk |
 | --- | --- | --- |
 | Arbitrary cloud scope | Fixed project environment plus service/time/metric/filter allowlists; no caller project, URL, token, resource name, or raw filter | Project-level read permissions still rely on application allowlists |

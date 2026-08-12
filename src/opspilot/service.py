@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Protocol
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 from opspilot.catalog import ServiceCatalog
-from opspilot.domain import IncidentReport, RequestedDepth
+from opspilot.domain import IncidentReport, InvestigationRequest, RequestedDepth
 from opspilot.parser import parse_investigation_request
 from opspilot.workflow import run_fixture_investigation
 
@@ -33,6 +35,54 @@ class InvestigationRecord(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     safe_error: str | None = None
+    execution_mode: str
+    scenario_id: str
+
+
+class InvestigationExecution(BaseModel):
+    report: IncidentReport
+    completed_collectors: list[str] = Field(default_factory=list)
+
+
+class InvestigationExecutor(Protocol):
+    execution_mode: str
+    scenario_id: str
+
+    def validate(self, request: InvestigationRequest) -> None: ...
+
+    async def execute(
+        self, request: InvestigationRequest, *, correlation_id: str
+    ) -> InvestigationExecution: ...
+
+
+class FixtureInvestigationExecutor:
+    """Honest local API boundary for the single executable fixture scenario."""
+
+    execution_mode = "fixture"
+    scenario_id = "SCN-001"
+    incident_id = "INC-2026-0001"
+    supported_services: Sequence[str] = ("payment-service",)
+
+    def validate(self, request: InvestigationRequest) -> None:
+        if request.services != list(self.supported_services):
+            raise ValueError(
+                "the local investigation API only supports payment-service with SCN-001"
+            )
+        if request.incident_id not in {None, self.incident_id}:
+            raise ValueError("the requested incident is not available in the local fixture API")
+
+    async def execute(
+        self, request: InvestigationRequest, *, correlation_id: str
+    ) -> InvestigationExecution:
+        report = await run_fixture_investigation(
+            self.scenario_id,
+            correlation_id=correlation_id,
+            assumptions=request.assumptions,
+        )
+        return InvestigationExecution(
+            report=report,
+            completed_collectors=["LOG", "METRIC", "CHANGE", "KNOWLEDGE"],
+        )
 
 
 class InMemoryInvestigationStore:
@@ -61,8 +111,13 @@ class InMemoryInvestigationStore:
 
 
 class InvestigationCoordinator:
-    def __init__(self, catalog: ServiceCatalog) -> None:
+    def __init__(
+        self,
+        catalog: ServiceCatalog,
+        executor: InvestigationExecutor | None = None,
+    ) -> None:
         self.catalog = catalog
+        self.executor = executor or FixtureInvestigationExecutor()
         self.store = InMemoryInvestigationStore()
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -72,6 +127,7 @@ class InvestigationCoordinator:
         request = parse_investigation_request(
             query, catalog=self.catalog, incident_id=incident_id, mode=mode
         )
+        self.executor.validate(request)
         investigation_id = f"INV-{datetime.now(UTC):%Y%m%d}-{uuid4().hex[:12].upper()}"
         correlation_id = f"COR-{uuid4().hex[:16].upper()}"
         record = InvestigationRecord(
@@ -80,14 +136,16 @@ class InvestigationCoordinator:
             incident_id=request.incident_id,
             status=InvestigationStatus.QUEUED,
             current_stage="QUEUED",
+            execution_mode=self.executor.execution_mode,
+            scenario_id=self.executor.scenario_id,
         )
         await self.store.put_record(record)
-        task = asyncio.create_task(self._run(record, request.assumptions))
+        task = asyncio.create_task(self._run(record, request))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return record
 
-    async def _run(self, record: InvestigationRecord, assumptions: list[str]) -> None:
+    async def _run(self, record: InvestigationRecord, request: InvestigationRequest) -> None:
         running = record.model_copy(
             update={
                 "status": InvestigationStatus.RUNNING,
@@ -97,16 +155,18 @@ class InvestigationCoordinator:
         )
         await self.store.put_record(running)
         try:
-            report = await run_fixture_investigation(
-                "SCN-001", correlation_id=record.correlation_id, assumptions=assumptions
+            execution = await self.executor.execute(
+                request,
+                correlation_id=record.correlation_id,
             )
+            report = execution.report
             await self.store.put_report(report)
             complete = running.model_copy(
                 update={
                     "incident_id": report.incident_id,
                     "status": InvestigationStatus.COMPLETE,
                     "current_stage": "COMPLETE",
-                    "completed_collectors": ["LOG", "METRIC", "CHANGE", "KNOWLEDGE"],
+                    "completed_collectors": execution.completed_collectors,
                     "partial_failures": [error.safe_message for error in report.tool_errors],
                     "finished_at": datetime.now(UTC),
                 }

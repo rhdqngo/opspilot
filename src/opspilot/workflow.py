@@ -111,7 +111,8 @@ async def run_fixture_investigation(
             evidence_ids=[item.evidence_id],
         )
         for item in evidence
-        if item.observed_at is not None or item.period_start is not None
+        if item.source_type in {SourceType.LOG, SourceType.METRIC, SourceType.CHANGE}
+        and (item.observed_at is not None or item.period_start is not None)
     ]
     is_identified = bool(hypotheses) and score >= 45
     return IncidentReport(

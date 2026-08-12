@@ -15,6 +15,11 @@ class Environment(StrEnum):
     PROD_SIM = "prod-sim"
 
 
+class OutputLanguage(StrEnum):
+    EN = "en"
+    KO = "ko"
+
+
 class RequestedDepth(StrEnum):
     QUICK = "QUICK"
     STANDARD = "STANDARD"

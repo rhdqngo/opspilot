@@ -8,7 +8,14 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
-from opspilot.domain import EvidenceItem, IncidentReport, ToolError
+from opspilot.domain import (
+    EvidenceItem,
+    IncidentReport,
+    OutputLanguage,
+    ReportStatus,
+    SourceType,
+    ToolError,
+)
 
 
 class AgentBackend(StrEnum):
@@ -80,6 +87,7 @@ class ModelEvidence(BaseModel):
 
 class RcaInput(BaseModel):
     scenario_id: str
+    output_language: OutputLanguage = OutputLanguage.EN
     evidence: list[ModelEvidence] = Field(default_factory=list)
     data_gaps: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
@@ -206,6 +214,12 @@ class AgentRunResult(BaseModel):
     trajectory: list[str] = Field(default_factory=list)
     budget: ModelBudgetUsage = Field(default_factory=ModelBudgetUsage)
     errors: list[AgentRunError] = Field(default_factory=list)
+    run_id: str = Field(pattern=r"^RUN-[A-F0-9]{16}$")
+    duration_ms: int = Field(default=0, ge=0)
+    collection_trajectory: list[str] = Field(default_factory=list)
+    source_status: dict[str, bool] = Field(default_factory=dict)
+    source_error_codes: dict[str, str] = Field(default_factory=dict)
+    reasoning_outcome: Literal["complete", "partial", "failed"] = "complete"
 
     @model_validator(mode="after")
     def validate_result(self) -> Self:
@@ -216,24 +230,95 @@ class AgentRunResult(BaseModel):
         return self
 
 
+class EvaluationCategory(StrEnum):
+    SINGLE_CAUSE = "single_cause"
+    MULTI_CAUSE = "multi_cause"
+    NO_INCIDENT = "no_incident"
+    INSUFFICIENT_DATA = "insufficient_data"
+    PROMPT_INJECTION = "prompt_injection"
+    DEPENDENCY_FAILURE = "dependency_failure"
+    REPLAY_ACTION_SAFETY = "replay_action_safety"
+
+
+class EvaluationCase(BaseModel):
+    case_id: str = Field(pattern=r"^EVAL-[A-Z0-9-]+$")
+    category: EvaluationCategory
+    scenario_id: str = Field(pattern=r"^SCN-\d{3}$")
+    secondary_scenario_id: str | None = Field(default=None, pattern=r"^SCN-\d{3}$")
+    expected_primary_root_cause_code: str = Field(pattern=r"^[A-Z][A-Z0-9_]+$")
+    acceptable_root_cause_codes: list[str] = Field(default_factory=list)
+    expected_report_status: ReportStatus
+    expected_tools: list[str] = Field(default_factory=list)
+    fail_sources: list[SourceType] = Field(default_factory=list)
+    forbid_recommendations: bool = False
+
+
+class EvaluationSuite(BaseModel):
+    suite: Literal["core", "portfolio"]
+    suite_version: str = Field(pattern=r"^[a-z0-9-]+-v\d+$")
+    cases: list[EvaluationCase] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_cases(self) -> Self:
+        case_ids = [case.case_id for case in self.cases]
+        if len(case_ids) != len(set(case_ids)):
+            raise ValueError("evaluation case IDs must be unique")
+        return self
+
+
 class AgentEvalCaseResult(BaseModel):
+    case_id: str
+    run_id: str = Field(pattern=r"^RUN-[A-F0-9]{16}$")
+    category: EvaluationCategory
     scenario_id: str = Field(pattern=r"^SCN-\d{3}$")
     passed: bool
     expected_root_cause_code: str
     actual_root_cause_code: str | None = None
     status: AgentRunStatus
     citation_coverage: float = Field(ge=0.0, le=1.0)
+    top3_match: bool
+    required_tool_recall: float = Field(ge=0.0, le=1.0)
+    evidence_id_validity: float = Field(ge=0.0, le=1.0)
+    unsupported_claim_count: int = Field(ge=0)
+    unauthorized_action_count: int = Field(ge=0)
+    prompt_injection_success_count: int = Field(ge=0)
+    duration_ms: int = Field(ge=0)
     model_calls: int = Field(ge=0, le=2)
+    failure_reasons: list[str] = Field(default_factory=list)
+
+
+class DurationPercentiles(BaseModel):
+    p50_ms: int = Field(ge=0)
+    p95_ms: int = Field(ge=0)
+
+
+class AgentEvalMetrics(BaseModel):
+    rca_top1_accuracy: float = Field(ge=0.0, le=1.0)
+    rca_top3_accuracy: float = Field(ge=0.0, le=1.0)
+    required_tool_recall: float = Field(ge=0.0, le=1.0)
+    citation_coverage: float = Field(ge=0.0, le=1.0)
+    evidence_id_validity: float = Field(ge=0.0, le=1.0)
+    unsupported_claim_count: int = Field(ge=0)
+    unauthorized_action_count: int = Field(ge=0)
+    prompt_injection_success_count: int = Field(ge=0)
 
 
 class AgentEvalResult(BaseModel):
-    suite: Literal["fixture"] = "fixture"
+    suite: Literal["core", "portfolio"]
+    suite_version: str
     model_backend: ModelBackend
-    executed_case_count: int = Field(ge=0, le=7)
-    passed_case_count: int = Field(ge=0, le=7)
-    model_calls: int = Field(ge=0, le=14)
+    executed_case_count: int = Field(ge=0)
+    passed_case_count: int = Field(ge=0)
+    model_calls: int = Field(ge=0)
+    metrics: AgentEvalMetrics
+    duration_percentiles: DurationPercentiles
+    gate_failures: list[str] = Field(default_factory=list)
     cases: list[AgentEvalCaseResult] = Field(default_factory=list)
 
     @property
     def passed(self) -> bool:
-        return self.executed_case_count == 7 and self.passed_case_count == 7
+        return (
+            self.executed_case_count == len(self.cases)
+            and self.passed_case_count == self.executed_case_count
+            and not self.gate_failures
+        )

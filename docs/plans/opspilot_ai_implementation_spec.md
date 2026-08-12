@@ -23,6 +23,11 @@ default_language_stack:
 status: "implementation-ready planning baseline"
 ---
 
+> **Planning authority:** This document is the long-term North Star through M10. The implemented
+> plan of record is the narrower, read-only **Lean MVP v1** in `docs/plans/current.md`. Requirements
+> intentionally deferred by that boundary are tracked in `docs/requirements-traceability.md` and
+> must not be inferred to be deployed merely because they appear in this master specification.
+
 # OpsPilot — AI 구현용 마스터 명세서
 
 > 이 문서는 AI 개발 도구에 통째로 입력하여 저장소 설계, 태스크 분해, 코드 생성, 테스트 작성, 인프라 구성, 배포 문서화를 일관되게 수행하도록 만드는 **단일 기준 명세서**다. 이 문서의 요구사항 ID, 데이터 계약, 안전 규칙, 완료 조건을 구현 중 임의로 삭제하거나 약화하지 않는다.

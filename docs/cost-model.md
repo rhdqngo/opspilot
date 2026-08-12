@@ -1,6 +1,11 @@
 # OpsPilot Cost Guardrails
 
-Status: MVP deployed; lean Runtime update applied
+Status: MVP deployed; Enterprise Preview stable; offline portfolio evaluation added
+
+The `core-v1` and `portfolio-v1` evaluation suites use recorded synthetic evidence and the local
+deterministic fake model. Their 14 and 80 model-node executions create no Vertex AI, Logging,
+Monitoring, Agent Search, or BigQuery request cost. Evaluation artifacts and cleanup plans are local
+files under `.tmp`.
 
 | Guardrail | Value |
 | --- | --- |
@@ -35,9 +40,10 @@ adds no resource, minimum instance, query, import, or model request by itself.
 - Runtime supported request: evidence collection is bounded and model calls are capped at two.
 - No retries, scheduled load, custom metric, alert intake, or automatic remediation.
 
-The single approved Enterprise Preview request was consumed and returned a generic Runtime
-`INTERNAL` failure. Do not repeat it or broaden IAM under this lean-cut scope. A future diagnostic or
-acceptance request requires a separate bounded plan.
+The prior Enterprise Preview request failed before evidence/model work because the default Runtime
+path attempted a managed Session creation. The single-turn recovery uses an in-process session and
+adds no resource or IAM cost. Its out-of-scope validation performed zero model calls. One supported
+Preview request with at most two model calls remains the final bounded MVP acceptance step.
 
 ## Cleanup order
 

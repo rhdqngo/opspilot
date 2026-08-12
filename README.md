@@ -1,8 +1,42 @@
 # OpsPilot
 
-OpsPilot is an evidence-grounded incident commander for a synthetic ecommerce environment. The
-MVP collects read-only operational evidence, runs a bounded seven-node ADK investigation, and
-returns a cited `IncidentReport`. It never executes remediation.
+**Evidence-grounded AI Incident Commander for Google Cloud**
+
+OpsPilot is a portfolio-first, production-minded incident commander for a synthetic ecommerce
+environment. It collects bounded read-only evidence, verifies every cited claim against typed
+evidence, and never executes remediation.
+
+Current verified surfaces:
+
+- three private, scale-to-zero Cloud Run demo roles and one live reproducible SCN-001 incident;
+- seven canonical fixture investigations and a versioned 40-case portfolio release gate;
+- bounded Logging, Monitoring, revision, and Agent Search evidence;
+- Gemini Enterprise through a fixed single-turn `payment-service`/30-minute managed Runtime;
+- deterministic Runtime packaging, Terraform, safety tests, and a non-executing cleanup plan.
+
+<!-- BEGIN GENERATED:PORTFOLIO_METRICS -->
+Latest published verification: **144/144 pytest**; core **7/7**; portfolio **40/40**.
+RCA top-1/top-3, required-tool recall, citation coverage, and evidence-ID validity: **1.000/1.000/1.000/1.000/1.000**; fixture P50/P95 **12/21 ms**.
+The generated [Markdown evidence](docs/portfolio/results/portfolio-release-v1.md) and [JSON evidence](docs/portfolio/results/portfolio-release-v1.json) are the source of record.
+<!-- END GENERATED:PORTFOLIO_METRICS -->
+
+[Architecture](docs/portfolio/architecture.md) ·
+[Evaluation](docs/portfolio/evaluation.md) ·
+[Demo](docs/portfolio/demo.md) ·
+[Threat model](docs/security/threat-model.md) ·
+[Cost](docs/cost-model.md) ·
+[Requirements](docs/requirements-traceability.md)
+
+## Portfolio release evidence
+
+```powershell
+uv run python scripts/portfolio_release.py check --output .tmp/portfolio-release
+uv run python scripts/portfolio_release.py check --include-infra --publish `
+  --output .tmp/portfolio-release
+```
+
+The first command writes local evidence only. The second publishes a sanitized, tracked result only
+when every release check passes. It never deploys, applies Terraform, or calls Gemini Enterprise.
 
 ## Local setup
 
@@ -13,6 +47,9 @@ uv run opspilot serve
 ```
 
 The investigation API keeps `/healthz` and `/readyz`. The demo services use `/health` and `/ready`.
+The local investigation API is explicitly fixture-only: it accepts `payment-service`/SCN-001 and
+returns 422 for other service or incident scopes. Status responses expose `execution_mode=fixture`
+and `scenario_id=SCN-001`.
 
 ## Demo workload
 
@@ -43,13 +80,16 @@ uv run opspilot knowledge smoke --format summary
 uv run opspilot knowledge sync --env dev --mode plan --format summary
 uv run opspilot evidence smoke --scenario SCN-001 --env dev --format summary
 uv run --extra agent opspilot agent run --scenario SCN-001 --format summary
-uv run --extra agent opspilot agent eval --format summary
+uv run --extra agent opspilot agent eval --suite core --format summary
+uv run --extra agent opspilot agent eval --suite portfolio --format summary `
+  --output .tmp/evaluation
 ```
 
-The graph performs evidence preparation, two model calls, deterministic citation review and
-scoring, report composition, and final validation. Each model node has a 30-second timeout; the
+The fixture graph performs evidence preparation, two model calls, deterministic citation review
+and scoring, report composition, and final validation. Each model node has a 30-second timeout; the
 graph has a 75-second deadline. Models receive no tools. Product root-cause taxonomy is derived
-from verified evidence, not from a model label.
+from verified evidence, not from a model label. The deployed Runtime uses the smaller live hybrid
+described below rather than this graph.
 
 ## Managed Runtime
 
@@ -64,6 +104,34 @@ uv run --extra agent opspilot agent runtime package --output .tmp/runtime
 The deterministic archive uses an explicit production allowlist. It excludes CLI, API/demo code,
 fixtures, tests, docs, Terraform, corpus synchronization, and retired diagnostic/acceptance tools.
 The Runtime exposes only `streaming_agent_run_with_events` through the official `AdkApp` wrapper.
+For the single-turn MVP, Enterprise-supplied session IDs are handled by an in-process
+`InMemorySessionService`; no Agent Platform Session is created or persisted. Multi-turn continuity
+and managed Sessions remain post-MVP. Accepted requests emit a bounded-evidence progress event
+before work and a final report or safe error event within the internal 18-second investigation
+deadline.
+Privacy-safe structured logs carry a random anonymous `run_id`, source status/error codes, and
+reasoning outcome without question text, user/session identity, project ID, or raw exceptions.
+
+## Portfolio cleanup plan
+
+```powershell
+uv run opspilot cleanup plan --format summary
+```
+
+This command only renders the reviewed deletion order. It cannot execute Terraform or delete cloud
+resources, and every destructive step remains separately approved.
+
+## Reproducible portfolio demo
+
+With dependencies and the local image prepared, the bounded demo runs Compose, SCN-001, evidence,
+the agent report, the portfolio gate, and the cleanup plan before stopping Compose in a `finally`
+path:
+
+```powershell
+uv run python scripts/portfolio_demo.py
+uv run python scripts/portfolio_demo.py --dry-run
+uv run python scripts/portfolio_demo.py --build-image
+```
 
 ## Validation
 

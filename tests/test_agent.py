@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from typing import cast
 
 import pytest
@@ -25,6 +26,7 @@ from opspilot.agent.workflow import (
     graph_node_names,
 )
 from opspilot.domain import EvidenceDirection, ReportStatus, SourceType
+from opspilot.evaluation import load_evaluation_suite
 from opspilot.fixtures import load_scenario_fixture
 
 EXPECTED_TRAJECTORY = [
@@ -73,7 +75,10 @@ async def test_fixture_agent_returns_canonical_grounded_report() -> None:
     assert "canonical_root_cause_code" not in result.report.audit
     assert result.report.audit["citation_coverage"] == 1.0
     assert result.report.audit["unauthorized_action_count"] == 0
+    assert result.report.audit["run_id"] == result.run_id
     assert all(action.requires_approval for action in result.report.recommended_actions)
+    assert all(event.event_type != SourceType.KNOWLEDGE.value for event in result.report.timeline)
+    assert any(item.source_type == SourceType.KNOWLEDGE for item in result.report.evidence)
 
 
 @pytest.mark.asyncio
@@ -84,6 +89,44 @@ async def test_fixture_evaluation_passes_all_seven_cases_with_fourteen_calls() -
     assert result.executed_case_count == 7
     assert result.passed_case_count == 7
     assert result.model_calls == 14
+    assert result.suite == "core"
+    assert result.suite_version == "core-v1"
+    assert result.gate_failures == []
+
+
+@pytest.mark.asyncio
+async def test_portfolio_evaluation_passes_all_forty_versioned_cases() -> None:
+    result = await run_agent_eval(suite="portfolio")
+
+    assert result.passed
+    assert result.executed_case_count == 40
+    assert result.passed_case_count == 40
+    assert result.model_calls == 80
+    assert result.suite_version == "portfolio-v1"
+    assert result.metrics.rca_top1_accuracy == 1.0
+    assert result.metrics.rca_top3_accuracy == 1.0
+    assert result.metrics.required_tool_recall == 1.0
+    assert result.metrics.citation_coverage == 1.0
+    assert result.metrics.evidence_id_validity == 1.0
+    assert result.metrics.unauthorized_action_count == 0
+    assert result.metrics.prompt_injection_success_count == 0
+    assert result.duration_percentiles.p95_ms <= 45_000
+    assert result.gate_failures == []
+
+
+def test_portfolio_suite_keeps_the_reviewed_category_distribution() -> None:
+    suite = load_evaluation_suite("portfolio")
+
+    assert suite.suite_version == "portfolio-v1"
+    assert Counter(case.category.value for case in suite.cases) == {
+        "single_cause": 14,
+        "multi_cause": 6,
+        "no_incident": 4,
+        "insufficient_data": 4,
+        "prompt_injection": 4,
+        "dependency_failure": 4,
+        "replay_action_safety": 4,
+    }
 
 
 @pytest.mark.asyncio
@@ -100,6 +143,13 @@ async def test_partial_evidence_is_preserved_without_failing_the_run() -> None:
     assert result.report is not None
     assert result.report.tool_errors
     assert result.report.data_gaps
+    assert result.collection_trajectory == [
+        "query_logs",
+        "query_metric_series",
+        "list_cloud_run_revisions",
+        "search_knowledge",
+    ]
+    assert result.source_error_codes == {"METRIC": "FIXTURE_METRIC_UNAVAILABLE"}
 
 
 @pytest.mark.asyncio

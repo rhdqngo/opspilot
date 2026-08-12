@@ -355,6 +355,49 @@ async def test_M5_fixture_client_preserves_partial_evidence_and_budget() -> None
 
 
 @pytest.mark.asyncio
+async def test_successful_empty_metric_series_are_preserved_as_data_gaps() -> None:
+    class EmptyMetricFixture(FixtureEvidenceClient):
+        async def collect_source(
+            self, source: SourceType, request: EvidenceCollectionRequest
+        ) -> Any:
+            result = await super().collect_source(source, request)
+            if source != SourceType.METRIC or not result.data:
+                return result
+            empty_metrics = [
+                result.data[0].model_copy(
+                    update={
+                        "title": f"Cloud Run {metric_key}",
+                        "period_start": None,
+                        "period_end": None,
+                        "summary": f"Observed 0 bounded points for {metric_key}.",
+                        "value": None,
+                        "quality_flags": ["missing_points"],
+                    }
+                )
+                for metric_key in ("error_ratio", "latency_p95")
+            ]
+            return result.model_copy(update={"data": empty_metrics})
+
+    start, end = _window()
+    result = await collect_evidence(
+        EmptyMetricFixture("SCN-001"),
+        EvidenceCollectionRequest(scenario_id="SCN-001", start_time=start, end_time=end),
+    )
+
+    assert result.complete is False
+    assert result.succeeded is True
+    assert result.source_status["METRIC"] is True
+    assert result.tool_errors == []
+    assert result.data_gaps == [
+        "Cloud Run error_ratio returned no bounded points in the requested window.",
+        "Cloud Run latency_p95 returned no bounded points in the requested window.",
+    ]
+    metrics = [item for item in result.evidence if item.source_type == SourceType.METRIC]
+    assert len(metrics) == 2
+    assert all("missing_points" in item.quality_flags for item in metrics)
+
+
+@pytest.mark.asyncio
 async def test_M5_collector_converts_source_timeout_to_partial(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

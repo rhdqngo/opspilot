@@ -1,4 +1,4 @@
-.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run access-check knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-diagnose agent-accept agent-runtime-validate agent-runtime-smoke agent-runtime-probe agent-runtime-package demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
+.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-eval-portfolio agent-runtime-package cleanup-plan portfolio-release-check portfolio-release-publish portfolio-demo demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
 
 TERRAFORM ?= terraform
 TFLINT_IMAGE ?= ghcr.io/terraform-linters/tflint:v0.64.0
@@ -35,9 +35,6 @@ scenario-replay-all:
 scenario-run:
 	uv run opspilot scenario run --scenario SCN-001 --auth local --format summary
 
-access-check:
-	uv run opspilot access-check --format summary
-
 knowledge-validate:
 	uv run opspilot knowledge validate --format summary
 
@@ -45,34 +42,34 @@ knowledge-sync:
 	uv run opspilot knowledge sync --env dev --mode plan --format summary
 
 knowledge-smoke:
-	uv run opspilot knowledge smoke --backend local --env dev --format summary
+	uv run opspilot knowledge smoke --format summary
 
 evidence-smoke:
-	uv run opspilot evidence smoke --backend fixture --scenario SCN-001 --env dev --format summary
+	uv run opspilot evidence smoke --scenario SCN-001 --env dev --format summary
 
 agent-run:
-	uv run --extra agent opspilot agent run --backend fixture --scenario SCN-001 --model fake --format summary
+	uv run --extra agent opspilot agent run --scenario SCN-001 --format summary
 
 agent-eval:
-	uv run --extra agent opspilot agent eval --suite fixture --model fake --format summary
+	uv run --extra agent opspilot agent eval --suite core --format summary
 
-agent-diagnose:
-	uv run --extra agent opspilot agent diagnose --account-alias Edu_687 --format summary
-
-agent-accept:
-	uv run --extra agent opspilot agent accept --suite m6-core --model fake --format summary
-
-agent-runtime-validate:
-	uv run --extra agent opspilot agent runtime validate --format summary
-
-agent-runtime-smoke:
-	uv run --extra agent opspilot agent runtime smoke --backend fixture --format summary
-
-agent-runtime-probe:
-	uv run --extra agent opspilot agent runtime probe --format summary
+agent-eval-portfolio:
+	uv run --extra agent opspilot agent eval --suite portfolio --format summary --output .tmp/evaluation
 
 agent-runtime-package:
 	uv run --extra agent opspilot agent runtime package --output .tmp/m7-runtime
+
+cleanup-plan:
+	uv run opspilot cleanup plan --format summary
+
+portfolio-release-check:
+	uv run python scripts/portfolio_release.py check --output .tmp/portfolio-release
+
+portfolio-release-publish:
+	uv run python scripts/portfolio_release.py check --include-infra --publish --output .tmp/portfolio-release
+
+portfolio-demo:
+	uv run python scripts/portfolio_demo.py
 
 image-build:
 	docker build --platform linux/amd64 -t $(DEMO_IMAGE) .
