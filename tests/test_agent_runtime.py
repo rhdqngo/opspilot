@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from google.adk.runners import InMemoryRunner
 from google.genai import types
+from vertexai import agent_engines
 
 from opspilot.agent.runtime import (
     RUNTIME_DISPLAY_NAME,
@@ -16,6 +17,7 @@ from opspilot.agent.runtime import (
     RuntimeInvocationResult,
     RuntimeProbeBlocker,
     RuntimeProbeFailure,
+    _parse_stream_response,
     create_runtime_root_agent,
     package_runtime,
     process_runtime_input,
@@ -24,6 +26,7 @@ from opspilot.agent.runtime import (
     validate_runtime,
     validate_runtime_input,
 )
+from opspilot.agent.runtime_agent import OpsPilotRuntimeApp, root_agent
 from opspilot.catalog import load_service_catalog
 
 
@@ -158,6 +161,61 @@ def test_M7_runtime_package_is_deterministic_and_allowlisted() -> None:
     assert first_path.read_bytes() == second_path.read_bytes()
 
 
+def test_M7_packaged_entrypoint_is_narrow_adk_app() -> None:
+    assert isinstance(root_agent, agent_engines.AdkApp)
+    assert isinstance(root_agent, OpsPilotRuntimeApp)
+    assert root_agent.register_operations() == {"async_stream": ["streaming_agent_run_with_events"]}
+    assert callable(root_agent.streaming_agent_run_with_events)
+
+
+async def test_M7_adk_app_streaming_operation_rejects_without_handler_calls() -> None:
+    calls = 0
+
+    async def forbidden_handler(_decision: object) -> RuntimeInvocationResult:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("out-of-scope input reached the investigation handler")
+
+    app = OpsPilotRuntimeApp(
+        agent=create_runtime_root_agent(handler=forbidden_handler),
+        app_name="opspilot_runtime_test",
+    )
+    request_json = (
+        '{"message":{"role":"user","parts":[{"text":'
+        '"inventory-service status analyze"}]},"userId":"hidden-user"}'
+    )
+    chunks = [chunk async for chunk in app.streaming_agent_run_with_events(request_json)]
+    output = str(chunks)
+
+    assert calls == 0
+    assert "unsupported_service" in output
+    assert "evidence_api_calls" in output
+    assert "model_calls" in output
+    assert "hidden-user" not in output
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b'{"output":"safe"}',
+        b'[{"output":"safe"}]',
+        b'{"output":"safe"}\n{"output":"second"}\n',
+        b'data: {"output":"safe"}\n\ndata: {"output":"second"}\n',
+    ],
+)
+def test_M7_stream_probe_accepts_bounded_json_stream_shapes(payload: bytes) -> None:
+    result = _parse_stream_response(payload)
+
+    assert result
+    assert all(isinstance(item, Mapping) for item in result)
+
+
+def test_M7_stream_probe_rejects_malformed_or_empty_payloads() -> None:
+    for payload in (b"", b"not-json", b"[1]"):
+        with pytest.raises(RuntimeProbeFailure, match="invalid_response"):
+            _parse_stream_response(payload)
+
+
 def test_M7_runtime_package_cannot_escape_tmp(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"under \.tmp"):
         package_runtime(tmp_path)
@@ -177,16 +235,18 @@ class FakeProbeClient:
             for index in range(self.runtimes)
         ]
 
-    async def query(self, _runtime_name: str) -> Mapping[str, Any]:
+    async def stream_query(self, _runtime_name: str) -> list[Mapping[str, Any]]:
         self.queries += 1
-        return {
-            "output": (
-                "## Runtime acceptance audit\n"
-                "- rejection_code: `unsupported_service`\n"
-                "- evidence_api_calls: `0`\n"
-                "- model_calls: `0`\n"
-            )
-        }
+        return [
+            {
+                "output": (
+                    "## Runtime acceptance audit\n"
+                    "- rejection_code: `unsupported_service`\n"
+                    "- evidence_api_calls: `0`\n"
+                    "- model_calls: `0`\n"
+                )
+            }
+        ]
 
 
 async def test_M7_runtime_probe_is_default_off_and_executes_no_query(

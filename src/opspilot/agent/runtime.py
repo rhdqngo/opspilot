@@ -149,7 +149,7 @@ RuntimeHandler = Callable[[RuntimeInputDecision], Awaitable[RuntimeInvocationRes
 class RuntimeProbeClient(Protocol):
     async def list_runtimes(self) -> list[Mapping[str, Any]]: ...
 
-    async def query(self, runtime_name: str) -> Mapping[str, Any]: ...
+    async def stream_query(self, runtime_name: str) -> list[Mapping[str, Any]]: ...
 
 
 class RuntimeProbeFailure(RuntimeError):
@@ -215,6 +215,47 @@ class RestRuntimeProbeClient:
 
         return await asyncio.to_thread(request_sync)
 
+    async def _stream_request(
+        self,
+        url: str,
+        *,
+        body: Mapping[str, Any],
+    ) -> list[Mapping[str, Any]]:
+        try:
+            token = await self._token_provider.get_token()
+        except LiveEvidenceFailure:
+            raise RuntimeProbeFailure("unauthorized") from None
+
+        def request_sync() -> list[Mapping[str, Any]]:
+            request = Request(
+                url,
+                data=json.dumps(body).encode(),
+                method="POST",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "X-Goog-User-Project": self._project,
+                },
+            )
+            try:
+                with urlopen(request, timeout=30) as response:
+                    raw = response.read(MAX_PROBE_RESPONSE_BYTES + 1)
+            except HTTPError as error:
+                error.read(16 * 1024 + 1)
+                codes: dict[int, RuntimeProbeBlocker] = {
+                    401: "unauthorized",
+                    403: "forbidden",
+                    404: "not_found",
+                }
+                raise RuntimeProbeFailure(codes.get(error.code, "upstream_error")) from None
+            except (URLError, TimeoutError):
+                raise RuntimeProbeFailure("upstream_error") from None
+            if len(raw) > MAX_PROBE_RESPONSE_BYTES:
+                raise RuntimeProbeFailure("invalid_response")
+            return _parse_stream_response(raw)
+
+        return await asyncio.to_thread(request_sync)
+
     async def list_runtimes(self) -> list[Mapping[str, Any]]:
         payload = await self._request(
             f"https://{RUNTIME_REGION}-aiplatform.googleapis.com/v1/projects/"
@@ -225,16 +266,62 @@ class RestRuntimeProbeClient:
             raise RuntimeProbeFailure("invalid_response")
         return runtimes
 
-    async def query(self, runtime_name: str) -> Mapping[str, Any]:
-        return await self._request(
+    async def stream_query(self, runtime_name: str) -> list[Mapping[str, Any]]:
+        request_json = json.dumps(
+            {
+                "message": {
+                    "role": "user",
+                    "parts": [{"text": RUNTIME_PROBE_MESSAGE}],
+                },
+                "userId": "opspilot-runtime-probe",
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        return await self._stream_request(
             f"https://{RUNTIME_REGION}-aiplatform.googleapis.com/v1/"
-            f"{quote(runtime_name, safe='/')}:query",
-            method="POST",
+            f"{quote(runtime_name, safe='/')}:streamQuery",
             body={
-                "classMethod": "query",
-                "input": {"message": RUNTIME_PROBE_MESSAGE},
+                "classMethod": "streaming_agent_run_with_events",
+                "input": {"request_json": request_json},
             },
         )
+
+
+def _parse_stream_response(raw: bytes) -> list[Mapping[str, Any]]:
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        payload = None
+    if isinstance(payload, dict):
+        return [payload]
+    if isinstance(payload, list) and all(isinstance(item, dict) for item in payload):
+        return payload
+
+    chunks: list[Mapping[str, Any]] = []
+    try:
+        lines = raw.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        raise RuntimeProbeFailure("invalid_response") from None
+    for line in lines:
+        candidate = line.strip()
+        if not candidate:
+            continue
+        if candidate.startswith("data:"):
+            candidate = candidate[5:].strip()
+        candidate = candidate.removesuffix(",")
+        if candidate in {"[", "]"}:
+            continue
+        try:
+            item = json.loads(candidate)
+        except json.JSONDecodeError:
+            raise RuntimeProbeFailure("invalid_response") from None
+        if not isinstance(item, dict):
+            raise RuntimeProbeFailure("invalid_response")
+        chunks.append(item)
+    if not chunks:
+        raise RuntimeProbeFailure("invalid_response")
+    return chunks
 
 
 def _audit_number(value: object) -> float:
@@ -454,8 +541,8 @@ async def run_runtime_probe(*, client: RuntimeProbeClient | None = None) -> Runt
         runtime_name = str(runtimes[0].get("name", ""))
         if not runtime_name:
             raise RuntimeProbeFailure("invalid_response")
-        response = await probe_client.query(runtime_name)
-        response_text = "\n".join(_response_strings(response))
+        response = await probe_client.stream_query(runtime_name)
+        response_text = "\n".join(text for chunk in response for text in _response_strings(chunk))
         expected = (
             "rejection_code: `unsupported_service`",
             "evidence_api_calls: `0`",

@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M5 applied; M7 API/IAM prerequisites applied, Runtime entrypoint blocked
+Status: M1-M5 applied; M7 API/IAM prerequisites applied, Runtime operation contract ready
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
@@ -134,5 +134,7 @@ booleans, missing permission names, and collision counts only.
 The first M7 apply persisted only the approved API state, investigator-role predict permission,
 and Reasoning Engine service-agent Token Creator leaf grant. The SDK dependency was subsequently
 fixed without another IAM change. The exact Runtime-only retry failed operation discovery because
-the raw ADK agent exposes no Runtime query method. The grant is preserved, but no Runtime,
+the raw ADK agent exposes no Runtime query method. The official `AdkApp` wrapper now exposes only
+the Enterprise async-stream operation and needs no additional permission. The grant is preserved,
+but no Runtime,
 registration, public principal, key, broad project role, or hosted-reader expansion was created.

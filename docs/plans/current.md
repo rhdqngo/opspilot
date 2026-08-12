@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-runtime-deploy-blocked / entrypoint-contract-fix-required
+phase: M7-runtime-operation-ready / final-deploy-in-progress
 updated: 2026-08-12
 
 ## Objective
@@ -67,6 +67,12 @@ updated: 2026-08-12
 - The second failure left dev at `35 managed / 36 addresses`, with no Runtime in state or live
   inventory and no Enterprise registration. No probe, registration, Preview request, retry, or
   additional cloud mutation was attempted.
+- The final M7 correction wraps the existing fixed-scope ADK agent in the official Agent Platform
+  `AdkApp` and registers only `streaming_agent_run_with_events` in async-stream mode. It adds no
+  dependency, graph node, IAM permission, API, or product feature.
+- The packaged entrypoint passed isolated Python 3.12 installation, exact operation discovery, and
+  a real local streaming rejection with zero evidence/model calls. The fixed live probe now uses
+  `streamQuery` with a 64-KiB total response cap and preserves the identifier-free output contract.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -378,7 +384,7 @@ updated: 2026-08-12
 | Install / restore | pass | `uv sync --frozen` |
 | Python format / lint | pass | ruff format/check |
 | Type check | pass | strict mypy over `src` and `tests` |
-| Tests | pass | 176 pytest tests, including M7 scope rejection, fixed live-probe gating, safe ADC failure, callback routing, package determinism, prior M6 acceptance, citation, budget, and redaction contracts |
+| Tests | pass | 183 pytest tests, including M7 AdkApp operation discovery, local streaming rejection, fixed live-probe gating, package determinism, prior M6 acceptance, citation, budget, and redaction contracts |
 | Package build | pass | sdist and wheel |
 | R0 baseline | pass | SCN-001 replay; investigation API health/readiness |
 | Local demo E2E | pass | Linux/amd64, non-root, three healthy roles, bounded load 10/10 |
@@ -438,7 +444,8 @@ updated: 2026-08-12
 | M7 Terraform static | pass | Default-off existing graph; enabled mock graph adds five addresses and one role update only |
 | M7 hosted static CI | skipped-by-policy | All three workflows are manual-only; no hosted job or M7 repository gate is required for the MVP |
 | M7 local operator gate | pass | Full Python/fixture/package regression, Linux/amd64 non-root Compose 10/10 and SCN-001, TFLint, bootstrap/dev validate and mock plans |
-| M7 cloud/IAM/runtime/app change | blocked | Exact Runtime-only 1-create failed registered-operation discovery; dev remains 35/36 with Runtime, registration, probe, and Enterprise query all 0 |
+| M7 Runtime operation contract | pass | Official `AdkApp`; only `streaming_agent_run_with_events`; isolated streaming rejection; evidence/model calls 0 |
+| M7 cloud/IAM/runtime/app change | pending | Dev remains 35/36 before the final reviewed Runtime-only one-create; registration, probe, and Enterprise query remain 0 |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -451,13 +458,11 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Separately approve a Runtime-only entrypoint adapter that exposes the supported Agent Runtime
-  query operations around the existing ADK agent without changing the investigation graph.
-- Validate the packaged object contract locally before any new cloud plan. Then reconfirm bootstrap
-  zero drift and dev `35 managed / 36 addresses` and require another exact Runtime-only one-create
-  plan; do not repeat the already persisted API or IAM changes.
-- Only after a successful create may one unsupported probe, one registration, and one supported
-  payment-service 30-minute Preview investigation run.
+- Reconfirm bootstrap zero drift and dev `35 managed / 36 addresses`, then require the final exact
+  Runtime-only one-create plan using the verified `AdkApp` archive. Do not repeat the already
+  persisted API or IAM changes.
+- Only after a successful Ready Runtime and zero-drift plan may one unsupported streaming probe,
+  one registration, and one supported payment-service 30-minute Preview investigation run.
 - Do not infer deployment authority from Approval 1. Sessions, Memory Bank, OAuth delegation,
   Agent Gateway, VPC, Model Armor, alert intake, remediation, dashboards, and multi-project work
   remain outside the MVP gate.

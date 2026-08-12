@@ -1,6 +1,6 @@
 # M7 Agent Runtime Runbook
 
-Status: Runtime package fixed; managed entrypoint operation contract blocked
+Status: Runtime package and supported operation contract ready; deployment pending
 
 ## MVP contract
 
@@ -36,9 +36,15 @@ extra targets ADK 1.x. Two generated archives matched byte-for-byte, and a clean
 environment installed their requirements and imported the SDK, Agent Engines module, and Runtime
 entrypoint without a cloud call.
 
+The Runtime entrypoint is an official Agent Platform `AdkApp` around the existing fixed-scope ADK
+agent. It registers only the asynchronous `streaming_agent_run_with_events` operation required by
+Gemini Enterprise; session, memory, artifact, unary-query, and bidi operations are not published.
+The packaged object passed isolated operation discovery and a local streaming rejection test.
+
 The probe is live and remains disabled unless `OPSPILOT_RUNTIME_PROBE_ENABLED=true` is set for one
-process. It discovers only the fixed Runtime and sends one fixed unsupported-service request. Its
-output contains no project, Runtime resource, URL, token, prompt, or raw response.
+process. It discovers only the fixed Runtime and sends one fixed unsupported-service request to
+the streaming operation. Its total response is capped at 64 KiB and its output contains no project,
+Runtime resource, URL, token, prompt, user identifier, or raw response.
 
 ## Deployment gate
 
@@ -57,9 +63,9 @@ discovery but failed because the exported ADK `LlmAgent` implements none of the 
 stream-query operations. Dev remains `35 managed / 36 addresses`; Runtime, probe, registration,
 and Enterprise query counts remain zero.
 
-Do not reapply the same archive. A separate approval must wrap the existing ADK agent in a
-Runtime-supported object and prove the registered-operation contract locally before another exact
-one-create plan is considered.
+Do not reapply either failed archive. The final approval uses the new `AdkApp` archive only after
+reconfirming an exact Runtime-only one-create plan. Any plan difference or deployment failure stops
+the run without a retry.
 
 Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander`.
 Planning is read-only. Apply additionally requires the process-scoped

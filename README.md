@@ -113,9 +113,10 @@ uv run --extra agent opspilot agent runtime probe --format summary
 uv run --extra agent opspilot agent runtime package --output .tmp/m7-runtime
 ```
 
-The probe is default-off and sends one fixed out-of-scope request only when its process gate is
-enabled. The archive is deterministic and stays ignored under `.tmp`. Runtime deployment and
-Gemini Enterprise registration remain default-off until the reviewed local operator apply.
+The probe is default-off and sends one fixed out-of-scope streaming request only when its process
+gate is enabled. The archive is deterministic and stays ignored under `.tmp`. The Runtime-only
+entrypoint is the official Agent Platform `AdkApp` and publishes only the Gemini Enterprise
+streaming operation. Runtime deployment and registration remain gated until the reviewed apply.
 
 The three private Cloud Run services are deployed and remotely validated. The retired `z`-suffix
 demo health path conflicted with a Cloud Run reserved path; the demo now uses `/health` and
@@ -140,8 +141,9 @@ uv build
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
 remote state contains 35 managed resources after the partial M7 API/IAM apply. The Agent Runtime
-itself is not deployed. Its SDK dependency now passes isolated package validation, but the managed
-runtime rejected the raw ADK `LlmAgent` because it exposes no supported query operation. Local
+itself is not deployed. Its SDK dependency now passes isolated package validation, and the raw ADK
+`LlmAgent` has been replaced at the Runtime-only boundary by an official `AdkApp` that passed local
+operation discovery and streaming rejection. Local
 operator plans are the MVP authority; GitHub workflows are retained as manual-only definitions
 and are not completion gates.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
@@ -160,9 +162,9 @@ M7 Terraform is also default-off. Its first separately reviewed Approval 2 plan 
 creates and one update. The three API addresses, leaf Runtime service-agent grant, and investigator
 role update succeeded. The SDK dependency correction then passed an isolated Python 3.12 import
 gate, and a fresh exact Runtime-only one-create apply reached operation discovery. It failed because
-the exported `LlmAgent` has no Runtime query methods. Dev remains at 35 managed resources with no
-Runtime or Enterprise registration. A Runtime-supported entrypoint adapter and another deployment
-require separate approval.
+the exported `LlmAgent` had no Runtime query methods. Dev remains at 35 managed resources with no
+Runtime or Enterprise registration. The final approved deployment uses the verified `AdkApp`
+archive and remains limited to one Runtime create.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform

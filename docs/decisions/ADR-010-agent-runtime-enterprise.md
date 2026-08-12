@@ -38,6 +38,8 @@ apply.
 
 The source package now includes the pinned Agent Platform SDK and passes isolated Python 3.12
 imports. A managed Runtime still cannot expose the raw ADK `LlmAgent` directly: operation discovery
-requires a supported query-capable wrapper. The existing graph and deterministic input callback
-remain accepted; selecting and validating that Runtime-only wrapper requires a separate decision
-and deployment approval.
+requires a supported query-capable wrapper. The Runtime-only entrypoint therefore uses the official
+`AdkApp` wrapper and publishes only `streaming_agent_run_with_events` in async-stream mode. This is
+the Gemini Enterprise integration operation; session, memory, artifact, unary-query, and bidi
+operations remain outside the MVP surface. The wrapper passed isolated operation discovery and
+streaming rejection tests without changing the graph or deterministic input callback.
