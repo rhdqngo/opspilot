@@ -134,7 +134,9 @@ def test_M8_preflight_is_read_only_and_aggregates_failures(
     assert not any("terraform apply" in value for value in joined)
     assert not any("--mode execute" in value for value in joined)
     assert not any("remediation decide" in value for value in joined)
-    assert any("--auth gcloud" in value for value in joined if "scenario prepare" in value)
+    scenario_plans = [value for value in joined if "opspilot scenario" in value]
+    assert len(scenario_plans) == 3
+    assert all("--auth gcloud" in value for value in scenario_plans)
     assert any(value.startswith("available auth list") for value in joined)
 
 

@@ -660,7 +660,7 @@ class RemediationReleaseRunner:
                 "--mode",
                 "plan",
                 "--auth",
-                gcloud,
+                "gcloud",
             ),
             "abort_plan": (
                 "uv",
