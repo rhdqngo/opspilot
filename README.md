@@ -142,8 +142,9 @@ The M1 bootstrap and dev foundation are applied, with separate state prefixes in
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
 remote state contains 36 managed resources after the M7 Runtime create. Its SDK dependency and
 official `AdkApp` pass isolated package validation, operation discovery, and local streaming
-rejection. The live resource is preserved but has an empty explicit `classMethods` field, so probe
-and Enterprise registration remain blocked. Local
+rejection. Terraform now declares the single `streaming_agent_run_with_events` async-stream method
+and its required string input explicitly; the preserved live Runtime awaits the reviewed in-place
+update before probe and Enterprise registration. Local
 operator plans are the MVP authority; GitHub workflows are retained as manual-only definitions
 and are not completion gates.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
@@ -164,8 +165,8 @@ role update succeeded. The SDK dependency correction then passed an isolated Pyt
 gate, and a fresh exact Runtime-only one-create apply reached operation discovery. It failed because
 the exported `LlmAgent` had no Runtime query methods. The final approved Runtime-only one-create
 succeeded with the verified `AdkApp` archive. Dev is now 36/37 and zero drift, but the provider did
-not infer `spec.class_methods`; registration and Preview remain unattempted pending one explicit
-method declaration.
+not infer `spec.class_methods`. The source now supplies that one declaration explicitly; registration
+and Preview remain unattempted until the exact Runtime-only in-place update passes.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform

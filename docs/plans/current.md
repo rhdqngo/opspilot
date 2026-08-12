@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-runtime-deployed / operation-schema-blocked
+phase: M7-operation-declaration-ready / runtime-update-pending
 updated: 2026-08-12
 
 ## Objective
@@ -78,6 +78,9 @@ updated: 2026-08-12
 - The live resource returned no `classMethods`. Provider schema inspection confirmed that source
   deployment requires an explicit `spec.class_methods` JSON declaration; the wrapper method alone
   is not copied into that API field by Terraform. This is a hard acceptance blocker.
+- Approval 5 now defines the one permitted async-stream operation and required `request_json`
+  string explicitly in Terraform. Static contract tests pass; the live Runtime has not yet been
+  updated, queried, registered, or used from Preview.
 - Per the stop condition, Runtime probe, Enterprise registration, Preview investigation, evidence
   calls, and model calls remain zero. The Runtime is preserved; no update, retry, destroy, or IAM
   change was attempted.
@@ -246,7 +249,7 @@ updated: 2026-08-12
 | M6 Approval 9: MVP latency calibration | complete | RCA 1/1 and safety 2/2 passed with 6/6 calls, no timeout, and zero cloud drift |
 | M7 Approval 1: Runtime and Enterprise preparation | complete | Fixed natural-language adapter, workload ADC, deterministic package, default-off IaC, guarded registration; cloud changes 0 |
 | M7 Approval 2: local-gated deployment | blocked | Exact plan applied once; API/IAM changes persisted, Runtime startup failed because the packaged Agent Platform SDK dependency was missing; no probe or registration |
-| M7 Final Approval: AdkApp recovery | blocked | Exact Runtime 1-create succeeded, but live `classMethods` is empty; dev 36/37 zero drift; probe/registration/Preview 0 |
+| M7 Approval 5: explicit operation declaration | active | Exact async-stream declaration is static-validated; live Runtime update, probe, registration, and Preview remain pending |
 | UI Foundation | not-applicable | M6 is API/CLI orchestration only |
 
 ## Completed major results
@@ -454,7 +457,7 @@ updated: 2026-08-12
 | M7 hosted static CI | skipped-by-policy | All three workflows are manual-only; no hosted job or M7 repository gate is required for the MVP |
 | M7 local operator gate | pass | Full Python/fixture/package regression, Linux/amd64 non-root Compose 10/10 and SCN-001, TFLint, bootstrap/dev validate and mock plans |
 | M7 Runtime operation contract | pass | Official `AdkApp`; only `streaming_agent_run_with_events`; isolated streaming rejection; evidence/model calls 0 |
-| M7 cloud/IAM/runtime/app change | blocked | Runtime 1-create succeeded and dev is 36/37 zero drift; live operation schema is empty; registration, probe, and Enterprise query remain 0 |
+| M7 cloud/IAM/runtime/app change | pending | Runtime remains 36/37 zero drift; exact one-update operation plan and live acceptance are not yet executed |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -467,10 +470,9 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Separately approve the minimal Terraform `spec.class_methods` declaration for only
-  `streaming_agent_run_with_events` in `async_stream` mode. Require a fresh plan limited to one
-  in-place Runtime update, with resource count remaining 36/37 and no source, identity, IAM, API,
-  scaling, telemetry, or network change.
+- Generate a fresh plan for the approved `spec.class_methods` declaration. Require one in-place
+  Runtime update, with resource count remaining 36/37 and no source, identity, IAM, API, scaling,
+  telemetry, or network change.
 - Only after the live operation schema contains exactly that one method may one unsupported
   streaming probe, one registration, and one supported payment-service Preview investigation run.
 - Do not infer deployment authority from Approval 1. Sessions, Memory Bank, OAuth delegation,

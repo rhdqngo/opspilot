@@ -427,6 +427,23 @@ run "m7_agent_runtime_apply_ready_contract" {
   }
 
   assert {
+    condition = jsondecode(google_vertex_ai_reasoning_engine.opspilot[0].spec[0].class_methods) == [{
+      name     = "streaming_agent_run_with_events"
+      api_mode = "async_stream"
+      parameters = {
+        type = "object"
+        properties = {
+          request_json = {
+            type = "string"
+          }
+        }
+        required = ["request_json"]
+      }
+    }]
+    error_message = "M7 must expose only the fixed AgentSpace async-stream operation."
+  }
+
+  assert {
     condition = (
       google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].min_instances == 0 &&
       google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].max_instances == 1 &&

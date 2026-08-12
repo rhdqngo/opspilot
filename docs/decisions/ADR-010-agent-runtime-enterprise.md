@@ -46,5 +46,6 @@ streaming rejection tests without changing the graph or deterministic input call
 
 Terraform source deployments do not infer the API `classMethods` declaration from that object. The
 final Runtime create succeeded but returned an empty operation schema, so Enterprise integration is
-fail-closed. A separate decision may add exactly one `spec.class_methods` declaration matching the
-already implemented streaming method; it must not add another operation or product capability.
+fail-closed. Approval 5 adds exactly one explicit `spec.class_methods` declaration matching the
+already implemented streaming method and its required string request. It adds no second operation
+or product capability and must reach the live schema before Enterprise registration is attempted.

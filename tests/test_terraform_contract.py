@@ -212,6 +212,10 @@ def test_M7_terraform_is_default_off_and_defines_only_bounded_runtime_resources(
     assert dev_source.count('resource "google_vertex_ai_reasoning_engine"') == 1
     assert "count = var.deploy_agent_runtime ? 1 : 0" in dev_source
     assert 'agent_framework = "google-adk"' in dev_source
+    assert "class_methods   = jsonencode(local.runtime_class_methods)" in dev_source
+    assert dev_source.count('name     = "streaming_agent_run_with_events"') == 1
+    assert dev_source.count('api_mode = "async_stream"') == 1
+    assert dev_source.count('required = ["request_json"]') == 1
     assert "service_account = google_service_account.investigator.email" in dev_source
     assert "min_instances         = 0" in dev_source
     assert "max_instances         = 1" in dev_source

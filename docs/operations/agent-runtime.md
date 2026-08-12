@@ -69,9 +69,10 @@ reconfirming an exact Runtime-only one-create plan.
 The final one-create plan passed and the Runtime is now managed with `36 managed / 37 addresses`
 and zero drift. The live Runtime nevertheless returned an empty operation schema. The Google
 provider exposes `spec.class_methods` as an explicit JSON string and did not infer it from the
-packaged wrapper. Probe, registration, and Preview are therefore blocked. Do not query or update
-the Runtime until a separate approval reviews a one-update plan that adds only the single
-`streaming_agent_run_with_events` async-stream declaration.
+packaged wrapper. Approval 5 therefore fixes one explicit OpenAPI declaration for
+`streaming_agent_run_with_events` in async-stream mode with one required `request_json` string.
+Probe, registration, and Preview remain blocked until a fresh plan confirms that this declaration
+is the only Runtime in-place change and the live schema matches it exactly.
 
 Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander`.
 Planning is read-only. Apply additionally requires the process-scoped

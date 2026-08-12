@@ -48,6 +48,20 @@ locals {
     "payment",
     "inventory",
   ]) : toset([])
+
+  runtime_class_methods = [{
+    name     = "streaming_agent_run_with_events"
+    api_mode = "async_stream"
+    parameters = {
+      type = "object"
+      properties = {
+        request_json = {
+          type = "string"
+        }
+      }
+      required = ["request_json"]
+    }
+  }]
 }
 
 data "google_project" "current" {
@@ -302,6 +316,7 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
 
   spec {
     agent_framework = "google-adk"
+    class_methods   = jsonencode(local.runtime_class_methods)
     service_account = google_service_account.investigator.email
 
     deployment_spec {
