@@ -1,7 +1,7 @@
 # Current Project State
 
 status: in_progress
-phase: M8-cloud-release-safeguards-verified / safeguard-commit-pending
+phase: M8-gate-a-local-verified / image-push-approval-pending
 updated: 2026-08-12
 
 ## Delivered MVP
@@ -277,13 +277,20 @@ updated: 2026-08-12
 - `scripts/m8_release.py` provides read-only preflight, post-apply, E2E, and publish phases. It
   rejects unsafe Terraform action summaries, aborted/incomplete E2E, non-zero drift, and sensitive
   identifiers. No cloud evidence exists until all separately approved gates pass.
-- The safeguard release gate passed 180 pytest tests, Ruff format/check, strict mypy over 78 source
+- The safeguard release gate passed 181 pytest tests, Ruff format/check, strict mypy over 78 source
   files, package build, core `7/7`, portfolio `40/40`, remediation `12/12`, two identical 17-file
   Runtime archives with the unchanged SHA-256
   `a1eb4b5c548fb6f88396ca506c9e5f16512e093d21e80b23ee239cd87ebaa79b`, Terraform format/validate,
   bootstrap `1/1`, dev `7/7`, and all prepare/reset/abort plan commands.
-- The safeguard commit is the next checkpoint. Image push, Terraform apply, faulty activation,
-  approval, and cloud evidence remain separately blocked.
+- Safeguards are fixed in implementation commit `c01438c` plus Windows preflight and lazy-health
+  corrections through `a7a4869`. The final clean preflight passed on `a7a4869`, and that source was
+  also revalidated by the full 181-test gate.
+- Docker Desktop was started for Gate A local validation. The Linux/amd64 image built from the
+  clean source with the frozen production dependency set, ran as `65532:65532`, and returned the
+  expected control and executor health boundaries without ADC or cloud calls. Temporary smoke
+  containers were removed.
+- Artifact Registry push is the next explicit approval checkpoint. Terraform plan/apply, faulty
+  activation, approval, and cloud evidence remain separately blocked.
 
 ## Validation authority
 
