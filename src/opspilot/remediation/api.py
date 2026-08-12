@@ -78,21 +78,6 @@ def create_app(
     runtime = settings
     if coordinator is None:
         runtime = runtime or RemediationSettings()
-        store = FirestoreRemediationStore(
-            project_id=runtime.project_id, database_id=runtime.database_id
-        )
-        coordinator = RemediationCoordinator(
-            store=store,
-            workflow=GoogleWorkflowGateway(runtime.workflow_name),
-            callback_sender=GoogleCallbackSender(),
-            recovery_verifier=GoogleControlRecoveryVerifier(
-                store=store,
-                cloud_run=GoogleCloudRunAdmin(),
-                project_id=runtime.project_id,
-                order_url=runtime.order_url,
-                audience=runtime.order_url,
-            ),
-        )
     app = FastAPI(title="OpsPilot remediation control API", version=__version__)
     app.state.coordinator = coordinator
     app.state.token_verifier = token_verifier or GoogleIdTokenVerifier()
@@ -120,7 +105,7 @@ def create_app(
             authorization,
             audience=_control_audience(request),
         )
-        service = cast(RemediationCoordinator, request.app.state.coordinator)
+        service = _control_coordinator(request)
         return await service.request(
             incident_id=incident_id,
             payload=payload,
@@ -135,7 +120,7 @@ def create_app(
         authorization: str | None = Header(default=None),
     ) -> RemediationRecord:
         _principal(request, authorization, audience=_control_audience(request))
-        service = cast(RemediationCoordinator, request.app.state.coordinator)
+        service = _control_coordinator(request)
         return await service.show(remediation_id)
 
     @app.post(
@@ -151,7 +136,7 @@ def create_app(
         authorization: str | None = Header(default=None),
     ) -> RemediationRecord:
         principal = _principal(request, authorization, audience=_control_audience(request))
-        service = cast(RemediationCoordinator, request.app.state.coordinator)
+        service = _control_coordinator(request)
         return await service.decide(
             remediation_id=remediation_id,
             payload=payload,
@@ -172,7 +157,7 @@ def create_app(
         from datetime import datetime
 
         expires_at = datetime.fromisoformat(payload.expires_at.replace("Z", "+00:00"))
-        service = cast(RemediationCoordinator, request.app.state.coordinator)
+        service = _control_coordinator(request)
         await service.register_callback(
             remediation_id=remediation_id,
             callback_url=payload.callback_url,
@@ -191,7 +176,7 @@ def create_app(
         runtime_settings = _required_settings(request)
         principal = _principal(request, authorization, audience=runtime_settings.control_audience)
         require_service_account(principal, allowed_email=runtime_settings.workflow_service_account)
-        service = cast(RemediationCoordinator, request.app.state.coordinator)
+        service = _control_coordinator(request)
         return await service.expire(remediation_id=remediation_id, principal=principal)
 
     @app.post(
@@ -207,7 +192,7 @@ def create_app(
         runtime_settings = _required_settings(request)
         principal = _principal(request, authorization, audience=runtime_settings.control_audience)
         require_service_account(principal, allowed_email=runtime_settings.workflow_service_account)
-        service = cast(RemediationCoordinator, request.app.state.coordinator)
+        service = _control_coordinator(request)
         return await service.begin_execution(
             remediation_id=remediation_id, payload=payload, principal=principal
         )
@@ -225,7 +210,7 @@ def create_app(
         runtime_settings = _required_settings(request)
         principal = _principal(request, authorization, audience=runtime_settings.control_audience)
         require_service_account(principal, allowed_email=runtime_settings.workflow_service_account)
-        service = cast(RemediationCoordinator, request.app.state.coordinator)
+        service = _control_coordinator(request)
         return await service.finish_execution(
             remediation_id=remediation_id, payload=payload, principal=principal
         )
@@ -241,13 +226,6 @@ def create_executor_app(
     runtime = settings
     if executor is None:
         runtime = runtime or RemediationSettings()
-        store = FirestoreRemediationStore(
-            project_id=runtime.project_id, database_id=runtime.database_id
-        )
-        executor = FixedPaymentRollbackExecutor(
-            store=store,
-            cloud_run=GoogleCloudRunAdmin(),
-        )
     app = FastAPI(title="OpsPilot private remediation executor", version=__version__)
     app.state.executor = executor
     app.state.token_verifier = token_verifier or GoogleIdTokenVerifier()
@@ -272,7 +250,7 @@ def create_executor_app(
         runtime_settings = _required_settings(request)
         principal = _principal(request, authorization, audience=runtime_settings.executor_audience)
         require_service_account(principal, allowed_email=runtime_settings.workflow_service_account)
-        service = cast(FixedPaymentRollbackExecutor, request.app.state.executor)
+        service = _rollback_executor(request)
         return await service.execute(remediation_id, payload)
 
     return app
@@ -283,6 +261,45 @@ def _required_settings(request: Request) -> RemediationSettings:
     if not isinstance(runtime, RemediationSettings):
         raise HTTPException(status_code=500, detail="remediation settings are unavailable")
     return runtime
+
+
+def _control_coordinator(request: Request) -> RemediationCoordinator:
+    existing = request.app.state.coordinator
+    if isinstance(existing, RemediationCoordinator):
+        return existing
+    runtime = _required_settings(request)
+    store = FirestoreRemediationStore(
+        project_id=runtime.project_id, database_id=runtime.database_id
+    )
+    created = RemediationCoordinator(
+        store=store,
+        workflow=GoogleWorkflowGateway(runtime.workflow_name),
+        callback_sender=GoogleCallbackSender(),
+        recovery_verifier=GoogleControlRecoveryVerifier(
+            store=store,
+            cloud_run=GoogleCloudRunAdmin(),
+            project_id=runtime.project_id,
+            order_url=runtime.order_url,
+            audience=runtime.order_url,
+        ),
+    )
+    request.app.state.coordinator = created
+    return created
+
+
+def _rollback_executor(request: Request) -> FixedPaymentRollbackExecutor:
+    existing = request.app.state.executor
+    if isinstance(existing, FixedPaymentRollbackExecutor):
+        return existing
+    runtime = _required_settings(request)
+    created = FixedPaymentRollbackExecutor(
+        store=FirestoreRemediationStore(
+            project_id=runtime.project_id, database_id=runtime.database_id
+        ),
+        cloud_run=GoogleCloudRunAdmin(),
+    )
+    request.app.state.executor = created
+    return created
 
 
 def _control_audience(request: Request) -> str:

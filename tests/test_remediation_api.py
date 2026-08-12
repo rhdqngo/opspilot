@@ -5,8 +5,9 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
-from opspilot.remediation.api import create_app
+from opspilot.remediation.api import create_app, create_executor_app
 from opspilot.remediation.auth import GoogleIdTokenVerifier, require_service_account
+from opspilot.remediation.config import RemediationSettings
 from opspilot.remediation.contracts import Principal, RemediationTarget
 from opspilot.remediation.errors import AuthenticationError, AuthorizationError
 from opspilot.remediation.service import (
@@ -25,6 +26,40 @@ class FakeTokenVerifier:
 
             raise AuthenticationError("identity token could not be verified")
         return Principal(subject="subject-1", email="approver@example.invalid", email_verified=True)
+
+
+def _runtime_settings() -> RemediationSettings:
+    return RemediationSettings(
+        project_id="portfolio-project",
+        database_id="opspilot-dev",
+        control_audience="opspilot-remediation-control",
+        executor_audience="opspilot-remediation-executor",
+        workflow_name=(
+            "projects/portfolio-project/locations/asia-northeast3/"
+            "workflows/opspilot-dev-remediation"
+        ),
+        workflow_service_account=(
+            "opspilot-dev-rem-workflow@portfolio-project.iam.gserviceaccount.com"
+        ),
+        order_url="https://order.example.invalid",
+    )
+
+
+def test_M8_container_health_does_not_require_adc_or_construct_cloud_clients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def reject(*_: object, **__: object) -> object:
+        raise AssertionError("health must not create a Firestore client")
+
+    monkeypatch.setattr("opspilot.remediation.api.FirestoreRemediationStore", reject)
+    for factory, boundary in (
+        (create_app, "remediation-control"),
+        (create_executor_app, "remediation-executor"),
+    ):
+        with TestClient(factory(settings=_runtime_settings())) as client:
+            response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "boundary": boundary}
 
 
 def test_M8_google_identity_claims_are_reverified_and_email_is_not_serialized(
