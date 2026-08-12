@@ -1,7 +1,7 @@
 # Current Project State
 
 status: active
-phase: M7-runtime-package-fixed / runtime-create-ready
+phase: M7-runtime-deploy-blocked / entrypoint-contract-fix-required
 updated: 2026-08-12
 
 ## Objective
@@ -60,6 +60,13 @@ updated: 2026-08-12
   the packaged requirements and imported `google.cloud.aiplatform`, `vertexai.agent_engines`, and
   the Runtime entrypoint with zero cloud calls. Existing partial API/IAM state and the failed-run
   recovery files remain preserved until the reviewed one-create plan succeeds.
+- The fresh corrective plan was exactly `1 create / 0 update / 0 delete / 0 replacement` and
+  targeted only the missing Runtime. Its single approved apply failed during registered-operation
+  discovery: the exported ADK `LlmAgent` has none of the Runtime `query`, `async_query`,
+  `stream_query`, `bidi_stream_query`, or `async_stream_query` methods.
+- The second failure left dev at `35 managed / 36 addresses`, with no Runtime in state or live
+  inventory and no Enterprise registration. No probe, registration, Preview request, retry, or
+  additional cloud mutation was attempted.
 
 - M6 Approval 3 preserves the fixed Google ADK 2.5 seven-node graph but replaces the advisory model
   reviewer with a deterministic citation-review function. RCA drafting and report composition are
@@ -431,7 +438,7 @@ updated: 2026-08-12
 | M7 Terraform static | pass | Default-off existing graph; enabled mock graph adds five addresses and one role update only |
 | M7 hosted static CI | skipped-by-policy | All three workflows are manual-only; no hosted job or M7 repository gate is required for the MVP |
 | M7 local operator gate | pass | Full Python/fixture/package regression, Linux/amd64 non-root Compose 10/10 and SCN-001, TFLint, bootstrap/dev validate and mock plans |
-| M7 cloud/IAM/runtime/app change | blocked | One exact apply persisted 3 API addresses, 1 leaf IAM member, and 1 role update; Runtime startup failed and left no Runtime resource; registration/query 0 |
+| M7 cloud/IAM/runtime/app change | blocked | Exact Runtime-only 1-create failed registered-operation discovery; dev remains 35/36 with Runtime, registration, probe, and Enterprise query all 0 |
 | UI render / input | not-applicable | No end-user UI |
 
 ## Active safety decisions
@@ -444,11 +451,13 @@ updated: 2026-08-12
 
 ## Next checkpoint
 
-- Reconfirm bootstrap zero drift and dev `35 managed / 36 addresses`, then review a fresh plan that
-  creates only the missing Runtime. Do not repeat the already persisted API or IAM changes.
-- After a successful one-create apply, run one unsupported request first and require zero
-  evidence/model calls. Only then register once and run exactly one supported payment-service
-  30-minute investigation with bounded evidence and two model calls.
+- Separately approve a Runtime-only entrypoint adapter that exposes the supported Agent Runtime
+  query operations around the existing ADK agent without changing the investigation graph.
+- Validate the packaged object contract locally before any new cloud plan. Then reconfirm bootstrap
+  zero drift and dev `35 managed / 36 addresses` and require another exact Runtime-only one-create
+  plan; do not repeat the already persisted API or IAM changes.
+- Only after a successful create may one unsupported probe, one registration, and one supported
+  payment-service 30-minute Preview investigation run.
 - Do not infer deployment authority from Approval 1. Sessions, Memory Bank, OAuth delegation,
   Agent Gateway, VPC, Model Armor, alert intake, remediation, dashboards, and multi-project work
   remain outside the MVP gate.

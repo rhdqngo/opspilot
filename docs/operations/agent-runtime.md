@@ -1,6 +1,6 @@
 # M7 Agent Runtime Runbook
 
-Status: Runtime package fixed and locally validated; corrective one-create plan pending
+Status: Runtime package fixed; managed entrypoint operation contract blocked
 
 ## MVP contract
 
@@ -51,9 +51,15 @@ capture no prompt, response, or user identity content in telemetry.
 That exact plan was applied once. The three API addresses, leaf service-agent grant, and
 investigator-role update succeeded, while Runtime startup failed with a redacted
 `ModuleNotFoundError` for `google.cloud.aiplatform`. Dev state is therefore `35 managed / 36
-addresses`, with no Runtime in state or live inventory. The dependency fix is now validated, but
-do not run the probe or register with Enterprise until a fresh plan contains only the missing
-Runtime create and that exact plan succeeds.
+addresses`, with no Runtime in state or live inventory. Approval 3 validated the dependency fix
+and reviewed an exact Runtime-only one-create plan. That single apply reached entrypoint operation
+discovery but failed because the exported ADK `LlmAgent` implements none of the Runtime query or
+stream-query operations. Dev remains `35 managed / 36 addresses`; Runtime, probe, registration,
+and Enterprise query counts remain zero.
+
+Do not reapply the same archive. A separate approval must wrap the existing ADK agent in a
+Runtime-supported object and prove the registered-operation contract locally before another exact
+one-create plan is considered.
 
 Gemini Enterprise registration uses the fixed display name `OpsPilot Incident Commander`.
 Planning is read-only. Apply additionally requires the process-scoped

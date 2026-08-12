@@ -1,6 +1,6 @@
 # OpsPilot IAM Matrix
 
-Status: M1-M5 applied; M7 API/IAM prerequisites applied, Runtime startup blocked
+Status: M1-M5 applied; M7 API/IAM prerequisites applied, Runtime entrypoint blocked
 Data classification: synthetic only
 
 | Principal | Scope | Allowed in M1 | Explicitly excluded |
@@ -132,6 +132,7 @@ investigator actAs and leaf IAM, plus Enterprise agent create/get/list/update. R
 booleans, missing permission names, and collision counts only.
 
 The first M7 apply persisted only the approved API state, investigator-role predict permission,
-and Reasoning Engine service-agent Token Creator leaf grant. Runtime startup then failed because
-the source archive lacked the required Agent Platform SDK. The grant is preserved, but no Runtime,
+and Reasoning Engine service-agent Token Creator leaf grant. The SDK dependency was subsequently
+fixed without another IAM change. The exact Runtime-only retry failed operation discovery because
+the raw ADK agent exposes no Runtime query method. The grant is preserved, but no Runtime,
 registration, public principal, key, broad project role, or hosted-reader expansion was created.

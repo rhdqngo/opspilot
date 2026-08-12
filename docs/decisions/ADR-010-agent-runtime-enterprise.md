@@ -33,3 +33,11 @@ apply.
   or exposing provider response data.
 - Sessions, Memory Bank, OAuth user delegation, Agent Gateway, VPC, Model Armor, alert intake,
   remediation, dashboards, and multi-project operation remain post-MVP.
+
+## Deployment checkpoint
+
+The source package now includes the pinned Agent Platform SDK and passes isolated Python 3.12
+imports. A managed Runtime still cannot expose the raw ADK `LlmAgent` directly: operation discovery
+requires a supported query-capable wrapper. The existing graph and deterministic input callback
+remain accepted; selecting and validating that Runtime-only wrapper requires a separate decision
+and deployment approval.

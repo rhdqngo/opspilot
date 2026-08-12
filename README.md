@@ -140,9 +140,10 @@ uv build
 The M1 bootstrap and dev foundation are applied, with separate state prefixes in the protected
 GCS backend. M2 uses one immutable image across three applied private Cloud Run services. The
 remote state contains 35 managed resources after the partial M7 API/IAM apply. The Agent Runtime
-itself is not deployed because its first startup exposed a missing required Agent Platform SDK
-dependency in the source archive. Local operator plans are the MVP authority; GitHub workflows are
-retained as manual-only definitions and are not completion gates.
+itself is not deployed. Its SDK dependency now passes isolated package validation, but the managed
+runtime rejected the raw ADK `LlmAgent` because it exposes no supported query operation. Local
+operator plans are the MVP authority; GitHub workflows are retained as manual-only definitions
+and are not completion gates.
 Real project, billing, GitHub, and state identifiers are supplied through environment variables,
 ignored backend files, and GitHub repository variables.
 
@@ -157,9 +158,11 @@ impersonation with no service-account key.
 
 M7 Terraform is also default-off. Its first separately reviewed Approval 2 plan was exactly five
 creates and one update. The three API addresses, leaf Runtime service-agent grant, and investigator
-role update succeeded; Runtime startup failed because the deterministic requirements omitted
-`google-cloud-aiplatform[agent_engines,adk]`. Dev now has 35 managed resources and no Runtime.
-A corrected package and Runtime-only plan require separate approval.
+role update succeeded. The SDK dependency correction then passed an isolated Python 3.12 import
+gate, and a fresh exact Runtime-only one-create apply reached operation discovery. It failed because
+the exported `LlmAgent` has no Runtime query methods. Dev remains at 35 managed resources with no
+Runtime or Enterprise registration. A Runtime-supported entrypoint adapter and another deployment
+require separate approval.
 
 ```powershell
 terraform fmt -check -recursive infra/terraform

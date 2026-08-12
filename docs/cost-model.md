@@ -1,6 +1,6 @@
 # OpsPilot Cost Guardrails
 
-Status: M6 complete; M7 Runtime startup blocked after partial API/IAM apply
+Status: M6 complete; M7 Runtime entrypoint blocked after partial API/IAM apply
 Currency evidence: KRW confirmed by the operator; the source image is not stored because it
 contains account and project identifiers.
 
@@ -74,6 +74,17 @@ Future work must not add any cost-bearing resource without a separate plan and a
 - A corrective deploy is not authorized by this checkpoint. It requires a pinned Agent Platform
   SDK dependency, a new exact plan, and separate approval while the KRW 50,000 budget remains in
   force.
+
+## M7 Approval 3 checkpoint
+
+- The pinned SDK dependency passed isolated Python 3.12 installation and imports. The single
+  reviewed Runtime-only one-create apply then failed registered-operation discovery because the
+  raw ADK agent has no Runtime query method.
+- Dev remains at 35 managed resources and 36 addresses. No Runtime, probe, registration, Preview
+  request, evidence call, or model call exists, so this attempt adds no ongoing Runtime instance
+  cost.
+- Another deploy is not authorized by this checkpoint. The entrypoint contract requires a separate
+  code and apply approval under the existing KRW 50,000 ceiling.
 
 ## M3 impact
 
