@@ -1,7 +1,7 @@
 # Current Project State
 
 status: in_progress
-phase: M8-release-contract-sealed / image-push-approval-pending
+phase: M8-release-contract-sealed / gcloud-reauth-required
 updated: 2026-08-13
 
 ## Delivered MVP
@@ -317,6 +317,12 @@ updated: 2026-08-13
   and strict mypy before rebuilding the release image from a new commit.
 - No image push, Terraform plan/apply, IAM change, fault activation, approval decision, evidence
   publish, Git push, or PR occurred. The next external checkpoint remains Artifact Registry push.
+- Clean preflight and a new Linux/amd64 image from `8fcf339` passed non-root control/executor health,
+  but the read-only Registry/tag and remote-state checks then failed because the active Google
+  session requires reauthentication (`invalid_rapt`). No push was attempted. The image is not
+  eligible for release after this durable-state change; after interactive reauthentication, start
+  again from the new clean HEAD with preflight, build, local health, repository lookup, and tag
+  absence verification before requesting the Gate A push approval.
 
 ## Validation authority
 
