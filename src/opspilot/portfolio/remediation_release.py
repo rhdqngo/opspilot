@@ -754,6 +754,24 @@ class RemediationReleaseRunner:
                     "--rm",
                     "-p",
                     "127.0.0.1::8080",
+                    "-e",
+                    "OPSPILOT_REMEDIATION_PROJECT_ID=local-health",
+                    "-e",
+                    "OPSPILOT_REMEDIATION_CONTROL_AUDIENCE=local-control",
+                    "-e",
+                    "OPSPILOT_REMEDIATION_EXECUTOR_AUDIENCE=local-executor",
+                    "-e",
+                    (
+                        "OPSPILOT_REMEDIATION_WORKFLOW_NAME="
+                        "projects/local-health/locations/local/workflows/local-health"
+                    ),
+                    "-e",
+                    (
+                        "OPSPILOT_REMEDIATION_WORKFLOW_SERVICE_ACCOUNT="
+                        "local@local-health.iam.gserviceaccount.com"
+                    ),
+                    "-e",
+                    "OPSPILOT_REMEDIATION_ORDER_URL=https://example.invalid",
                     "--name",
                     name,
                     local_image,

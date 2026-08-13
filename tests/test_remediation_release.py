@@ -293,6 +293,12 @@ def test_M8_image_phase_binds_clean_source_and_always_cleans_containers(
     }
     cleanup_calls = [call for call in processes.calls if call[:3] == ("docker", "rm", "-f")]
     assert len(cleanup_calls) == 2
+    run_calls = [call for call in processes.calls if call[:2] == ("docker", "run")]
+    assert len(run_calls) == 2
+    assert all("OPSPILOT_REMEDIATION_PROJECT_ID=local-health" in call for call in run_calls)
+    assert all(
+        "OPSPILOT_REMEDIATION_ORDER_URL=https://example.invalid" in call for call in run_calls
+    )
     assert "registry/image" not in json.dumps(artifact)
 
 

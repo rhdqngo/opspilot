@@ -310,6 +310,11 @@ updated: 2026-08-13
   17-file Runtime archives with SHA-256
   `a1eb4b5c548fb6f88396ca506c9e5f16512e093d21e80b23ee239cd87ebaa79b`, Terraform
   format/validate, bootstrap `1/1`, dev `7/7`, and all three SCN-008 plan commands.
+- The first post-commit container smoke correctly failed before listening because the image verifier
+  had not supplied the six required settings shapes. The verifier now injects fixed synthetic
+  `local-health` values only; no cloud identifier or credential enters local health containers.
+  The failed temporary containers were removed, and the correction again passed 185 tests, Ruff,
+  and strict mypy before rebuilding the release image from a new commit.
 - No image push, Terraform plan/apply, IAM change, fault activation, approval decision, evidence
   publish, Git push, or PR occurred. The next external checkpoint remains Artifact Registry push.
 

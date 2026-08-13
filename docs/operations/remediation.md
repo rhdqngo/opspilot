@@ -116,7 +116,9 @@ The image phase reads `OPSPILOT_M8_LOCAL_IMAGE` and `OPSPILOT_M8_REGISTRY_IMAGE_
 operator environment. The local tag must be `opspilot-m8:<full clean HEAD SHA>` and the Registry
 value must be an immutable digest URI. The phase rechecks the Registry digest, Linux/amd64,
 `65532:65532`, and both health endpoints, always removes its temporary containers, and stores only
-sanitized image facts in `.tmp/m8-release/image.json`.
+sanitized image facts in `.tmp/m8-release/image.json`. The local containers receive only fixed
+synthetic configuration values needed for settings validation; no cloud identifier, URL, or
+credential is passed to them.
 
 Before post-apply verification, save the reviewed plan JSON at
 `.tmp/m8-release/terraform-plan.json`. The verifier requires exactly 21 additive M8 addresses, the
