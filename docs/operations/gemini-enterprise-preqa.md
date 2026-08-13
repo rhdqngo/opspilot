@@ -92,3 +92,12 @@ SCN-001, privacy redaction, all eight negative boundaries, scenario recovery, an
 checks passed. The release remains blocked on healthy final delivery, the Korean unused-incident-ID
 flow, visible default-DEV assumption, and missing tool-event `run_id`. No product or infrastructure
 change was made during QA.
+
+## Iterative QA remediation candidate
+
+The next source-bound candidate starts the Runtime handler before progress, accepts valid unused
+incident IDs as new user-source incidents, renders localized assumptions and canonical Korean
+narrative, and propagates the stored Runtime run ID into every logical evidence-tool event. Local
+gates pass 234 pytest cases, core 7/7, portfolio 40/40, remediation 12/12, strict mypy, build,
+Terraform bootstrap 1/1 and dev 8/8, and two byte-identical 11-file Runtime packages. The candidate
+remains blocked until the limited image/Runtime rollout and the complete Preview v2 matrix pass.

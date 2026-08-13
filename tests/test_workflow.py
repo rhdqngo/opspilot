@@ -221,6 +221,24 @@ async def test_korean_markdown_localizes_structure_and_preserves_evidence_titles
     assert "## 권장 조치" in markdown
     assert "- 사용 가능한 증거로 권장할 조치가 없습니다." in markdown
     assert "## 데이터 공백" in markdown
+    assert "## 가정" in markdown
     assert "## 출처" in markdown
     knowledge = next(item for item in report.evidence if item.source_type == SourceType.KNOWLEDGE)
     assert f"`{knowledge.evidence_id}` - {knowledge.title}" in markdown
+
+
+@pytest.mark.asyncio
+async def test_korean_markdown_localizes_canonical_hypotheses_actions_and_assumptions() -> None:
+    report = await run_fixture_investigation(
+        "SCN-001", assumptions=["No environment was specified; using dev."]
+    )
+
+    markdown = render_markdown(report, language=OutputLanguage.KO)
+
+    assert "DB 연결 풀 구성이 축소되었습니다" in markdown
+    assert "외부 결제 제공자 timeout 가능성은 확인되지 않았습니다" in markdown
+    assert "### 즉시 조치" in markdown
+    assert "### 완화 조치" in markdown
+    assert "### 근본 개선" in markdown
+    assert "환경이 지정되지 않아 DEV를 사용합니다." in markdown
+    assert "No environment was specified" not in markdown

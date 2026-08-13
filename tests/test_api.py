@@ -123,6 +123,27 @@ def test_runtime_bridge_waits_for_the_same_queued_persisted_report() -> None:
         assert "## Sources" in response.text
 
 
+def test_runtime_bridge_localizes_korean_and_renders_default_dev_assumption() -> None:
+    query = "payment-service 최근 15분 오류를 분석해줘"
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/internal/v1/runtime/investigations",
+            json={
+                "query": query,
+                "run_id": "RUN-1234567890ABCDEF",
+                "correlation_id": "COR-1234567890ABCDEF",
+                "trace_id": "1234567890abcdef1234567890abcdef",
+                "query_hash": audit_hash("enterprise_query", query),
+                "output_language": "ko",
+            },
+        )
+
+        assert response.status_code == 200
+        assert "## 요약" in response.text
+        assert "## 가정" in response.text
+        assert "환경이 지정되지 않아 DEV를 사용합니다." in response.text
+
+
 def test_api_hashes_verified_actor_and_rejects_unauthenticated_calls(
     monkeypatch: Any,
 ) -> None:
@@ -161,7 +182,7 @@ def test_api_hashes_verified_actor_and_rejects_unauthenticated_calls(
         assert "supersecret123" not in serialized
 
 
-def test_API_rejects_unknown_services_action_requests_and_unpersisted_incidents() -> None:
+def test_API_rejects_unknown_services_and_actions_but_creates_named_incidents() -> None:
     with TestClient(create_app()) as client:
         assert client.get("/api/v1/investigations/INV-MISSING").status_code == 404
         assert client.get("/api/v1/incidents/INC-2026-9999/reports/latest").status_code == 404
@@ -177,16 +198,16 @@ def test_API_rejects_unknown_services_action_requests_and_unpersisted_incidents(
             ).status_code
             == 422
         )
-        assert (
-            client.post(
-                "/api/v1/investigations",
-                json={
-                    "query": "payment-service 오류 분석",
-                    "incident_id": "INC-2026-0002",
-                },
-            ).status_code
-            == 422
+        named = client.post(
+            "/api/v1/investigations",
+            json={
+                "query": "payment-service 오류 분석",
+                "incident_id": "INC-2026-0002",
+            },
         )
+        assert named.status_code == 202
+        assert named.json()["incident_id"] == "INC-2026-0002"
+        assert client.get("/api/v1/incidents/INC-2026-0002").status_code == 200
 
 
 def test_monitoring_pubsub_open_close_deduplicates_and_starts_no_investigation() -> None:

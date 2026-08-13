@@ -212,6 +212,7 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
                 "actor_hash": None,
                 "session_hash": None,
                 "query_hash": decision.query_hash,
+                "output_language": "en",
             },
             14,
             decision.trace_id,
@@ -405,18 +406,23 @@ async def test_runtime_deadline_cancels_handler_and_emits_safe_final(
 
 
 @pytest.mark.asyncio
-async def test_runtime_generator_exit_stops_before_handler(
+async def test_runtime_generator_exit_cancels_started_handler(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     calls = 0
+    cancelled = asyncio.Event()
 
-    async def forbidden_handler(_decision: object) -> RuntimeInvocationResult:
+    async def started_handler(_decision: object) -> RuntimeInvocationResult:
         nonlocal calls
         calls += 1
-        raise AssertionError("closed stream reached the handler")
+        try:
+            await asyncio.Event().wait()
+            raise AssertionError("unreachable")
+        finally:
+            cancelled.set()
 
     caplog.set_level(logging.INFO, logger="opspilot.agent.runtime")
-    agent = create_runtime_root_agent(handler=forbidden_handler)
+    agent = create_runtime_root_agent(handler=started_handler)
     session_service = create_ephemeral_session_service()
     session = await session_service.create_session(
         app_name="test", user_id="private-generator-user", session_id="private-session"
@@ -437,7 +443,9 @@ async def test_runtime_generator_exit_stops_before_handler(
     await stream.aclose()
 
     assert progress.partial is True
-    assert calls == 0
+    assert calls == 1
+    assert cancelled.is_set()
+    assert '"stage":"handler_started"' in caplog.text
     assert '"stage":"cancelled"' in caplog.text
     assert "private-generator" not in caplog.text
 

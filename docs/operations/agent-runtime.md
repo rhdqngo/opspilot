@@ -26,9 +26,13 @@ Runtime creates one run ID, correlation ID, and 32-hex trace ID per invocation. 
 with `X-Cloud-Trace-Context` and uses the run ID as the idempotency key. User and session values are
 source-domain SHA-256 hashes; raw values and the raw prompt are never logged or persisted.
 
-Visible progress and failure copy follows Korean when the prompt contains Hangul and English
-otherwise. Report language quality is measured by evaluation; mixed technical identifiers do not
-invalidate an otherwise grounded result.
+Runtime starts the bounded handler before emitting progress, then uses one monotonic deadline for
+exactly one progress and one final event. Accepted, handler-started, summary, final, cancellation,
+and timeout stages reuse the same run/correlation/trace identity.
+
+Visible progress, failure, and persisted Markdown rendering follow Korean when the prompt contains
+Hangul and English otherwise. The renderer localizes server-owned narrative and assumptions while
+preserving evidence IDs and technical evidence titles.
 
 ## Packaging
 

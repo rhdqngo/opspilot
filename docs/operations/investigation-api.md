@@ -1,11 +1,13 @@
 # Persistent Investigation API
 
-Status: local contract verified; cloud rollout pending
+Status: deployed contract; iterative Preview-fix candidate locally verified
 
 `POST /api/v1/investigations` accepts a bounded natural-language query, optional incident ID, and
 requested depth. The parser accepts only the catalog services and `dev`/`development`/`개발`,
 rejects explicit prod/stage/qa scope, extracts at most one incident ID, and rejects body/field ID
 conflicts. An omitted environment is normalized to dev and recorded as an assumption.
+An incident ID does not need to exist before the request: a valid unused ID creates a new
+user-source incident transactionally, while an existing ID receives the new investigation.
 
 The response adds `trace_id` alongside investigation, correlation, and incident IDs. When
 `OPSPILOT_INVESTIGATION_AUDIENCE` is configured, the API verifies the Google ID token and stores
@@ -14,10 +16,11 @@ redacted first, while a normalized source-domain SHA-256 `query_hash` is kept in
 `InvestigationAudit`.
 
 The Runtime bridge `POST /internal/v1/runtime/investigations` requires Runtime-generated run,
-correlation, trace, actor/session hash, and query hash fields. The query hash is recomputed, the
+correlation, trace, actor/session hash, query hash, and `output_language` fields. The query hash is recomputed, the
 configured Runtime service account is verified, and the run ID maps deterministically to the
 investigation ID. Repeated submissions safely reuse the same investigation; Cloud Tasks retains
-its deterministic task-name deduplication.
+its deterministic task-name deduplication. The language field affects Markdown rendering only;
+persisted reports remain language-neutral.
 
 Task and Monitoring/Pub/Sub internal endpoints verify their separately configured service-account
 emails when the audience is enabled. Internal caller logs contain only caller source and a
@@ -35,4 +38,5 @@ uv run opspilot replay --scenario SCN-001 --format markdown
 ```
 
 The tests cover authenticated actor hashing, redaction, trace propagation, legacy records, Cloud
-Task redelivery, and 20 concurrent submissions of one Runtime run ID.
+Task redelivery, localized assumptions, and 20 concurrent submissions of one Runtime run ID with
+both generated and caller-supplied incident IDs.

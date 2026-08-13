@@ -40,6 +40,7 @@ MAX_INPUT_CHARS = 500
 LOGGER = logging.getLogger(__name__)
 RuntimeLogStage = Literal[
     "accepted",
+    "handler_started",
     "final_emitted",
     "timeout",
     "cancelled",
@@ -337,6 +338,7 @@ async def _run_api_runtime_investigation(
                 "actor_hash": decision.actor_hash,
                 "session_hash": decision.session_hash,
                 "query_hash": decision.query_hash,
+                "output_language": decision.output_language.value,
             },
             accept="text/markdown",
             timeout_seconds=14,
@@ -407,6 +409,13 @@ def _runtime_event(
     )
 
 
+async def _cancel_handler(
+    handler_task: asyncio.Future[RuntimeInvocationResult],
+) -> None:
+    handler_task.cancel()
+    await asyncio.gather(handler_task, return_exceptions=True)
+
+
 class OpsPilotRuntimeAgent(BaseAgent):
     """Emit an immediate progress event before running the bounded investigation."""
 
@@ -466,8 +475,18 @@ class OpsPilotRuntimeAgent(BaseAgent):
             services=", ".join(decision.services),
             minutes=decision.window_minutes,
         )
-        handler_task: asyncio.Future[RuntimeInvocationResult] | None = None
+        handler_task: asyncio.Future[RuntimeInvocationResult] = asyncio.ensure_future(
+            self.handler(decision)
+        )
         try:
+            await asyncio.sleep(0)
+            _log_runtime_stage(
+                "handler_started",
+                run_id=decision.run_id,
+                correlation_id=decision.correlation_id,
+                trace_id=decision.trace_id,
+                started_clock=started_clock,
+            )
             yield _runtime_event(
                 context,
                 author=self.name,
@@ -475,8 +494,11 @@ class OpsPilotRuntimeAgent(BaseAgent):
                 partial=True,
                 turn_complete=False,
             )
-            handler_task = asyncio.ensure_future(self.handler(decision))
-            done, _ = await asyncio.wait({handler_task}, timeout=RUNTIME_DEADLINE_SECONDS)
+            remaining_seconds = max(
+                0.0,
+                RUNTIME_DEADLINE_SECONDS - (perf_counter() - started_clock),
+            )
+            done, _ = await asyncio.wait({handler_task}, timeout=remaining_seconds)
             if handler_task in done:
                 result = handler_task.result()
                 summary = result.summary or RuntimeRunSummary(
@@ -505,11 +527,7 @@ class OpsPilotRuntimeAgent(BaseAgent):
                     trace_id=decision.trace_id,
                     started_clock=started_clock,
                 )
-                handler_task.cancel()
-                try:
-                    await handler_task
-                except asyncio.CancelledError:
-                    pass
+                await _cancel_handler(handler_task)
                 summary = RuntimeRunSummary(
                     run_id=decision.run_id,
                     outcome="timeout",
@@ -524,12 +542,7 @@ class OpsPilotRuntimeAgent(BaseAgent):
                     summary=summary,
                 )
         except asyncio.CancelledError:
-            if handler_task is not None:
-                handler_task.cancel()
-                try:
-                    await handler_task
-                except asyncio.CancelledError:
-                    pass
+            await _cancel_handler(handler_task)
             summary = RuntimeRunSummary(
                 run_id=decision.run_id,
                 outcome="cancelled",
@@ -552,12 +565,7 @@ class OpsPilotRuntimeAgent(BaseAgent):
             )
             raise
         except GeneratorExit:
-            if handler_task is not None:
-                handler_task.cancel()
-                try:
-                    await handler_task
-                except asyncio.CancelledError:
-                    pass
+            await _cancel_handler(handler_task)
             summary = RuntimeRunSummary(
                 run_id=decision.run_id,
                 outcome="cancelled",

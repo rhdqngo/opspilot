@@ -122,6 +122,7 @@ class InvestigationExecutor(Protocol):
         correlation_id: str,
         trace_id: str | None = None,
         investigation_id: str | None = None,
+        run_id: str | None = None,
     ) -> InvestigationExecution: ...
 
 
@@ -188,8 +189,9 @@ class FixtureInvestigationExecutor:
         correlation_id: str,
         trace_id: str | None = None,
         investigation_id: str | None = None,
+        run_id: str | None = None,
     ) -> InvestigationExecution:
-        del investigation_id
+        del investigation_id, run_id
         effective_trace = trace_id or new_trace_id()
         report = await run_fixture_investigation(
             self.scenario_id,
@@ -250,6 +252,7 @@ class LiveInvestigationExecutor:
         correlation_id: str,
         trace_id: str | None = None,
         investigation_id: str | None = None,
+        run_id: str | None = None,
     ) -> InvestigationExecution:
         effective_trace = trace_id or new_trace_id()
         collections = await asyncio.gather(
@@ -269,6 +272,7 @@ class LiveInvestigationExecutor:
                         trace_id=effective_trace,
                         correlation_id=correlation_id,
                         investigation_id=investigation_id,
+                        run_id=run_id,
                     ),
                 )
                 for service in request.services
@@ -626,11 +630,6 @@ class InvestigationCoordinator:
         if request.requested_actions:
             raise ValueError("write actions are outside the read-only investigation API")
         effective_incident = request.incident_id
-        if (
-            effective_incident is not None
-            and await self.store.get_incident(effective_incident) is None
-        ):
-            raise ValueError("incident is not persisted")
         assigned_incident = effective_incident or new_incident_id()
         safe_query = redact_text(query)
         request = request.model_copy(
@@ -705,6 +704,7 @@ class InvestigationCoordinator:
                 correlation_id=record.correlation_id,
                 trace_id=record.trace_id,
                 investigation_id=record.investigation_id,
+                run_id=record.audit.run_id if record.audit is not None else None,
             )
         except Exception:
             await self.store.fail(

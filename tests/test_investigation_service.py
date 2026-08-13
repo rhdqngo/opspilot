@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 
 import pytest
 
@@ -39,6 +41,7 @@ class CountingExecutor(FixtureInvestigationExecutor):
         correlation_id: str,
         trace_id: str | None = None,
         investigation_id: str | None = None,
+        run_id: str | None = None,
     ) -> InvestigationExecution:
         self.calls += 1
         await asyncio.sleep(0.01)
@@ -47,6 +50,7 @@ class CountingExecutor(FixtureInvestigationExecutor):
             correlation_id=correlation_id,
             trace_id=trace_id,
             investigation_id=investigation_id,
+            run_id=run_id,
         )
 
 
@@ -144,6 +148,74 @@ async def test_live_executor_collects_each_service_and_keeps_evidence_ids_unique
     assert len(evidence_ids) == len(set(evidence_ids))
     assert execution.report.audit["model_calls"] == 0
     assert set(execution.completed_collectors) == {"CHANGE", "KNOWLEDGE", "LOG", "METRIC"}
+
+
+@pytest.mark.asyncio
+async def test_enterprise_run_id_reaches_every_live_tool_event(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="opspilot.evidence")
+    catalog = load_service_catalog()
+    executor = LiveInvestigationExecutor(project_id="server-owned-project", catalog=catalog)
+    executor.client = FixtureEvidenceClient("SCN-001")  # type: ignore[assignment]
+    request = parse_investigation_request(
+        "dev payment-service recent 15 minutes errors", catalog=catalog
+    ).model_copy(update={"incident_id": "INC-2026-BBBBBBBBBBBBBBBB"})
+
+    await executor.execute(
+        request,
+        correlation_id="COR-0123456789ABCDEF",
+        trace_id="0123456789abcdef0123456789abcdef",
+        investigation_id="INV-RUN-0123456789ABCDEF",
+        run_id="RUN-0123456789ABCDEF",
+    )
+
+    events = [
+        json.loads(record.message)
+        for record in caplog.records
+        if record.name == "opspilot.evidence"
+    ]
+    assert len(events) == 4
+    assert {event["run_id"] for event in events} == {"RUN-0123456789ABCDEF"}
+    assert {event["trace_id"] for event in events} == {"0123456789abcdef0123456789abcdef"}
+
+
+@pytest.mark.asyncio
+async def test_concurrent_runtime_submissions_create_one_named_incident() -> None:
+    publisher = RecordingPublisher()
+    store = InMemoryInvestigationStore()
+    coordinator = InvestigationCoordinator(
+        load_service_catalog(),
+        executor=CountingExecutor(),
+        store=store,
+        task_publisher=publisher,
+    )
+    query = "dev payment-service last 10 minutes errors INC-2026-CCCCCCCCCCCCCCCC"
+    trace_id = "abcdef0123456789abcdef0123456789"
+    audit = InvestigationAudit(
+        source="enterprise",
+        query_hash=audit_hash("enterprise_query", query),
+        run_id="RUN-ABCDEF0123456789",
+        trace_id=trace_id,
+    )
+
+    records = await asyncio.gather(
+        *(
+            coordinator.submit(
+                query,
+                None,
+                RequestedDepth.STANDARD,
+                correlation_id="COR-ABCDEF0123456789",
+                trace_id=trace_id,
+                audit=audit,
+            )
+            for _ in range(20)
+        )
+    )
+
+    assert {record.investigation_id for record in records} == {"INV-RUN-ABCDEF0123456789"}
+    assert {record.incident_id for record in records} == {"INC-2026-CCCCCCCCCCCCCCCC"}
+    assert publisher.ids == ["INV-RUN-ABCDEF0123456789"]
 
 
 @pytest.mark.asyncio

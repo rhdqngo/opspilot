@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from opspilot import __version__
 from opspilot.audit import InvestigationAudit, audit_hash, extract_trace_id, new_trace_id
 from opspilot.catalog import ServiceCatalog, load_service_catalog
-from opspilot.domain import INCIDENT_ID_PATTERN, IncidentReport, RequestedDepth
+from opspilot.domain import INCIDENT_ID_PATTERN, IncidentReport, OutputLanguage, RequestedDepth
 from opspilot.remediation.auth import GoogleIdTokenVerifier, TokenVerifier, bearer_token
 from opspilot.remediation.errors import RemediationError
 from opspilot.reporting import render_markdown
@@ -90,6 +90,7 @@ class RuntimeInvestigationRequest(StartInvestigationRequest):
     actor_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     session_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     query_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    output_language: OutputLanguage = OutputLanguage.EN
 
 
 class PubSubMessage(BaseModel):
@@ -430,7 +431,10 @@ def create_app(
                 report = await coordinator_value.store.get_report(record.incident_id)
                 if report is None:
                     raise HTTPException(status_code=503, detail="persisted report is unavailable")
-                return PlainTextResponse(render_markdown(report), media_type="text/markdown")
+                return PlainTextResponse(
+                    render_markdown(report, language=payload.output_language),
+                    media_type="text/markdown",
+                )
             if record.status.value == "FAILED":
                 raise HTTPException(status_code=503, detail="investigation failed safely")
             await asyncio.sleep(0.25)

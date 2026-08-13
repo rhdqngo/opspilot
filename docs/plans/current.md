@@ -1,7 +1,7 @@
 # Current Project State
 
-status: enterprise_qa_blocked
-phase: Gemini Enterprise Preview QA executed; four acceptance defects require remediation
+status: enterprise_qa_remediating
+phase: Iterative Preview-fix candidate passes local gates and awaits source-bound limited rollout
 updated: 2026-08-13
 
 ## Completed product scope
@@ -68,6 +68,10 @@ updated: 2026-08-13
   was not rendered, and tool-call events omitted `run_id`.
 - Post-QA healthy orders passed `5/5`, Cloud Run remained Ready, and Terraform remained `No changes`.
 - Sanitized QA evidence: [long-spec-enterprise-qa-v1.md](../portfolio/results/long-spec-enterprise-qa-v1.md).
+- The iterative candidate starts the handler before progress, creates valid unused incidents,
+  localizes Korean narrative and assumptions, and propagates run ID into live tool audit. It passes
+  234/234 pytest, Ruff, strict mypy over 88 files, build, core 7/7, portfolio 40/40, remediation
+  12/12, Terraform bootstrap 1/1 and dev 8/8, plus two byte-identical 11-file Runtime packages.
 
 ## External non-blocking item
 
@@ -77,9 +81,10 @@ updated: 2026-08-13
 
 ## Next checkpoint
 
-- Remediate the four findings in the Preview QA evidence without changing registration, IAM, M8, or
-  demo resources. Re-run the failed healthy, Korean incident, environment-omitted, and tool-log
-  linkage cases plus the English/privacy/negative-boundary regression set before promoting FR-022.
+- Freeze the locally verified candidate in a source-bound commit, deploy only the investigation
+  image and existing Runtime archive, then run managed smoke and the complete Preview v2 matrix.
+- Repeat the minimal fix and limited rollout loop until one immutable candidate passes healthy,
+  English, Korean incident, environment-omitted, privacy, and all negative-boundary cases.
 
 ## Deferred beyond this milestone
 
