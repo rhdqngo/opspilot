@@ -172,13 +172,16 @@ resource "google_cloud_run_v2_service" "investigation_api" {
 
       dynamic "env" {
         for_each = {
-          OPSPILOT_INVESTIGATION_PROJECT_ID           = var.project_id
-          OPSPILOT_INVESTIGATION_REGION               = var.region
-          OPSPILOT_INVESTIGATION_DATABASE_ID          = google_firestore_database.remediation[0].name
-          OPSPILOT_INVESTIGATION_TASK_QUEUE           = google_cloud_tasks_queue.investigations[0].id
-          OPSPILOT_INVESTIGATION_WORKER_URL           = local.investigation_api_url
-          OPSPILOT_INVESTIGATION_TASK_SERVICE_ACCOUNT = google_service_account.investigation_tasks[0].email
-          OPSPILOT_INVESTIGATION_WORKER_AUDIENCE      = local.investigation_api_audience
+          OPSPILOT_INVESTIGATION_PROJECT_ID              = var.project_id
+          OPSPILOT_INVESTIGATION_REGION                  = var.region
+          OPSPILOT_INVESTIGATION_DATABASE_ID             = google_firestore_database.remediation[0].name
+          OPSPILOT_INVESTIGATION_TASK_QUEUE              = google_cloud_tasks_queue.investigations[0].id
+          OPSPILOT_INVESTIGATION_WORKER_URL              = local.investigation_api_url
+          OPSPILOT_INVESTIGATION_TASK_SERVICE_ACCOUNT    = google_service_account.investigation_tasks[0].email
+          OPSPILOT_INVESTIGATION_WORKER_AUDIENCE         = local.investigation_api_audience
+          OPSPILOT_INVESTIGATION_AUDIENCE                = local.investigation_api_audience
+          OPSPILOT_INVESTIGATION_RUNTIME_SERVICE_ACCOUNT = google_service_account.investigator.email
+          OPSPILOT_INVESTIGATION_ALERT_SERVICE_ACCOUNT   = google_service_account.investigation_alerts[0].email
         }
         content {
           name  = env.key

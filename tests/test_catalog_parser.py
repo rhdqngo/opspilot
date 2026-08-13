@@ -27,7 +27,7 @@ def test_FR_002_applies_thirty_minute_default_and_records_assumption() -> None:
         now=datetime(2026, 8, 10, 4, 30, tzinfo=UTC),
     )
     assert (request.end_time - request.start_time).total_seconds() == 1_800
-    assert "previous 30 minutes" in request.assumptions[0]
+    assert any("previous 30 minutes" in item for item in request.assumptions)
 
 
 def test_FR_003_rejects_unknown_service_before_tool_execution() -> None:

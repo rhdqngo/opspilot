@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
 
+from opspilot.audit import ToolAuditContext, new_correlation_id, new_trace_id
 from opspilot.domain import (
     EvidenceDirection,
     IncidentReport,
@@ -20,6 +20,7 @@ from opspilot.evidence import (
     collect_evidence,
 )
 from opspilot.fixtures import load_scenario_fixture
+from opspilot.report_policy import add_unverified_alternative, policy_actions
 from opspilot.scoring import calculate_evidence_support_score, status_for_score
 
 
@@ -27,10 +28,13 @@ async def run_fixture_investigation(
     scenario_id: str,
     *,
     correlation_id: str | None = None,
+    trace_id: str | None = None,
     fail_sources: frozenset[SourceType] = frozenset(),
     assumptions: list[str] | None = None,
 ) -> IncidentReport:
     fixture = load_scenario_fixture(scenario_id)
+    effective_correlation = correlation_id or new_correlation_id()
+    effective_trace = trace_id or new_trace_id()
     end_time = datetime.now(UTC)
     collection = await collect_evidence(
         FixtureEvidenceClient(scenario_id, fail_sources=fail_sources),
@@ -39,6 +43,10 @@ async def run_fixture_investigation(
             start_time=end_time - timedelta(minutes=30),
             end_time=end_time,
             services=[fixture.primary_service],
+        ),
+        audit_context=ToolAuditContext(
+            trace_id=effective_trace,
+            correlation_id=effective_correlation,
         ),
     )
     evidence = collection.evidence
@@ -77,23 +85,36 @@ async def run_fixture_investigation(
             )
         )
         if score >= 45 and fixture.action is not None:
-            action = fixture.action
-            actions.append(
-                RecommendedAction(
-                    action_id="ACT-01",
-                    category=action.category,
-                    title=action.title,
-                    description=action.description,
-                    target_service=action.target_service or fixture.primary_service,
-                    risk_level=action.risk_level,
-                    requires_approval=action.requires_approval,
-                    prerequisites=action.prerequisites,
-                    expected_effect=action.expected_effect,
-                    rollback_method=action.rollback_method,
-                    verification_steps=action.verification_steps,
-                    supporting_evidence_ids=[item.evidence_id for item in supporting],
-                )
+            categorized_actions = policy_actions(
+                primary_code=fixture.root_cause_code,
+                target_service=fixture.primary_service,
+                supporting_evidence_ids=[item.evidence_id for item in supporting],
             )
+            if fixture.action.category == "ROLLBACK_CLOUD_RUN":
+                action = fixture.action
+                actions = [
+                    RecommendedAction(
+                        action_id="ACT-01",
+                        category=action.category,
+                        title=action.title,
+                        description=action.description,
+                        target_service=action.target_service or fixture.primary_service,
+                        risk_level=action.risk_level,
+                        requires_approval=action.requires_approval,
+                        prerequisites=action.prerequisites,
+                        expected_effect=action.expected_effect,
+                        rollback_method=action.rollback_method,
+                        verification_steps=action.verification_steps,
+                        supporting_evidence_ids=[item.evidence_id for item in supporting],
+                    ),
+                    *[
+                        item.model_copy(update={"action_id": f"ACT-{index:02d}"})
+                        for index, item in enumerate(categorized_actions, start=2)
+                    ],
+                ]
+            else:
+                actions = categorized_actions
+    hypotheses = add_unverified_alternative(hypotheses, primary_code=fixture.root_cause_code)
     timeline = [
         IncidentTimelineEvent(
             timestamp=item.observed_at or item.period_start or datetime.now(UTC),
@@ -113,7 +134,7 @@ async def run_fixture_investigation(
         report_version=1,
         incident_id=fixture.incident_id,
         generated_at=datetime.now(UTC),
-        correlation_id=correlation_id or f"COR-{uuid4().hex[:16].upper()}",
+        correlation_id=effective_correlation,
         title=fixture.title,
         severity="SEV-2" if is_identified else "UNCLASSIFIED",
         severity_rationale=(
@@ -145,6 +166,7 @@ async def run_fixture_investigation(
             "unauthorized_action_count": 0,
             "scenario_id": scenario_id,
             "root_cause_code": fixture.root_cause_code,
+            "trace_id": effective_trace,
             "expected_tools": fixture.expected_tools_any_order,
             "forbidden_tools": fixture.forbidden_tools,
         },

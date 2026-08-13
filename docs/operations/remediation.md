@@ -65,7 +65,9 @@ accepts and prints no token value.
 
 Request and decision commands accept an explicit `--idempotency-key`. Network retries reuse that
 same value, allowing an operator to recover a lost response without creating another remediation
-or decision. `remediation show --format json` is the machine-readable polling contract.
+or decision. Retries are limited to three transient 429/5xx/timeout/transport attempts with
+exponential full jitter and a total deadline; non-transient 4xx and writes without an idempotency
+key fail immediately. `remediation show --format json` is the machine-readable polling contract.
 
 ## Emergency abort
 

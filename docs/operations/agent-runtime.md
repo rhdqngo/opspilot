@@ -17,6 +17,9 @@ Input supports the catalog services `order-service`, `payment-service`, and `inv
 and Korean or English relative windows from 1 to 120 minutes. Missing service means all three;
 missing time means 30 minutes. Commands, write requests, project IDs, URLs, tokens, raw filters,
 unregistered services, and out-of-range or ambiguous windows are rejected before the API call.
+Runtime creates one run ID, correlation ID, and 32-hex trace ID per invocation. It sends those IDs
+with `X-Cloud-Trace-Context` and uses the run ID as the idempotency key. User and session values are
+source-domain SHA-256 hashes; raw values and the raw prompt are never logged or persisted.
 
 Visible progress and failure copy follows Korean when the prompt contains Hangul and English
 otherwise. Report language quality is measured by evaluation; mixed technical identifiers do not
@@ -30,7 +33,8 @@ uv run --extra agent opspilot agent runtime package --output .tmp/runtime-b
 ```
 
 Both archives must be byte-identical. The allowlist contains only the package root, Runtime
-adapter/entrypoint, parser, catalog, domain models, service catalog resource, and requirements.
+adapter/entrypoint, parser, audit/retry contracts, catalog, domain models, service catalog resource,
+and requirements.
 Agent workflow/model/evidence/search/redaction/reporting/scoring modules, CLI/API/demo code,
 fixtures, tests, docs, and Terraform must not be present.
 
@@ -51,8 +55,9 @@ fixtures, tests, docs, and Terraform must not be present.
 
 - Configuration failure: verify only that `OPSPILOT_INVESTIGATION_API_URL` is present on the
   deployed Runtime and points to the fixed private API.
-- Authentication or transport failure: inspect anonymous stage/outcome logs and the API request
-  correlation record; do not enable direct evidence access on Runtime.
+- Authentication or transport failure: inspect pseudonymous stage/outcome logs by run,
+  correlation, and trace ID plus the API request record; do not enable direct evidence access on
+  Runtime. Transient 429/5xx/timeout/transport failures retry at most three times with full jitter.
 - Timeout: inspect Cloud Task and investigation status. Redelivery is expected and must remain
   idempotent.
 - Partial evidence: return the persisted partial/inconclusive report with data gaps and citations;

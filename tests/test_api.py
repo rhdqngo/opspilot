@@ -8,6 +8,22 @@ from typing import Any, cast
 from fastapi.testclient import TestClient
 
 from opspilot.api import create_app
+from opspilot.audit import audit_hash
+from opspilot.remediation.contracts import Principal
+
+
+class FakeTokenVerifier:
+    def __init__(self, *, email: str = "runtime@example.invalid") -> None:
+        self.email = email
+
+    def verify(self, token: str, *, audience: str) -> Principal:
+        assert token == "valid-token"
+        assert audience == "opspilot-investigation-api"
+        return Principal(
+            subject="verified-subject",
+            email=self.email,
+            email_verified=True,
+        )
 
 
 def _wait_for_completion(client: TestClient, investigation_id: str) -> dict[str, Any]:
@@ -87,13 +103,62 @@ def test_runtime_bridge_waits_for_the_same_queued_persisted_report() -> None:
     with TestClient(create_app()) as client:
         response = client.post(
             "/internal/v1/runtime/investigations",
-            json={"query": "inventory-service recent 15 minutes errors"},
+            json={
+                "query": "inventory-service recent 15 minutes errors",
+                "run_id": "RUN-0123456789ABCDEF",
+                "correlation_id": "COR-0123456789ABCDEF",
+                "trace_id": "0123456789abcdef0123456789abcdef",
+                "actor_hash": "a" * 64,
+                "session_hash": "b" * 64,
+                "query_hash": audit_hash(
+                    "enterprise_query",
+                    "inventory-service recent 15 minutes errors",
+                ),
+            },
         )
 
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/markdown")
         assert "## Summary" in response.text
         assert "## Sources" in response.text
+
+
+def test_api_hashes_verified_actor_and_rejects_unauthenticated_calls(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("OPSPILOT_INVESTIGATION_AUDIENCE", "opspilot-investigation-api")
+    with TestClient(create_app(token_verifier=FakeTokenVerifier())) as client:
+        unauthorized = client.post(
+            "/api/v1/investigations",
+            json={"query": "dev payment-service last 10 minutes errors"},
+        )
+        assert unauthorized.status_code == 401
+
+        started = client.post(
+            "/api/v1/investigations",
+            headers={
+                "Authorization": "Bearer valid-token",
+                "X-Cloud-Trace-Context": "0123456789abcdef0123456789abcdef/1;o=1",
+            },
+            json={
+                "query": (
+                    "dev payment-service last 10 minutes errors "
+                    "operator@example.invalid token=supersecret123"
+                )
+            },
+        )
+        assert started.status_code == 202
+        assert started.json()["trace_id"] == "0123456789abcdef0123456789abcdef"
+        status_payload = client.get(
+            f"/api/v1/investigations/{started.json()['investigation_id']}"
+        ).json()
+        assert status_payload["audit"]["source"] == "direct_api"
+        assert status_payload["audit"]["actor_hash"] == audit_hash(
+            "direct_api_actor", "verified-subject"
+        )
+        serialized = json.dumps(status_payload)
+        assert "operator@example.invalid" not in serialized
+        assert "supersecret123" not in serialized
 
 
 def test_API_rejects_unknown_services_action_requests_and_unpersisted_incidents() -> None:

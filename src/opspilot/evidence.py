@@ -5,9 +5,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
+import random
 import re
+import time
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from time import perf_counter
@@ -18,6 +21,7 @@ from urllib.request import Request, urlopen
 
 from pydantic import BaseModel, Field, model_validator
 
+from opspilot.audit import ToolAuditContext, ToolCallAuditEvent, log_tool_call
 from opspilot.catalog import ServiceCatalog
 from opspilot.domain import (
     EvidenceDirection,
@@ -35,6 +39,7 @@ from opspilot.knowledge_search import (
     normalize_search_response,
 )
 from opspilot.redaction import redact_text
+from opspilot.retry import RetryPolicy, run_with_retry
 
 MAX_ERROR_BODY_BYTES = 16 * 1024
 MAX_LOG_BYTES = 30 * 1024
@@ -44,6 +49,7 @@ MAX_TOOL_CALLS = 8
 MAX_API_CALLS = 10
 COLLECTION_DEADLINE_SECONDS = 45.0
 TOOL_TIMEOUT_SECONDS = 10.0
+LOGGER = logging.getLogger(__name__)
 LIVE_METRIC_TYPES = {
     "request_count": "run.googleapis.com/request_count",
     "error_ratio": "run.googleapis.com/request_count",
@@ -402,6 +408,17 @@ def _tool_failure(
 
 
 class UrllibJsonTransport:
+    def __init__(
+        self,
+        *,
+        retry_policy: RetryPolicy | None = None,
+        sleeper: Callable[[float], None] | None = None,
+        random_source: Callable[[], float] | None = None,
+    ) -> None:
+        self._retry_policy = retry_policy or RetryPolicy()
+        self._sleeper = sleeper
+        self._random_source = random_source
+
     async def request(
         self,
         method: Literal["GET", "POST"],
@@ -412,15 +429,28 @@ class UrllibJsonTransport:
         body: Mapping[str, Any] | None = None,
         timeout_seconds: float = TOOL_TIMEOUT_SECONDS,
     ) -> tuple[dict[str, Any], int]:
-        return await asyncio.to_thread(
-            self._request_sync,
-            method,
-            url,
-            token,
-            quota_project,
-            body,
-            timeout_seconds,
+        def send() -> tuple[dict[str, Any], int]:
+            return self._request_sync(method, url, token, quota_project, body, timeout_seconds)
+
+        policy = RetryPolicy(
+            max_attempts=self._retry_policy.max_attempts,
+            base_delay_seconds=self._retry_policy.base_delay_seconds,
+            max_delay_seconds=self._retry_policy.max_delay_seconds,
+            deadline_seconds=min(self._retry_policy.deadline_seconds, timeout_seconds),
         )
+
+        def send_with_retry() -> tuple[dict[str, Any], int]:
+            return run_with_retry(
+                send,
+                should_retry=lambda error: (
+                    isinstance(error, LiveEvidenceFailure) and error.retryable
+                ),
+                policy=policy,
+                sleeper=self._sleeper or time.sleep,
+                random_source=self._random_source or random.random,
+            )
+
+        return await asyncio.to_thread(send_with_retry)
 
     @staticmethod
     def _request_sync(
@@ -1259,6 +1289,7 @@ async def collect_evidence(
     *,
     tool_timeout_seconds: float | None = None,
     collection_deadline_seconds: float | None = None,
+    audit_context: ToolAuditContext | None = None,
 ) -> EvidenceCollectionResult:
     started_clock = perf_counter()
     effective_tool_timeout = (
@@ -1319,6 +1350,54 @@ async def collect_evidence(
         SourceType.CHANGE: "list_cloud_run_revisions",
         SourceType.KNOWLEDGE: "search_knowledge",
     }
+    if audit_context is not None:
+        window_seconds = round((request.end_time - request.start_time).total_seconds())
+        for source, result in zip(sources, results, strict=True):
+            error = result.error
+            tool_call_id = (
+                "TC-"
+                + hashlib.sha256(
+                    ":".join(
+                        (
+                            audit_context.trace_id,
+                            audit_context.correlation_id,
+                            audit_context.investigation_id or "",
+                            audit_context.run_id or "",
+                            source.value,
+                            ",".join(request.services),
+                            result.meta.started_at.isoformat(),
+                        )
+                    ).encode()
+                )
+                .hexdigest()[:24]
+                .upper()
+            )
+            log_tool_call(
+                LOGGER,
+                ToolCallAuditEvent(
+                    trace_id=audit_context.trace_id,
+                    correlation_id=audit_context.correlation_id,
+                    investigation_id=audit_context.investigation_id,
+                    run_id=audit_context.run_id,
+                    tool_call_id=tool_call_id,
+                    tool_name=semantic_tool_names[source],
+                    environment=request.environment,
+                    service_count=len(request.services),
+                    window_seconds=window_seconds,
+                    started_at=result.meta.started_at,
+                    finished_at=result.meta.finished_at,
+                    duration_ms=result.meta.duration_ms,
+                    status="OK" if result.ok else "ERROR",
+                    api_call_count=result.meta.api_call_count,
+                    result_count=result.meta.result_count,
+                    result_bytes=result.meta.response_bytes,
+                    truncated=result.meta.truncated,
+                    cache_hit=result.meta.cache_hit,
+                    error_code=error.code if error else None,
+                    error_category=error.category.value if error else None,
+                    retryable=error.retryable if error else None,
+                ),
+            )
     source_gaps = [
         f"{source.value} evidence was unavailable."
         for source, result in zip(sources, results, strict=True)
@@ -1365,6 +1444,7 @@ async def run_evidence_smoke(
     scenario_id: str,
     environment: str,
     now: datetime | None = None,
+    audit_context: ToolAuditContext | None = None,
 ) -> EvidenceCollectionResult:
     if environment != "dev":
         raise ValueError("evidence environment must be dev")
@@ -1379,7 +1459,9 @@ async def run_evidence_smoke(
         services=["payment-service"],
         scenario_run_id=None,
     )
-    return await collect_evidence(FixtureEvidenceClient(scenario_id), request)
+    return await collect_evidence(
+        FixtureEvidenceClient(scenario_id), request, audit_context=audit_context
+    )
 
 
 def render_evidence_summary(result: EvidenceCollectionResult) -> str:

@@ -4,6 +4,7 @@ import asyncio
 
 import pytest
 
+from opspilot.audit import InvestigationAudit, audit_hash
 from opspilot.catalog import load_service_catalog
 from opspilot.domain import InvestigationRequest, RequestedDepth
 from opspilot.evidence import FixtureEvidenceClient
@@ -22,7 +23,8 @@ class RecordingPublisher:
         self.ids: list[str] = []
 
     async def publish(self, investigation_id: str) -> None:
-        self.ids.append(investigation_id)
+        if investigation_id not in self.ids:
+            self.ids.append(investigation_id)
 
 
 class CountingExecutor(FixtureInvestigationExecutor):
@@ -31,11 +33,21 @@ class CountingExecutor(FixtureInvestigationExecutor):
         self.calls = 0
 
     async def execute(
-        self, request: InvestigationRequest, *, correlation_id: str
+        self,
+        request: InvestigationRequest,
+        *,
+        correlation_id: str,
+        trace_id: str | None = None,
+        investigation_id: str | None = None,
     ) -> InvestigationExecution:
         self.calls += 1
         await asyncio.sleep(0.01)
-        return await super().execute(request, correlation_id=correlation_id)
+        return await super().execute(
+            request,
+            correlation_id=correlation_id,
+            trace_id=trace_id,
+            investigation_id=investigation_id,
+        )
 
 
 class FailFirstCompleteStore(InMemoryInvestigationStore):
@@ -154,3 +166,75 @@ async def test_retry_after_commit_response_loss_does_not_requeue_completed_recor
 
     persisted = await store.get_record(record.investigation_id)
     assert persisted is not None and persisted.status.value == "COMPLETE"
+
+
+@pytest.mark.asyncio
+async def test_runtime_run_id_is_idempotent_and_persists_only_redacted_query() -> None:
+    publisher = RecordingPublisher()
+    store = InMemoryInvestigationStore()
+    coordinator = InvestigationCoordinator(
+        load_service_catalog(),
+        executor=CountingExecutor(),
+        store=store,
+        task_publisher=publisher,
+    )
+    query = (
+        "payment-service last 10 minutes errors for operator@example.invalid token=supersecret123"
+    )
+    trace_id = "0123456789abcdef0123456789abcdef"
+    audit = InvestigationAudit(
+        source="enterprise",
+        actor_hash=audit_hash("enterprise_actor", "private-user"),
+        session_hash=audit_hash("enterprise_session", "private-session"),
+        query_hash=audit_hash("enterprise_query", query),
+        run_id="RUN-0123456789ABCDEF",
+        trace_id=trace_id,
+    )
+
+    records = await asyncio.gather(
+        *(
+            coordinator.submit(
+                query,
+                None,
+                RequestedDepth.STANDARD,
+                correlation_id="COR-0123456789ABCDEF",
+                trace_id=trace_id,
+                audit=audit,
+            )
+            for _ in range(20)
+        )
+    )
+
+    assert {item.investigation_id for item in records} == {"INV-RUN-0123456789ABCDEF"}
+    assert publisher.ids == ["INV-RUN-0123456789ABCDEF"]
+    request = await store.get_request("INV-RUN-0123456789ABCDEF")
+    assert request is not None
+    serialized = request.model_dump_json()
+    assert "operator@example.invalid" not in serialized
+    assert "supersecret123" not in serialized
+    assert "[REDACTED_EMAIL]" in request.user_query
+    assert "[REDACTED_TOKEN]" in request.user_query
+
+    await coordinator.process_task("INV-RUN-0123456789ABCDEF")
+    report = await store.get_report(records[0].incident_id)
+    assert report is not None
+    assert report.correlation_id == "COR-0123456789ABCDEF"
+    assert report.audit["trace_id"] == trace_id
+
+
+def test_legacy_investigation_record_loads_without_new_audit_fields() -> None:
+    from opspilot.service import InvestigationRecord
+
+    record = InvestigationRecord.model_validate(
+        {
+            "investigation_id": "INV-LEGACY",
+            "correlation_id": "COR-LEGACY",
+            "incident_id": "INC-2026-0001",
+            "status": "QUEUED",
+            "current_stage": "QUEUED",
+            "execution_mode": "fixture",
+            "scenario_id": "SCN-001",
+        }
+    )
+    assert record.audit is None
+    assert len(record.trace_id) == 32

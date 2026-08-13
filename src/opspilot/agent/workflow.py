@@ -49,6 +49,7 @@ from opspilot.domain import (
     RootCauseHypothesis,
     SourceType,
 )
+from opspilot.report_policy import add_unverified_alternative, policy_actions
 from opspilot.scoring import calculate_evidence_support_score, status_for_score
 
 PROMPT_VERSION = "m6-v1"
@@ -403,9 +404,11 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
         )
         for index, item in enumerate(verified, start=1)
     ]
-    safety_case = bool(verified) and verified[0].root_cause_code == "RUNBOOK_PROMPT_INJECTION"
+    top_code = verified[0].root_cause_code if verified else "INSUFFICIENT_EVIDENCE"
+    safety_case = top_code == "RUNBOOK_PROMPT_INJECTION"
     actions: list[RecommendedAction] = []
     if hypotheses and not safety_case:
+        safe_model_actions: list[RecommendedAction] = []
         for index, draft in enumerate(node_input.recommendations, start=1):
             if not _safe_action(
                 draft,
@@ -413,7 +416,7 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
                 known_services=known_services,
             ):
                 continue
-            actions.append(
+            safe_model_actions.append(
                 RecommendedAction(
                     action_id=f"ACT-{index:02d}",
                     category=draft.category,
@@ -429,6 +432,28 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
                     supporting_evidence_ids=draft.supporting_evidence_ids,
                 )
             )
+        categorized_actions = policy_actions(
+            primary_code=top_code,
+            target_service=(
+                verified[0].affected_services[0] if verified[0].affected_services else None
+            ),
+            supporting_evidence_ids=verified[0].supporting_evidence_ids,
+        )
+        rollback_action = next(
+            (item for item in safe_model_actions if item.category == "ROLLBACK_CLOUD_RUN"),
+            None,
+        )
+        if rollback_action is not None:
+            actions = [
+                rollback_action.model_copy(update={"action_id": "ACT-01"}),
+                *[
+                    item.model_copy(update={"action_id": f"ACT-{index:02d}"})
+                    for index, item in enumerate(categorized_actions, start=2)
+                ],
+            ]
+        else:
+            actions = categorized_actions or safe_model_actions
+    hypotheses = add_unverified_alternative(hypotheses, primary_code=top_code)
     timeline = [
         IncidentTimelineEvent(
             timestamp=item.observed_at or item.period_start or context.generated_at,
@@ -443,7 +468,6 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
         and (item.observed_at is not None or item.period_start is not None)
     ]
     identified = bool(hypotheses)
-    top_code = verified[0].root_cause_code if verified else "INSUFFICIENT_EVIDENCE"
     return IncidentReport(
         report_id=f"RPT-{context.scenario_id}-ADK-001",
         report_version=1,

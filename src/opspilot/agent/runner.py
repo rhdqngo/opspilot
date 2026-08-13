@@ -41,6 +41,7 @@ from opspilot.agent.models import (
     MODEL_DEADLINE_SECONDS,
 )
 from opspilot.agent.workflow import create_root_agent
+from opspilot.audit import ToolAuditContext, new_correlation_id, new_trace_id
 from opspilot.domain import EvidenceDirection, IncidentReport, SourceType
 from opspilot.reporting import render_markdown
 
@@ -259,6 +260,8 @@ async def run_agent_investigation(
 
     tracker = _RequestBudgetTracker()
     run_id = f"RUN-{uuid4().hex[:16].upper()}"
+    trace_id = new_trace_id()
+    correlation_id = new_correlation_id()
     started_clock = perf_counter()
     context_input_bytes = 0
     collection_trajectory: list[str] = []
@@ -279,6 +282,11 @@ async def run_agent_investigation(
                     end_time=end_time,
                     services=[fixture.primary_service],
                 ),
+                audit_context=ToolAuditContext(
+                    trace_id=trace_id,
+                    correlation_id=correlation_id,
+                    run_id=run_id,
+                ),
             )
         else:
             collection = await run_evidence_smoke(
@@ -286,6 +294,11 @@ async def run_agent_investigation(
                 scenario_id=scenario_id,
                 environment=environment,
                 now=now,
+                audit_context=ToolAuditContext(
+                    trace_id=trace_id,
+                    correlation_id=correlation_id,
+                    run_id=run_id,
+                ),
             )
         evidence = list(collection.evidence)
         tool_errors = list(collection.tool_errors)
@@ -305,6 +318,11 @@ async def run_agent_investigation(
                     start_time=end_time - timedelta(minutes=30),
                     end_time=end_time,
                     services=[secondary_fixture.primary_service],
+                ),
+                audit_context=ToolAuditContext(
+                    trace_id=trace_id,
+                    correlation_id=correlation_id,
+                    run_id=run_id,
                 ),
             )
             counters: dict[str, int] = {}
@@ -337,7 +355,8 @@ async def run_agent_investigation(
             scenario_id=scenario_id,
             incident_id=fixture.incident_id,
             generated_at=now or datetime.now(UTC),
-            correlation_id=f"COR-{uuid4().hex[:16].upper()}",
+            correlation_id=correlation_id,
+            trace_id=trace_id,
             evidence=evidence,
             tool_errors=tool_errors,
             data_gaps=data_gaps,
@@ -347,7 +366,9 @@ async def run_agent_investigation(
         report, trajectory, budget = await _execute_graph(
             context, model_backend=model_backend, tracker=tracker
         )
-        report = report.model_copy(update={"audit": {**report.audit, "run_id": run_id}})
+        report = report.model_copy(
+            update={"audit": {**report.audit, "run_id": run_id, "trace_id": trace_id}}
+        )
         return AgentRunResult(
             status=AgentRunStatus.COMPLETE if collection_complete else AgentRunStatus.PARTIAL,
             succeeded=True,
@@ -357,6 +378,7 @@ async def run_agent_investigation(
             trajectory=trajectory,
             budget=budget,
             run_id=run_id,
+            trace_id=trace_id,
             duration_ms=max(0, round((perf_counter() - started_clock) * 1_000)),
             collection_trajectory=collection_trajectory,
             source_status=source_status,
@@ -372,6 +394,7 @@ async def run_agent_investigation(
             budget=tracker.budget(context_input_bytes),
             errors=[_safe_error(error)],
             run_id=run_id,
+            trace_id=trace_id,
             duration_ms=max(0, round((perf_counter() - started_clock) * 1_000)),
             collection_trajectory=collection_trajectory,
             source_status=source_status,
@@ -390,13 +413,16 @@ async def run_agent_context(
 
     tracker = _RequestBudgetTracker()
     run_id = f"RUN-{uuid4().hex[:16].upper()}"
+    trace_id = context.trace_id
     started_clock = perf_counter()
     input_bytes = len(context.model_dump_json().encode("utf-8"))
     try:
         report, trajectory, budget = await _execute_graph(
             context, model_backend=model_backend, tracker=tracker
         )
-        report = report.model_copy(update={"audit": {**report.audit, "run_id": run_id}})
+        report = report.model_copy(
+            update={"audit": {**report.audit, "run_id": run_id, "trace_id": trace_id}}
+        )
         return AgentRunResult(
             status=AgentRunStatus.COMPLETE if complete else AgentRunStatus.PARTIAL,
             succeeded=True,
@@ -406,6 +432,7 @@ async def run_agent_context(
             trajectory=trajectory,
             budget=budget,
             run_id=run_id,
+            trace_id=trace_id,
             duration_ms=max(0, round((perf_counter() - started_clock) * 1_000)),
             reasoning_outcome="complete" if complete else "partial",
         )
@@ -418,6 +445,7 @@ async def run_agent_context(
             budget=tracker.budget(input_bytes),
             errors=[_safe_error(error)],
             run_id=run_id,
+            trace_id=trace_id,
             duration_ms=max(0, round((perf_counter() - started_clock) * 1_000)),
             reasoning_outcome="failed",
         )

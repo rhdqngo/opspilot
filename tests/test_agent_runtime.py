@@ -7,6 +7,7 @@ import logging
 import tarfile
 from pathlib import Path
 from typing import Any
+from urllib.error import URLError
 
 import pytest
 from google.adk.agents import InvocationContext
@@ -144,7 +145,7 @@ async def test_runtime_requires_the_persistent_api(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.asyncio
 async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[tuple[str, dict[str, object] | None, float]] = []
+    calls: list[tuple[str, dict[str, object] | None, float, str | None, str | None]] = []
     monkeypatch.setenv("OPSPILOT_INVESTIGATION_API_URL", "https://investigation.example")
     monkeypatch.setenv("OPSPILOT_INVESTIGATION_API_AUDIENCE", "https://audience.example")
     monkeypatch.setattr(id_token, "fetch_id_token", lambda *_: "token")
@@ -157,9 +158,11 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
         payload: dict[str, object] | None = None,
         accept: str = "application/json",
         timeout_seconds: float = 5,
+        trace_id: str | None = None,
+        idempotency_key: str | None = None,
     ) -> tuple[int, bytes]:
         del token, method, accept
-        calls.append((url, payload, timeout_seconds))
+        calls.append((url, payload, timeout_seconds, trace_id, idempotency_key))
         return 200, b"# Persisted report\n"
 
     monkeypatch.setattr(runtime_module, "_api_request", fake_request)
@@ -177,10 +180,73 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
             {
                 "query": "order-service inventory-service recent 15 minutes status analyze",
                 "mode": "STANDARD",
+                "run_id": decision.run_id,
+                "correlation_id": decision.correlation_id,
+                "trace_id": decision.trace_id,
+                "actor_hash": None,
+                "session_hash": None,
+                "query_hash": decision.query_hash,
             },
             14,
+            decision.trace_id,
+            decision.run_id,
         )
     ]
+
+
+def test_runtime_write_retries_only_with_an_idempotency_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def unavailable(*_: object, **__: object) -> None:
+        nonlocal calls
+        calls += 1
+        raise URLError("unavailable")
+
+    monkeypatch.setattr(runtime_module, "urlopen", unavailable)
+    status, _ = runtime_module._api_request(
+        "https://sensitive.invalid",
+        token="secret-token",
+        method="POST",
+        payload={"safe": True},
+        timeout_seconds=1,
+    )
+    assert status == 0
+    assert calls == 1
+
+    class Response:
+        status = 200
+
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"ok"
+
+    calls = 0
+
+    def eventually_available(*_: object, **__: object) -> Response:
+        nonlocal calls
+        calls += 1
+        if calls < 3:
+            raise URLError("unavailable")
+        return Response()
+
+    monkeypatch.setattr(runtime_module, "urlopen", eventually_available)
+    status, body = runtime_module._api_request(
+        "https://sensitive.invalid",
+        token="secret-token",
+        method="POST",
+        payload={"safe": True},
+        timeout_seconds=1,
+        idempotency_key="RUN-0123456789ABCDEF",
+    )
+    assert (status, body) == (200, b"ok")
+    assert calls == 3
 
 
 @pytest.mark.asyncio
@@ -400,7 +466,18 @@ async def test_concurrent_enterprise_requests_keep_events_and_logs_private(
     assert all(len(events) == 2 for events in results)
     assert len(accepted_logs) == 20 and len(summary_logs) == 20
     assert len({item["run_id"] for item in accepted_logs}) == 20
-    assert all(set(item) == {"event", "run_id", "stage", "elapsed_ms"} for item in accepted_logs)
+    assert all(
+        set(item)
+        == {
+            "event",
+            "run_id",
+            "correlation_id",
+            "trace_id",
+            "stage",
+            "elapsed_ms",
+        }
+        for item in accepted_logs
+    )
     assert all(item["outcome"] == "complete" for item in summary_logs)
     assert "private-user" not in serialized
     assert "private-session" not in caplog.text

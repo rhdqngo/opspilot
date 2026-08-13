@@ -651,4 +651,19 @@ run "persistent_investigation_boundary_contract" {
     )
     error_message = "The investigation API must use a fixed audience; the resource precondition enforces its immutable image digest."
   }
+
+  assert {
+    condition = alltrue([
+      for required_name in [
+        "OPSPILOT_INVESTIGATION_AUDIENCE",
+        "OPSPILOT_INVESTIGATION_RUNTIME_SERVICE_ACCOUNT",
+        "OPSPILOT_INVESTIGATION_TASK_SERVICE_ACCOUNT",
+        "OPSPILOT_INVESTIGATION_ALERT_SERVICE_ACCOUNT",
+        ] : contains(
+        [for item in google_cloud_run_v2_service.investigation_api[0].template[0].containers[0].env : item.name],
+        required_name,
+      )
+    ])
+    error_message = "The investigation API must verify the separate Runtime, task, and alert caller identities."
+  }
 }

@@ -37,7 +37,14 @@ process-scoped synthetic `OPSPILOT_SCENARIO_RUN_ID`. Neither setting belongs in 
   withheld.
 - Agent Search performs one top-six request against the existing dedicated engine and preserves
   the M4 24 KiB result cap and untrusted-content flags.
-- There is no automatic retry or pagination. Partial source failures remain visible.
+- There is no automatic pagination. Transient 429, 5xx, timeout, and transport failures retry at
+  most three times with exponential full jitter inside the existing deadline; auth, validation,
+  and other 4xx failures do not retry. Exhausted sources remain visible as partial failures.
+
+Every logical collector emits one `opspilot_tool_call` JSON event containing only trace/correlation
+scope, tool and bounded request dimensions, timestamps/latency, API/result counts, byte size,
+truncate/cache state, and safe error classification. Prompts, identities, tokens, URLs, projects,
+raw log content, and raw exceptions are excluded.
 
 ## Approval 2 boundary
 

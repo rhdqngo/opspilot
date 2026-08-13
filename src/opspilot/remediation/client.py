@@ -7,10 +7,17 @@ import os
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
+from random import random
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from opspilot.remediation.contracts import RemediationRecord
+from opspilot.retry import RetryPolicy, run_with_retry
+
+
+class _RetryableRemediationFailure(RuntimeError):
+    pass
 
 
 def gcloud_identity_token(audience: str) -> str:
@@ -37,9 +44,20 @@ def gcloud_identity_token(audience: str) -> str:
 
 
 class RemediationApiClient:
-    def __init__(self, base_url: str, audience: str) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        audience: str,
+        *,
+        retry_policy: RetryPolicy | None = None,
+        sleeper: Callable[[float], None] = time.sleep,
+        random_value: Callable[[], float] = random,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.audience = audience
+        self.retry_policy = retry_policy or RetryPolicy(deadline_seconds=30.0)
+        self.sleeper = sleeper
+        self.random_value = random_value
 
     def request(
         self,
@@ -96,23 +114,35 @@ class RemediationApiClient:
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
         request = Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
-        body: object | None = None
-        for attempt in range(3):
+        retryable_method = method == "GET" or idempotency_key is not None
+
+        def send_once() -> object:
             try:
                 with urlopen(request, timeout=30) as response:
-                    body = json.loads(response.read())
-                break
+                    return json.loads(response.read())
             except HTTPError as error:
                 retryable = error.code == 429 or error.code >= 500
                 error.close()
-                if not retryable or attempt == 2:
-                    raise RuntimeError(f"remediation API returned HTTP {error.code}") from error
+                if retryable and retryable_method:
+                    raise _RetryableRemediationFailure(
+                        f"remediation API returned HTTP {error.code}"
+                    ) from error
+                raise RuntimeError(f"remediation API returned HTTP {error.code}") from error
             except (URLError, TimeoutError) as error:
-                if attempt == 2:
-                    raise RuntimeError("remediation API is unavailable") from error
-            time.sleep(0.2 * (attempt + 1))
-        if body is None:
-            raise RuntimeError("remediation API returned no response")
+                if retryable_method:
+                    raise _RetryableRemediationFailure("remediation API is unavailable") from error
+                raise RuntimeError("remediation API is unavailable") from error
+
+        try:
+            body = run_with_retry(
+                send_once,
+                policy=self.retry_policy,
+                should_retry=lambda error: isinstance(error, _RetryableRemediationFailure),
+                sleeper=self.sleeper,
+                random_source=self.random_value,
+            )
+        except _RetryableRemediationFailure as error:
+            raise RuntimeError(str(error)) from error
         return RemediationRecord.model_validate(body)
 
 

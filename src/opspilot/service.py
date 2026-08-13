@@ -17,6 +17,13 @@ from uuid import uuid4
 from google.auth.transport.requests import AuthorizedSession
 from pydantic import BaseModel, Field
 
+from opspilot.audit import (
+    InvestigationAudit,
+    ToolAuditContext,
+    audit_hash,
+    new_correlation_id,
+    new_trace_id,
+)
 from opspilot.catalog import ServiceCatalog
 from opspilot.domain import (
     EvidenceItem,
@@ -35,6 +42,7 @@ from opspilot.evidence import (
     collect_evidence,
 )
 from opspilot.parser import parse_investigation_request
+from opspilot.redaction import redact_text
 from opspilot.remediation.google import _authorized_session
 from opspilot.workflow import run_fixture_investigation
 
@@ -54,6 +62,7 @@ class IncidentState(StrEnum):
 class InvestigationRecord(BaseModel):
     investigation_id: str
     correlation_id: str
+    trace_id: str = Field(default_factory=new_trace_id, pattern=r"^[0-9a-f]{32}$")
     incident_id: str
     status: InvestigationStatus
     current_stage: str
@@ -68,6 +77,7 @@ class InvestigationRecord(BaseModel):
     execution_mode: str
     scenario_id: str
     report_version: int | None = Field(default=None, ge=1)
+    audit: InvestigationAudit | None = None
 
 
 class IncidentRecord(BaseModel):
@@ -105,7 +115,12 @@ class InvestigationExecutor(Protocol):
     def validate(self, request: InvestigationRequest) -> None: ...
 
     async def execute(
-        self, request: InvestigationRequest, *, correlation_id: str
+        self,
+        request: InvestigationRequest,
+        *,
+        correlation_id: str,
+        trace_id: str | None = None,
+        investigation_id: str | None = None,
     ) -> InvestigationExecution: ...
 
 
@@ -116,7 +131,7 @@ class InvestigationTaskPublisher(Protocol):
 class InvestigationStore(Protocol):
     async def create_investigation(
         self, record: InvestigationRecord, request: InvestigationRequest
-    ) -> None: ...
+    ) -> bool: ...
 
     async def get_record(self, investigation_id: str) -> InvestigationRecord | None: ...
 
@@ -166,11 +181,19 @@ class FixtureInvestigationExecutor:
             )
 
     async def execute(
-        self, request: InvestigationRequest, *, correlation_id: str
+        self,
+        request: InvestigationRequest,
+        *,
+        correlation_id: str,
+        trace_id: str | None = None,
+        investigation_id: str | None = None,
     ) -> InvestigationExecution:
+        del investigation_id
+        effective_trace = trace_id or new_trace_id()
         report = await run_fixture_investigation(
             self.scenario_id,
             correlation_id=correlation_id,
+            trace_id=effective_trace,
             assumptions=request.assumptions,
         )
         report = report.model_copy(
@@ -178,6 +201,7 @@ class FixtureInvestigationExecutor:
                 "incident_id": request.incident_id,
                 "affected_services": request.services,
                 "assumptions": request.assumptions,
+                "audit": {**report.audit, "trace_id": effective_trace},
             },
             deep=True,
         )
@@ -219,8 +243,14 @@ class LiveInvestigationExecutor:
             raise ValueError("live investigation service scope is not allowlisted")
 
     async def execute(
-        self, request: InvestigationRequest, *, correlation_id: str
+        self,
+        request: InvestigationRequest,
+        *,
+        correlation_id: str,
+        trace_id: str | None = None,
+        investigation_id: str | None = None,
     ) -> InvestigationExecution:
+        effective_trace = trace_id or new_trace_id()
         collections = await asyncio.gather(
             *(
                 collect_evidence(
@@ -234,6 +264,11 @@ class LiveInvestigationExecutor:
                     ),
                     tool_timeout_seconds=5.0,
                     collection_deadline_seconds=12.0,
+                    audit_context=ToolAuditContext(
+                        trace_id=effective_trace,
+                        correlation_id=correlation_id,
+                        investigation_id=investigation_id,
+                    ),
                 )
                 for service in request.services
             )
@@ -310,6 +345,7 @@ class LiveInvestigationExecutor:
                 "execution_mode": "live-api",
                 "model_calls": 0,
                 "unauthorized_action_count": 0,
+                "trace_id": effective_trace,
             },
         )
         return InvestigationExecution(
@@ -330,10 +366,10 @@ class InMemoryInvestigationStore:
 
     async def create_investigation(
         self, record: InvestigationRecord, request: InvestigationRequest
-    ) -> None:
+    ) -> bool:
         async with self._lock:
             if record.investigation_id in self._records:
-                return
+                return False
             self._records[record.investigation_id] = record.model_copy(deep=True)
             self._requests[record.investigation_id] = request.model_copy(deep=True)
             incident = self._incidents.get(record.incident_id)
@@ -350,6 +386,7 @@ class InMemoryInvestigationStore:
                     update={"latest_investigation_id": record.investigation_id}, deep=True
                 )
             self._incidents[record.incident_id] = incident
+            return True
 
     async def put_record(self, record: InvestigationRecord) -> None:
         async with self._lock:
@@ -572,31 +609,64 @@ class InvestigationCoordinator:
         self._tasks: set[asyncio.Task[InvestigationRecord | None]] = set()
 
     async def submit(
-        self, query: str, incident_id: str | None, mode: RequestedDepth
+        self,
+        query: str,
+        incident_id: str | None,
+        mode: RequestedDepth,
+        *,
+        correlation_id: str | None = None,
+        trace_id: str | None = None,
+        audit: InvestigationAudit | None = None,
     ) -> InvestigationRecord:
         request = parse_investigation_request(
             query, catalog=self.catalog, incident_id=incident_id, mode=mode
         )
         if request.requested_actions:
             raise ValueError("write actions are outside the read-only investigation API")
-        if incident_id is not None and await self.store.get_incident(incident_id) is None:
+        effective_incident = request.incident_id
+        if (
+            effective_incident is not None
+            and await self.store.get_incident(effective_incident) is None
+        ):
             raise ValueError("incident is not persisted")
-        assigned_incident = incident_id or new_incident_id()
-        request = request.model_copy(update={"incident_id": assigned_incident})
+        assigned_incident = effective_incident or new_incident_id()
+        safe_query = redact_text(query)
+        request = request.model_copy(
+            update={"incident_id": assigned_incident, "user_query": safe_query}
+        )
         self.executor.validate(request)
+        effective_trace = trace_id or new_trace_id()
+        effective_correlation = correlation_id or new_correlation_id()
+        effective_audit = audit or InvestigationAudit(
+            source="direct_api",
+            query_hash=audit_hash("direct_api_query", query),
+            trace_id=effective_trace,
+        )
+        if effective_audit.trace_id != effective_trace:
+            raise ValueError("audit trace ID does not match the investigation trace ID")
+        investigation_id = (
+            f"INV-RUN-{effective_audit.run_id.removeprefix('RUN-')}"
+            if effective_audit.run_id is not None
+            else f"INV-{datetime.now(UTC):%Y%m%d}-{uuid4().hex[:12].upper()}"
+        )
         record = InvestigationRecord(
-            investigation_id=f"INV-{datetime.now(UTC):%Y%m%d}-{uuid4().hex[:12].upper()}",
-            correlation_id=f"COR-{uuid4().hex[:16].upper()}",
+            investigation_id=investigation_id,
+            correlation_id=effective_correlation,
+            trace_id=effective_trace,
             incident_id=assigned_incident,
             status=InvestigationStatus.QUEUED,
             current_stage="QUEUED",
             execution_mode=self.executor.execution_mode,
             scenario_id=self.executor.scenario_id,
+            audit=effective_audit,
         )
-        await self.store.create_investigation(record, request)
+        created = await self.store.create_investigation(record, request)
+        stored = await self.store.get_record(investigation_id)
+        if stored is not None:
+            record = stored
         if self.task_publisher is not None:
             await self.task_publisher.publish(record.investigation_id)
-        else:
+        elif self.task_publisher is None and created:
             task = asyncio.create_task(self.process_task(record.investigation_id))
             self._tasks.add(task)
             task.add_done_callback(self._tasks.discard)
@@ -609,7 +679,18 @@ class InvestigationCoordinator:
         request = await self.store.get_request(incident.latest_investigation_id)
         if request is None:
             raise ValueError("incident investigation scope is unavailable")
-        return await self.submit(request.user_query, incident_id, request.requested_depth)
+        trace_id = new_trace_id()
+        return await self.submit(
+            request.user_query,
+            incident_id,
+            request.requested_depth,
+            trace_id=trace_id,
+            audit=InvestigationAudit(
+                source="replay",
+                query_hash=audit_hash("replay_query", request.user_query),
+                trace_id=trace_id,
+            ),
+        )
 
     async def process_task(self, investigation_id: str) -> InvestigationRecord | None:
         claim = await self.store.claim(investigation_id, now=datetime.now(UTC))
@@ -617,7 +698,12 @@ class InvestigationCoordinator:
             return await self.store.get_record(investigation_id)
         record, request = claim
         try:
-            execution = await self.executor.execute(request, correlation_id=record.correlation_id)
+            execution = await self.executor.execute(
+                request,
+                correlation_id=record.correlation_id,
+                trace_id=record.trace_id,
+                investigation_id=record.investigation_id,
+            )
         except Exception:
             await self.store.fail(
                 record,

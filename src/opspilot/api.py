@@ -7,6 +7,7 @@ import base64
 import binascii
 import hashlib
 import json
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -14,12 +15,15 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, status
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from opspilot import __version__
+from opspilot.audit import InvestigationAudit, audit_hash, extract_trace_id, new_trace_id
 from opspilot.catalog import ServiceCatalog, load_service_catalog
 from opspilot.domain import INCIDENT_ID_PATTERN, IncidentReport, RequestedDepth
+from opspilot.remediation.auth import GoogleIdTokenVerifier, TokenVerifier, bearer_token
+from opspilot.remediation.errors import RemediationError
 from opspilot.reporting import render_markdown
 from opspilot.service import (
     CloudTasksPublisher,
@@ -35,6 +39,35 @@ from opspilot.service import (
     new_incident_id,
 )
 
+LOGGER = logging.getLogger(__name__)
+
+
+def _verified_caller(
+    app: FastAPI,
+    authorization: str | None,
+    *,
+    audience: str,
+    allowed_email: str | None = None,
+    source: str,
+) -> str:
+    principal = app.state.token_verifier.verify(bearer_token(authorization), audience=audience)
+    if allowed_email is not None and (not allowed_email or principal.email != allowed_email):
+        raise HTTPException(status_code=403, detail=f"{source} caller is not allowed")
+    actor_hash = audit_hash(f"{source}_actor", principal.subject)
+    LOGGER.info(
+        "%s",
+        json.dumps(
+            {
+                "actor_hash": actor_hash,
+                "event": "opspilot_internal_caller",
+                "source": source,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+    )
+    return actor_hash
+
 
 class StartInvestigationRequest(BaseModel):
     query: str = Field(min_length=3, max_length=2_000)
@@ -45,8 +78,18 @@ class StartInvestigationRequest(BaseModel):
 class StartInvestigationResponse(BaseModel):
     investigation_id: str
     correlation_id: str
+    trace_id: str
     incident_id: str
     status: str
+
+
+class RuntimeInvestigationRequest(StartInvestigationRequest):
+    run_id: str = Field(pattern=r"^RUN-[A-F0-9]{16}$")
+    correlation_id: str = Field(pattern=r"^COR-[A-F0-9]{16}$")
+    trace_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    actor_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    session_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    query_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class PubSubMessage(BaseModel):
@@ -226,6 +269,7 @@ def create_app(
     *,
     store: InvestigationStore | None = None,
     task_publisher: InvestigationTaskPublisher | None = None,
+    token_verifier: TokenVerifier | None = None,
 ) -> FastAPI:
     catalog = load_service_catalog()
     if store is None and task_publisher is None:
@@ -251,6 +295,14 @@ def create_app(
 
     app = FastAPI(title="OpsPilot MVP", version=__version__, lifespan=lifespan)
     app.state.coordinator = coordinator
+    app.state.token_verifier = token_verifier or GoogleIdTokenVerifier()
+
+    @app.exception_handler(RemediationError)
+    async def authentication_error_handler(_: Request, error: RemediationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status_code,
+            content={"error": {"code": error.code, "message": error.safe_message}},
+        )
 
     @app.get("/healthz")
     async def health() -> dict[str, str]:
@@ -266,23 +318,59 @@ def create_app(
         response_model=StartInvestigationResponse,
     )
     async def start_investigation(
-        payload: StartInvestigationRequest, request: Request
+        payload: StartInvestigationRequest,
+        request: Request,
+        authorization: str | None = Header(default=None),
+        cloud_trace_context: str | None = Header(default=None, alias="X-Cloud-Trace-Context"),
     ) -> StartInvestigationResponse:
+        trace_id = extract_trace_id(cloud_trace_context) or new_trace_id()
+        actor_hash: str | None = None
+        audience = os.getenv("OPSPILOT_INVESTIGATION_AUDIENCE", "").strip()
+        if audience:
+            actor_hash = _verified_caller(
+                app,
+                authorization,
+                audience=audience,
+                source="direct_api",
+            )
         try:
             record = await _coordinator(request).submit(
-                payload.query, payload.incident_id, payload.mode
+                payload.query,
+                payload.incident_id,
+                payload.mode,
+                trace_id=trace_id,
+                audit=InvestigationAudit(
+                    source="direct_api",
+                    actor_hash=actor_hash,
+                    query_hash=audit_hash("direct_api_query", payload.query),
+                    trace_id=trace_id,
+                ),
             )
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return StartInvestigationResponse(
             investigation_id=record.investigation_id,
             correlation_id=record.correlation_id,
+            trace_id=record.trace_id,
             incident_id=record.incident_id,
             status=record.status.value,
         )
 
     @app.post("/internal/v1/investigations/{investigation_id}/execute")
-    async def execute_task(investigation_id: str, request: Request) -> InvestigationRecord:
+    async def execute_task(
+        investigation_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> InvestigationRecord:
+        audience = os.getenv("OPSPILOT_INVESTIGATION_AUDIENCE", "").strip()
+        if audience:
+            _verified_caller(
+                app,
+                authorization,
+                audience=audience,
+                allowed_email=os.getenv("OPSPILOT_INVESTIGATION_TASK_SERVICE_ACCOUNT", "").strip(),
+                source="task",
+            )
         try:
             record = await _coordinator(request).process_task(investigation_id)
         except Exception as error:
@@ -295,14 +383,41 @@ def create_app(
 
     @app.post("/internal/v1/runtime/investigations", response_class=PlainTextResponse)
     async def runtime_investigation(
-        payload: StartInvestigationRequest, request: Request
+        payload: RuntimeInvestigationRequest,
+        request: Request,
+        authorization: str | None = Header(default=None),
     ) -> PlainTextResponse:
         """Bridge one Enterprise turn to the same queued, persisted execution path."""
 
         coordinator_value = _coordinator(request)
+        if payload.query_hash != audit_hash("enterprise_query", payload.query):
+            raise HTTPException(status_code=422, detail="runtime query hash does not match")
+        audience = os.getenv("OPSPILOT_INVESTIGATION_AUDIENCE", "").strip()
+        if audience:
+            _verified_caller(
+                app,
+                authorization,
+                audience=audience,
+                allowed_email=os.getenv(
+                    "OPSPILOT_INVESTIGATION_RUNTIME_SERVICE_ACCOUNT", ""
+                ).strip(),
+                source="runtime",
+            )
         try:
             submitted = await coordinator_value.submit(
-                payload.query, payload.incident_id, payload.mode
+                payload.query,
+                payload.incident_id,
+                payload.mode,
+                correlation_id=payload.correlation_id,
+                trace_id=payload.trace_id,
+                audit=InvestigationAudit(
+                    source="enterprise",
+                    actor_hash=payload.actor_hash,
+                    session_hash=payload.session_hash,
+                    query_hash=payload.query_hash,
+                    run_id=payload.run_id,
+                    trace_id=payload.trace_id,
+                ),
             )
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -390,12 +505,26 @@ def create_app(
         return StartInvestigationResponse(
             investigation_id=record.investigation_id,
             correlation_id=record.correlation_id,
+            trace_id=record.trace_id,
             incident_id=record.incident_id,
             status=record.status.value,
         )
 
     @app.post("/internal/v1/alerts/monitoring", response_model=AlertIngestResponse)
-    async def monitoring_alert(envelope: PubSubEnvelope, request: Request) -> AlertIngestResponse:
+    async def monitoring_alert(
+        envelope: PubSubEnvelope,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> AlertIngestResponse:
+        audience = os.getenv("OPSPILOT_INVESTIGATION_AUDIENCE", "").strip()
+        if audience:
+            _verified_caller(
+                app,
+                authorization,
+                audience=audience,
+                allowed_email=os.getenv("OPSPILOT_INVESTIGATION_ALERT_SERVICE_ACCOUNT", "").strip(),
+                source="alert",
+            )
         try:
             decoded = base64.b64decode(envelope.message.data, validate=True)
             payload = json.loads(decoded)

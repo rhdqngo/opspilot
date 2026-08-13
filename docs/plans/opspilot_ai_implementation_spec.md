@@ -366,7 +366,7 @@ MVP는 다음 기능을 반드시 포함한다.
 
 - 모든 테스트 이름은 가능하면 요구사항 ID를 포함한다. 예: `test_FR_003_log_query_rejects_unknown_service`.
 - 모든 Pull Request 설명에 구현한 요구사항 ID를 적는다.
-- `docs/traceability-matrix.md`에 요구사항 → 코드 → 테스트 → 데모 증거를 연결한다.
+- `docs/requirements-traceability.md`에 요구사항 → 코드 → 테스트 → 데모 증거를 연결한다.
 - 요구사항이 변경되면 문서 버전을 올리고 평가 기준선도 다시 생성한다.
 
 ---

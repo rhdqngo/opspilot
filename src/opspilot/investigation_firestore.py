@@ -38,16 +38,16 @@ class FirestoreInvestigationStore:
 
     async def create_investigation(
         self, record: InvestigationRecord, request: InvestigationRequest
-    ) -> None:
+    ) -> bool:
         investigation_ref = self.client.collection("investigations").document(
             record.investigation_id
         )
         incident_ref = self.client.collection("incidents").document(record.incident_id)
 
         @firestore.transactional
-        def write(transaction: firestore.Transaction) -> None:
+        def write(transaction: firestore.Transaction) -> bool:
             if investigation_ref.get(transaction=transaction).exists:
-                return
+                return False
             incident_snapshot = incident_ref.get(transaction=transaction)
             transaction.create(
                 investigation_ref,
@@ -72,8 +72,9 @@ class FirestoreInvestigationStore:
                         assumptions=request.assumptions,
                     ).model_dump(mode="python"),
                 )
+            return True
 
-        await asyncio.to_thread(write, self.client.transaction())
+        return await asyncio.to_thread(write, self.client.transaction())
 
     async def get_record(self, investigation_id: str) -> InvestigationRecord | None:
         snapshot = await asyncio.to_thread(

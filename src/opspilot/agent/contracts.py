@@ -8,6 +8,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from opspilot.audit import new_trace_id
 from opspilot.domain import (
     EvidenceItem,
     IncidentReport,
@@ -54,6 +55,7 @@ class AgentEvidenceContext(BaseModel):
     incident_id: str = Field(pattern=r"^INC-\d{4}-\d{4}$")
     generated_at: datetime
     correlation_id: str
+    trace_id: str = Field(default_factory=new_trace_id, pattern=r"^[0-9a-f]{32}$")
     evidence: list[EvidenceItem] = Field(default_factory=list)
     tool_errors: list[ToolError] = Field(default_factory=list)
     data_gaps: list[str] = Field(default_factory=list)
@@ -215,6 +217,7 @@ class AgentRunResult(BaseModel):
     budget: ModelBudgetUsage = Field(default_factory=ModelBudgetUsage)
     errors: list[AgentRunError] = Field(default_factory=list)
     run_id: str = Field(pattern=r"^RUN-[A-F0-9]{16}$")
+    trace_id: str = Field(default_factory=new_trace_id, pattern=r"^[0-9a-f]{32}$")
     duration_ms: int = Field(default=0, ge=0)
     collection_trajectory: list[str] = Field(default_factory=list)
     source_status: dict[str, bool] = Field(default_factory=dict)

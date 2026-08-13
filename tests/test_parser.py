@@ -41,7 +41,7 @@ def test_parser_supports_catalog_services_and_relative_windows(
     assert request.services == services
     assert request.end_time - request.start_time == timedelta(minutes=minutes)
     if minutes == 30 and "service" not in query:
-        assert len(request.assumptions) == 2
+        assert len(request.assumptions) == 3
 
 
 @pytest.mark.parametrize(
@@ -65,3 +65,58 @@ def test_parser_records_action_requests_without_executing_them() -> None:
         now=NOW,
     )
     assert request.requested_actions == ["롤백"]
+
+
+@pytest.mark.parametrize("alias", ["dev", "Development", "개발"])
+def test_FR_001_normalizes_dev_environment_aliases(alias: str) -> None:
+    request = parse_investigation_request(
+        f"{alias} payment-service last 10 minutes errors",
+        catalog=load_service_catalog(),
+        now=NOW,
+    )
+
+    assert request.environment.value == "dev"
+    assert all("No environment was specified" not in item for item in request.assumptions)
+
+
+@pytest.mark.parametrize("alias", ["prod", "Production", "운영", "stage", "staging", "qa"])
+def test_FR_001_rejects_explicit_out_of_scope_environments(alias: str) -> None:
+    with pytest.raises(ValueError, match="outside the current DEV-only scope"):
+        parse_investigation_request(
+            f"{alias} payment-service last 10 minutes errors",
+            catalog=load_service_catalog(),
+            now=NOW,
+        )
+
+
+def test_FR_001_extracts_one_incident_and_rejects_conflicts() -> None:
+    request = parse_investigation_request(
+        "Investigate INC-2026-0001 payment-service errors",
+        catalog=load_service_catalog(),
+        now=NOW,
+        incident_id="INC-2026-0001",
+    )
+    assert request.incident_id == "INC-2026-0001"
+
+    with pytest.raises(ValueError, match="conflicts"):
+        parse_investigation_request(
+            "Investigate INC-2026-0001 payment-service errors",
+            catalog=load_service_catalog(),
+            now=NOW,
+            incident_id="INC-2026-0002",
+        )
+    with pytest.raises(ValueError, match="multiple incident IDs"):
+        parse_investigation_request(
+            "Compare INC-2026-0001 and INC-2026-0002 payment-service errors",
+            catalog=load_service_catalog(),
+            now=NOW,
+        )
+
+
+def test_FR_001_records_default_dev_as_an_assumption() -> None:
+    request = parse_investigation_request(
+        "payment-service last 10 minutes errors",
+        catalog=load_service_catalog(),
+        now=NOW,
+    )
+    assert any("No environment was specified" in item for item in request.assumptions)

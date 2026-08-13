@@ -30,6 +30,16 @@ ACTION_TERMS = (
     "삭제",
     "스케일",
 )
+INCIDENT_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9-])INC-\d{4}-(?:\d{4}|[A-F0-9]{16})(?![A-Za-z0-9-])", re.I
+)
+ENVIRONMENT_TOKENS = {
+    Environment.DEV: re.compile(r"(?i)(?<![A-Za-z0-9-])(?:dev|development)(?![A-Za-z0-9-])|개발"),
+    Environment.STAGING: re.compile(r"(?i)(?<![A-Za-z0-9-])(?:stage|staging|qa)(?![A-Za-z0-9-])"),
+    Environment.PROD_SIM: re.compile(
+        r"(?i)(?<![A-Za-z0-9-])(?:prod|production|prod-sim)(?![A-Za-z0-9-])|운영"
+    ),
+}
 
 
 def _window_minutes(query: str, maximum: int) -> int | None:
@@ -60,7 +70,27 @@ def parse_investigation_request(
     if unknown:
         raise ValueError(f"services are not allowlisted: {unknown}")
 
+    parsed_incidents = INCIDENT_TOKEN.findall(query)
+    if len(parsed_incidents) > 1:
+        raise ValueError("multiple incident IDs were provided")
+    parsed_incident = parsed_incidents[0].upper() if parsed_incidents else None
+    if incident_id is not None:
+        incident_id = incident_id.upper()
+    if parsed_incident is not None and incident_id is not None and parsed_incident != incident_id:
+        raise ValueError("incident ID in the query conflicts with the request field")
+    effective_incident = incident_id or parsed_incident
+
+    mentioned_environments = {
+        environment for environment, pattern in ENVIRONMENT_TOKENS.items() if pattern.search(query)
+    }
+    if len(mentioned_environments) > 1:
+        raise ValueError("multiple environments were provided")
+    if mentioned_environments and mentioned_environments != {Environment.DEV}:
+        raise ValueError("environment is outside the current DEV-only scope")
+
     assumptions: list[str] = []
+    if not mentioned_environments:
+        assumptions.append("No environment was specified; using dev.")
     window_minutes = _window_minutes(query, catalog.max_query_window_minutes)
     if window_minutes is None:
         window_minutes = 30
@@ -82,7 +112,7 @@ def parse_investigation_request(
         symptoms.append(Symptom.UNKNOWN)
 
     request = InvestigationRequest(
-        incident_id=incident_id,
+        incident_id=effective_incident,
         user_query=query,
         services=services,
         environment=Environment.DEV,

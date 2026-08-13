@@ -28,9 +28,11 @@ from google.genai import types
 from google.oauth2 import id_token
 from pydantic import BaseModel, Field
 
+from opspilot.audit import audit_hash, new_correlation_id, new_trace_id
 from opspilot.catalog import load_service_catalog
 from opspilot.domain import OutputLanguage
 from opspilot.parser import parse_investigation_request
+from opspilot.retry import RetryPolicy, run_with_retry
 
 RUNTIME_DEADLINE_SECONDS = 18.0
 MIN_INPUT_CHARS = 3
@@ -83,10 +85,12 @@ RUNTIME_SOURCE_ALLOWLIST = (
     "opspilot/agent/__init__.py",
     "opspilot/agent/runtime.py",
     "opspilot/agent/runtime_agent.py",
+    "opspilot/audit.py",
     "opspilot/catalog.py",
     "opspilot/domain.py",
     "opspilot/parser.py",
     "opspilot/resources/services.yaml",
+    "opspilot/retry.py",
 )
 
 
@@ -110,6 +114,11 @@ class RuntimeInputDecision(BaseModel):
         default_factory=lambda: f"RUN-{uuid4().hex[:16].upper()}",
         pattern=r"^RUN-[A-F0-9]{16}$",
     )
+    correlation_id: str = Field(default_factory=new_correlation_id, pattern=r"^COR-[A-F0-9]{16}$")
+    trace_id: str = Field(default_factory=new_trace_id, pattern=r"^[0-9a-f]{32}$")
+    actor_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    session_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    query_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     started_clock: float | None = Field(default=None, exclude=True, repr=False)
 
 
@@ -145,6 +154,8 @@ def _log_runtime_stage(
     stage: RuntimeLogStage,
     *,
     run_id: str,
+    correlation_id: str,
+    trace_id: str,
     started_clock: float | None = None,
     summary: RuntimeRunSummary | None = None,
 ) -> None:
@@ -152,6 +163,8 @@ def _log_runtime_stage(
     payload: dict[str, str | int] = {
         "event": "opspilot_runtime",
         "run_id": run_id,
+        "correlation_id": correlation_id,
+        "trace_id": trace_id,
         "stage": stage,
         "elapsed_ms": (
             round((perf_counter() - effective_started_clock) * 1_000)
@@ -198,6 +211,7 @@ def validate_runtime_api_input(value: str) -> RuntimeInputDecision:
         user_query=text,
         output_language=output_language,
         assumptions=request.assumptions,
+        query_hash=audit_hash("enterprise_query", text),
     )
 
 
@@ -248,26 +262,51 @@ def _api_request(
     payload: dict[str, object] | None = None,
     accept: str = "application/json",
     timeout_seconds: float = 5,
+    trace_id: str | None = None,
+    idempotency_key: str | None = None,
 ) -> tuple[int, bytes]:
-    data = json.dumps(payload).encode() if payload is not None else None
-    request = UrlRequest(
-        url,
-        method=method,
-        data=data,
-        headers={
+    retryable_method = method == "GET" or idempotency_key is not None
+
+    class RetryableResponse(Exception):
+        def __init__(self, status: int, body: bytes) -> None:
+            self.status = status
+            self.body = body
+
+    def send() -> tuple[int, bytes]:
+        data = json.dumps(payload).encode() if payload is not None else None
+        headers = {
             "Authorization": f"Bearer {token}",
             "Accept": accept,
             "Content-Type": "application/json",
-        },
-    )
+        }
+        if trace_id is not None:
+            headers["X-Cloud-Trace-Context"] = f"{trace_id}/1;o=1"
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        request = UrlRequest(url, method=method, data=data, headers=headers)
+        try:
+            with urlopen(request, timeout=timeout_seconds) as response:
+                return int(response.status), response.read()
+        except HTTPError as error:
+            body = error.read()
+            status = error.code
+            error.close()
+            if retryable_method and (status == 429 or status >= 500):
+                raise RetryableResponse(status, body) from None
+            return status, body
+        except (URLError, OSError) as error:
+            if retryable_method:
+                raise error
+            return 0, b""
+
     try:
-        with urlopen(request, timeout=timeout_seconds) as response:
-            return int(response.status), response.read()
-    except HTTPError as error:
-        body = error.read()
-        status = error.code
-        error.close()
-        return status, body
+        return run_with_retry(
+            send,
+            should_retry=lambda error: isinstance(error, (RetryableResponse, URLError, OSError)),
+            policy=RetryPolicy(deadline_seconds=timeout_seconds),
+        )
+    except RetryableResponse as error:
+        return error.status, error.body
     except (URLError, OSError):
         return 0, b""
 
@@ -285,9 +324,20 @@ async def _run_api_runtime_investigation(
             f"{api_url}/internal/v1/runtime/investigations",
             token=token,
             method="POST",
-            payload={"query": decision.user_query, "mode": "STANDARD"},
+            payload={
+                "query": decision.user_query,
+                "mode": "STANDARD",
+                "run_id": decision.run_id,
+                "correlation_id": decision.correlation_id,
+                "trace_id": decision.trace_id,
+                "actor_hash": decision.actor_hash,
+                "session_hash": decision.session_hash,
+                "query_hash": decision.query_hash,
+            },
             accept="text/markdown",
             timeout_seconds=14,
+            trace_id=decision.trace_id,
+            idempotency_key=decision.run_id,
         )
         if status != 200:
             raise RuntimeError("investigation API did not return a persisted report")
@@ -362,16 +412,34 @@ class OpsPilotRuntimeAgent(BaseAgent):
         started_clock = perf_counter()
         input_text = _content_text(context.user_content)
         decision = validate_runtime_api_input(input_text)
+        user_id = str(getattr(context.session, "user_id", "") or "")
+        session_id = str(getattr(context.session, "id", "") or "")
+        decision = decision.model_copy(
+            update={
+                "actor_hash": (audit_hash("enterprise_actor", user_id) if user_id else None),
+                "session_hash": (
+                    audit_hash("enterprise_session", session_id) if session_id else None
+                ),
+            }
+        )
         if not decision.accepted:
             result = _safe_rejection(decision)
             if result.summary is not None:
                 _log_runtime_stage(
                     "run_summary",
                     run_id=decision.run_id,
+                    correlation_id=decision.correlation_id,
+                    trace_id=decision.trace_id,
                     started_clock=started_clock,
                     summary=result.summary,
                 )
-            _log_runtime_stage("final_emitted", run_id=decision.run_id, started_clock=started_clock)
+            _log_runtime_stage(
+                "final_emitted",
+                run_id=decision.run_id,
+                correlation_id=decision.correlation_id,
+                trace_id=decision.trace_id,
+                started_clock=started_clock,
+            )
             yield _runtime_event(
                 context,
                 author=self.name,
@@ -381,7 +449,13 @@ class OpsPilotRuntimeAgent(BaseAgent):
             )
             return
 
-        _log_runtime_stage("accepted", run_id=decision.run_id, started_clock=started_clock)
+        _log_runtime_stage(
+            "accepted",
+            run_id=decision.run_id,
+            correlation_id=decision.correlation_id,
+            trace_id=decision.trace_id,
+            started_clock=started_clock,
+        )
         decision.started_clock = started_clock
         copy = RUNTIME_COPY[decision.output_language]
         progress = copy.progress.format(
@@ -420,7 +494,13 @@ class OpsPilotRuntimeAgent(BaseAgent):
                     }
                 )
             else:
-                _log_runtime_stage("timeout", run_id=decision.run_id, started_clock=started_clock)
+                _log_runtime_stage(
+                    "timeout",
+                    run_id=decision.run_id,
+                    correlation_id=decision.correlation_id,
+                    trace_id=decision.trace_id,
+                    started_clock=started_clock,
+                )
                 handler_task.cancel()
                 try:
                     await handler_task
@@ -454,10 +534,18 @@ class OpsPilotRuntimeAgent(BaseAgent):
             _log_runtime_stage(
                 "run_summary",
                 run_id=decision.run_id,
+                correlation_id=decision.correlation_id,
+                trace_id=decision.trace_id,
                 started_clock=started_clock,
                 summary=summary,
             )
-            _log_runtime_stage("cancelled", run_id=decision.run_id, started_clock=started_clock)
+            _log_runtime_stage(
+                "cancelled",
+                run_id=decision.run_id,
+                correlation_id=decision.correlation_id,
+                trace_id=decision.trace_id,
+                started_clock=started_clock,
+            )
             raise
         except GeneratorExit:
             if handler_task is not None:
@@ -474,10 +562,18 @@ class OpsPilotRuntimeAgent(BaseAgent):
             _log_runtime_stage(
                 "run_summary",
                 run_id=decision.run_id,
+                correlation_id=decision.correlation_id,
+                trace_id=decision.trace_id,
                 started_clock=started_clock,
                 summary=summary,
             )
-            _log_runtime_stage("cancelled", run_id=decision.run_id, started_clock=started_clock)
+            _log_runtime_stage(
+                "cancelled",
+                run_id=decision.run_id,
+                correlation_id=decision.correlation_id,
+                trace_id=decision.trace_id,
+                started_clock=started_clock,
+            )
             raise
         except Exception:
             summary = RuntimeRunSummary(
@@ -497,10 +593,18 @@ class OpsPilotRuntimeAgent(BaseAgent):
             _log_runtime_stage(
                 "run_summary",
                 run_id=decision.run_id,
+                correlation_id=decision.correlation_id,
+                trace_id=decision.trace_id,
                 started_clock=started_clock,
                 summary=result.summary,
             )
-        _log_runtime_stage("final_emitted", run_id=decision.run_id, started_clock=started_clock)
+        _log_runtime_stage(
+            "final_emitted",
+            run_id=decision.run_id,
+            correlation_id=decision.correlation_id,
+            trace_id=decision.trace_id,
+            started_clock=started_clock,
+        )
         yield _runtime_event(
             context,
             author=self.name,

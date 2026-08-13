@@ -21,12 +21,15 @@ flowchart LR
 
 The parser accepts `order-service`, `payment-service`, and `inventory-service`, plus Korean or
 English relative windows from 1 to 120 minutes. Omitted service scope means all three services;
-an omitted window means 30 minutes. Those assumptions are recorded in the report. Project IDs,
-resource names, URLs, metrics, and raw provider filters are always server-owned.
+an omitted window means 30 minutes. It extracts at most one incident ID, accepts only dev aliases,
+and rejects explicit prod/stage scope. Omitted scope assumptions are recorded in the report.
+Project IDs, resource names, URLs, metrics, and raw provider filters are always server-owned.
 
 Reports are immutable Firestore documents. A transaction assigns a monotonically increasing
 `report_version`; replay uses the persisted incident scope and compare deterministically reports
-changes between two versions. Cloud Task redelivery is deduplicated by investigation ID.
+changes between two versions. Runtime creates one run/correlation/trace identity, the API and task
+worker reuse it, and the run ID deterministically maps to one investigation. Cloud Task redelivery
+is deduplicated by investigation ID.
 
 The fixture graph and its two-model evaluation remain an offline quality surface. They do not
 provide a production fallback for the Runtime.
@@ -51,6 +54,7 @@ etag/revision/image digest, and final traffic verification.
 
 Untrusted questions, alerts, logs, and documents pass through validation, catalog allowlists,
 redaction, and size/time/cost limits. Runtime has API invoke permission only; operational reads and
-Firestore writes belong to the API identity. Alert payloads and user identities are not stored.
-Runtime logs contain an anonymous run ID, stage, elapsed time, and outcome, never the question,
-user/session identity, cloud project, exception payload, or evidence body.
+Firestore writes belong to the API identity. Alert payloads and raw user/session identities are
+not stored. Source-domain hashes link actor, session, query, run, and trace audit without acting as
+authorization. Runtime and tool logs contain only fixed structured fields, never the question,
+raw identity, cloud project, URL, token, exception payload, log content, or evidence body.

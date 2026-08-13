@@ -45,6 +45,35 @@ async def test_FR_007_SCN_001_builds_grounded_top_hypothesis() -> None:
 
 
 @pytest.mark.asyncio
+async def test_SCN_001_adds_safe_alternative_and_classified_grounded_actions() -> None:
+    report = await run_fixture_investigation("SCN-001")
+    assert [item.hypothesis_id for item in report.hypotheses] == ["H-01", "H-02"]
+    assert report.hypotheses[0].evidence_support_score == 100
+    assert report.hypotheses[1].evidence_support_score == 0
+    assert report.hypotheses[1].status.value == "INSUFFICIENT_EVIDENCE"
+    assert report.hypotheses[1].missing_evidence
+    assert report.hypotheses[1].next_checks
+
+    assert [item.category for item in report.recommended_actions] == [
+        "CONTAINMENT",
+        "MITIGATION",
+        "ROOT_FIX",
+    ]
+    evidence_ids = {item.evidence_id for item in report.evidence}
+    assert all(item.requires_approval for item in report.recommended_actions)
+    assert all(
+        item.supporting_evidence_ids and set(item.supporting_evidence_ids) <= evidence_ids
+        for item in report.recommended_actions
+    )
+    markdown = render_markdown(report)
+    assert report.hypotheses[1].missing_evidence[0] in markdown
+    assert report.hypotheses[1].next_checks[0] in markdown
+    assert "### Immediate containment" in markdown
+    assert "### Bounded mitigation" in markdown
+    assert "### Root fix or prevention" in markdown
+
+
+@pytest.mark.asyncio
 async def test_NFR_005_monitoring_failure_returns_partial_report() -> None:
     report = await run_fixture_investigation("SCN-001", fail_sources=frozenset({SourceType.METRIC}))
     assert report.status == ReportStatus.IDENTIFIED
