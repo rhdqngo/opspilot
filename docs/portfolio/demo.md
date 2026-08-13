@@ -21,8 +21,8 @@ written to `.tmp/portfolio-demo/summary.json`.
 
 ## Recording sequence
 
-1. **00:00-00:25 — Boundary:** show the README hero and explain synthetic data, read-only evidence,
-   and the absence of an execution route.
+1. **00:00-00:25 — Boundary:** show the README hero and explain synthetic data, the read-only
+   investigation identity, and the isolated approval-gated rollback.
 2. **00:25-00:50 — Healthy workload:** run the bounded ten-order smoke and show aggregate success.
 3. **00:50-01:25 — Incident:** run SCN-001 and show its fixed 5 baseline / 10 incident / 5 recovery
    phases and automatic return to baseline.
@@ -31,10 +31,10 @@ written to `.tmp/portfolio-demo/summary.json`.
 5. **02:00-02:40 — Investigation:** run the core agent report and point to evidence IDs, data gaps,
    deterministic support score, and approval-required recommendations.
 6. **02:40-03:30 — Quality:** run `portfolio-v1`, show 40 case results and release-gate metrics.
-7. **03:30-04:10 — Enterprise:** use previously approved Preview evidence to explain the fixed live
-   `payment-service`/30-minute surface and hybrid zero/one-model behavior; do not redeploy.
-8. **04:10-04:40 — Safety and cost:** show the trust-boundary diagram, scale-to-zero policy, budget,
-   and non-executing cleanup plan.
+7. **03:30-04:10 — Enterprise:** show the thin Runtime calling the persistent API for one of three
+   services, then show an immutable report, replay-created v2, and deterministic comparison.
+8. **04:10-04:40 — Safety and cost:** show the trust boundary, alert-without-remediation rule,
+   scale-to-zero policy, budget, and non-executing cleanup plan.
 
 ## Commands
 

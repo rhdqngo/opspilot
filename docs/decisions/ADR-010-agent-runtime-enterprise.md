@@ -1,6 +1,6 @@
 # ADR-010: Minimal managed Runtime and Enterprise connection
 
-Status: implemented
+Status: superseded by ADR-011
 
 ## Decision
 

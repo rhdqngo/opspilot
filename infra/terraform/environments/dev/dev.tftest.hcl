@@ -580,9 +580,75 @@ run "m8_remediation_default_off_and_apply_ready_contract" {
 
   assert {
     condition = (
-      google_project_iam_member.remediation_executor_cloud_run[0].condition[0].expression == "resource.name == 'projects/example-project/locations/asia-northeast3/services/opspilot-dev-payment'" &&
+      google_cloud_run_v2_service_iam_member.remediation_executor_payment[0].name == "opspilot-dev-payment" &&
+      toset(google_project_iam_custom_role.remediation_executor_image_reader[0].permissions) == toset(["artifactregistry.repositories.downloadArtifacts"]) &&
+      google_service_account_iam_member.remediation_executor_acts_as_payment[0].role == "roles/iam.serviceAccountUser" &&
       !contains(google_project_iam_custom_role.remediation_control[0].permissions, "run.services.update")
     )
     error_message = "Traffic update permission must be conditioned on the exact payment service only."
+  }
+}
+
+run "persistent_investigation_boundary_contract" {
+  command = plan
+
+  variables {
+    project_id                       = "example-project"
+    billing_account_id               = "000000-000000-000000"
+    budget_notification_email        = "operator@example.invalid"
+    deploy_demo                      = true
+    enable_scenarios                 = true
+    deploy_knowledge                 = true
+    enable_live_evidence             = true
+    investigator_operator_email      = "operator@example.invalid"
+    deploy_agent_runtime             = true
+    agent_runtime_source_archive     = "H4sIAAAAAAAA/wMAAAAAAAAAAAA="
+    agent_runtime_source_sha256      = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    demo_image_uri                   = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    enable_persistent_investigations = true
+    investigation_image_uri          = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-investigation@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+
+  assert {
+    condition = (
+      length(google_cloud_run_v2_service.investigation_api) == 1 &&
+      length(google_cloud_tasks_queue.investigations) == 1 &&
+      length(google_pubsub_topic.monitoring_incidents) == 1 &&
+      length(google_pubsub_subscription.monitoring_incidents) == 1 &&
+      length(google_firestore_database.remediation) == 1
+    )
+    error_message = "Persistent investigations require one API/worker, one queue, and the protected Firestore database."
+  }
+
+  assert {
+    condition = (
+      length(google_project_iam_member.investigator_reader) == 0 &&
+      length(google_project_iam_member.investigation_api_reader) == 1 &&
+      google_cloud_run_v2_service_iam_member.runtime_invokes_investigation_api[0].role == "roles/run.invoker" &&
+      google_cloud_run_v2_service_iam_member.tasks_invoke_investigation_api[0].role == "roles/run.invoker" &&
+      google_cloud_run_v2_service_iam_member.alerts_invoke_investigation_api[0].role == "roles/run.invoker" &&
+      google_service_account_iam_member.investigation_api_acts_as_tasks[0].role == "roles/iam.serviceAccountUser"
+    )
+    error_message = "Runtime must lose direct evidence access and retain only API invocation; tasks use a separate identity."
+  }
+
+  assert {
+    condition = toset(google_project_iam_custom_role.investigation_store[0].permissions) == toset([
+      "cloudtasks.tasks.create",
+      "datastore.databases.get",
+      "datastore.entities.create",
+      "datastore.entities.get",
+      "datastore.entities.list",
+      "datastore.entities.update",
+    ])
+    error_message = "The investigation API store role must remain write-bounded and exclude delete permissions."
+  }
+
+  assert {
+    condition = (
+      length(google_cloud_run_v2_service.investigation_api[0].custom_audiences) == 1 &&
+      contains(google_cloud_run_v2_service.investigation_api[0].custom_audiences, "opspilot-investigation-api")
+    )
+    error_message = "The investigation API must use a fixed audience; the resource precondition enforces its immutable image digest."
   }
 }

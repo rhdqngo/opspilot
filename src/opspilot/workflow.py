@@ -22,13 +22,6 @@ from opspilot.evidence import (
 from opspilot.fixtures import load_scenario_fixture
 from opspilot.scoring import calculate_evidence_support_score, status_for_score
 
-COLLECTOR_SOURCES = (
-    SourceType.LOG,
-    SourceType.METRIC,
-    SourceType.CHANGE,
-    SourceType.KNOWLEDGE,
-)
-
 
 async def run_fixture_investigation(
     scenario_id: str,

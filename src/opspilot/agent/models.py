@@ -21,13 +21,11 @@ from opspilot.agent.contracts import (
 from opspilot.domain import EvidenceDirection
 
 DEFAULT_MODEL_ID = "gemini-3.5-flash"
-MODEL_LOCATION = "global"
 MAX_MODEL_INPUT_BYTES = 64 * 1024
 MAX_MODEL_OUTPUT_TOKENS = 2_048
 MODEL_CALL_LIMIT = 2
 MODEL_NODE_TIMEOUT_SECONDS = 30.0
 MODEL_DEADLINE_SECONDS = 75
-M6_ACCEPTANCE_DEADLINE_SECONDS = 200
 
 
 class FakeOpsPilotLlm(BaseLlm):

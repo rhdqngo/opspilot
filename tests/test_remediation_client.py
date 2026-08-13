@@ -7,7 +7,11 @@ from urllib.request import Request
 
 import pytest
 
-from opspilot.remediation.client import RemediationApiClient, render_remediation
+from opspilot.remediation.client import (
+    RemediationApiClient,
+    gcloud_identity_token,
+    render_remediation,
+)
 from opspilot.remediation.contracts import (
     Principal,
     RemediationPlan,
@@ -65,6 +69,39 @@ class FakeResponse:
 
     def read(self) -> bytes:
         return self.payload
+
+
+def test_M8_identity_token_can_use_an_explicit_impersonation_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[list[str]] = []
+
+    class Completed:
+        returncode = 0
+        stdout = "identity-token\n"
+
+    def run(command: list[str], **_: object) -> Completed:
+        commands.append(command)
+        return Completed()
+
+    monkeypatch.setenv(
+        "OPSPILOT_REMEDIATION_IMPERSONATE_SERVICE_ACCOUNT",
+        "workflow@example.iam.gserviceaccount.com",
+    )
+    monkeypatch.setattr("opspilot.remediation.client.shutil.which", lambda _: "gcloud")
+    monkeypatch.setattr("opspilot.remediation.client.subprocess.run", run)
+
+    assert gcloud_identity_token("https://control.example.invalid") == "identity-token"
+    assert commands == [
+        [
+            "gcloud",
+            "auth",
+            "print-identity-token",
+            "--audiences=https://control.example.invalid",
+            "--impersonate-service-account=workflow@example.iam.gserviceaccount.com",
+            "--include-email",
+        ]
+    ]
 
 
 def test_M8_client_retries_with_the_same_idempotency_key(

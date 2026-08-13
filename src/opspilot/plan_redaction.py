@@ -14,6 +14,9 @@ REDACTION_ENV = {
     "OPSPILOT_REDACT_STATE_BUCKET": "<state-bucket>",
     "OPSPILOT_REDACT_BUDGET_EMAIL": "<budget-email>",
     "OPSPILOT_REDACT_DEMO_IMAGE_URI": "<demo-image-uri>",
+    "OPSPILOT_REDACT_INVESTIGATION_IMAGE_URI": "<investigation-image-uri>",
+    "OPSPILOT_REDACT_REMEDIATION_IMAGE_URI": "<remediation-image-uri>",
+    "OPSPILOT_REDACT_REMEDIATION_APPROVER_GROUP": "<remediation-approver-group>",
 }
 
 

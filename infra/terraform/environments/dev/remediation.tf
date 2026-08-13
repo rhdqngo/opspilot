@@ -6,7 +6,7 @@ locals {
 }
 
 resource "google_firestore_database" "remediation" {
-  count = var.enable_remediation ? 1 : 0
+  count = var.enable_remediation || var.enable_persistent_investigations ? 1 : 0
 
   project                           = var.project_id
   name                              = "opspilot-dev"
@@ -108,18 +108,40 @@ resource "google_project_iam_custom_role" "remediation_executor_cloud_run" {
   ]
 }
 
-resource "google_project_iam_member" "remediation_executor_cloud_run" {
+resource "google_cloud_run_v2_service_iam_member" "remediation_executor_payment" {
+  count = var.enable_remediation ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.demo_payment[0].name
+  role     = google_project_iam_custom_role.remediation_executor_cloud_run[0].name
+  member   = "serviceAccount:${google_service_account.remediation_executor[0].email}"
+}
+
+resource "google_project_iam_custom_role" "remediation_executor_image_reader" {
+  count = var.enable_remediation ? 1 : 0
+
+  project     = var.project_id
+  role_id     = "opspilot_${replace(var.environment, "-", "_")}_image_reader"
+  title       = "OpsPilot ${var.environment} remediation image reader"
+  description = "Read immutable image artifacts while replacing payment traffic only."
+  permissions = ["artifactregistry.repositories.downloadArtifacts"]
+}
+
+resource "google_project_iam_member" "remediation_executor_image_reader" {
   count = var.enable_remediation ? 1 : 0
 
   project = var.project_id
-  role    = google_project_iam_custom_role.remediation_executor_cloud_run[0].name
+  role    = google_project_iam_custom_role.remediation_executor_image_reader[0].name
   member  = "serviceAccount:${google_service_account.remediation_executor[0].email}"
+}
 
-  condition {
-    title       = "payment-service-only"
-    description = "The executor may mutate traffic only on the exact dev payment service."
-    expression  = "resource.name == 'projects/${var.project_id}/locations/${var.region}/services/opspilot-dev-payment'"
-  }
+resource "google_service_account_iam_member" "remediation_executor_acts_as_payment" {
+  count = var.enable_remediation ? 1 : 0
+
+  service_account_id = google_service_account.demo["payment"].name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.remediation_executor[0].email}"
 }
 
 resource "google_project_iam_member" "remediation_executor_firestore_reader" {

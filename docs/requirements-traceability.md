@@ -1,9 +1,9 @@
 # Lean MVP v1 Requirements Traceability
 
-Status: implemented baseline verified locally
+Status: MVP complete / M9 ready
 
-This matrix compares the M0-M10 North Star specification with the deployed read-only Lean MVP v1
-and the locally implemented, not-yet-deployed M8 control plane.
+This matrix compares the M0-M10 North Star specification with the deployed MVP investigation and
+approval-gated M8 control planes.
 `Implemented` means a current test or operator record covers the requirement. `Partial` means the
 MVP implements only a bounded subset. `Deferred` is an intentional product boundary, not an
 accidental omission.
@@ -12,8 +12,8 @@ accidental omission.
 
 | ID | Status | Lean MVP evidence or boundary |
 | --- | --- | --- |
-| FR-001 | Partial | Parser recognizes allowlisted service names and basic symptoms; environment and explicit time parsing remain fixed. |
-| FR-002 | Implemented | Parser and Runtime apply and record the recent 30-minute assumption. |
+| FR-001 | Implemented | Parser recognizes three catalog services, symptoms, and Korean/English relative windows from 1 to 120 minutes. |
+| FR-002 | Implemented | Missing service defaults to all three and missing time to 30 minutes; both assumptions are recorded. |
 | FR-003 | Implemented | Bounded Logging filter/client and live evidence tests. |
 | FR-004 | Implemented | Bounded error-ratio and latency Monitoring queries, including zero-point gaps. |
 | FR-005 | Partial | Cloud Run revisions are collected; Cloud Deploy rollouts are not. |
@@ -22,28 +22,28 @@ accidental omission.
 | FR-008 | Implemented | Operational evidence is time-sorted; knowledge is excluded from incident Timeline. |
 | FR-009 | Implemented | ADK contracts permit three hypotheses and deterministic verification/ranking. |
 | FR-010 | Implemented | Forged, missing, duplicate, and direction-mismatched evidence references are rejected. |
-| FR-011 | Partial | Fixture reports classify advisory actions; live Runtime deliberately emits no actions. |
+| FR-011 | Partial | Reports contain bounded advisory recommendations; generalized write actions remain deferred. |
 | FR-012 | Implemented | Investigator identity and public surfaces are read-only. |
-| FR-013 | Partial | The default-off M8 control API supports only canonical `ROLLBACK_CLOUD_RUN` plans for SCN-008 `opspilot-dev-payment`; cloud execution is not yet authorized or verified. |
-| FR-014 | Partial | Firestore transactions, a 15-minute Workflow callback, hash-bound approval, TTL cleanup, and audit events are implemented locally; deployed IAM/E2E evidence is pending. |
-| FR-015 | Partial | The executor requires exact traffic state and 10/10 bounded order recovery; deployed metric-window and traffic verification evidence is pending. |
-| FR-016 | Partial | API correlation IDs, demo traces, and anonymous Runtime/agent run IDs exist; no persisted cross-system trace index exists. |
+| FR-013 | Implemented | The isolated M8 API supports only the canonical SCN-008 payment rollback and was verified in dev. |
+| FR-014 | Implemented | Firestore transaction, 15-minute Workflow callback, hash-bound approval, TTL cleanup, and actor audit were verified end to end. |
+| FR-015 | Implemented | Exact target traffic, revision/digest binding, metric windows, and 10/10 recovery were verified in dev. |
+| FR-016 | Implemented | API correlation, task/investigation IDs, demo traces, and anonymous Runtime run IDs link the bounded production flow. |
 | FR-017 | Partial | Evidence metadata and privacy-safe Runtime run summaries are structured; raw inputs and identities are intentionally excluded. |
 | FR-018 | Implemented | Versioned 7-case core and 40-case portfolio evaluation suites enforce deterministic gates. |
 | FR-019 | Deferred | User feedback persistence is post-MVP. |
-| FR-020 | Partial | Seven offline scenarios replay, SCN-001 executes against the local workload, and SCN-008 has plan/execute/reset plus trusted-target abort operators whose cloud execute path remains approval-gated. |
+| FR-020 | Implemented | Seven fixture scenarios, SCN-001 workload execution, and SCN-008 prepare/approve/execute/reset/abort are covered. |
 | FR-021 | Deferred | Public backend switching was removed; each surface has a fixed documented execution mode. |
 | FR-022 | Implemented | Agent Runtime and Gemini Enterprise Preview acceptance are recorded. |
-| FR-023 | Partial | JSON and Markdown are produced; API storage is process-local rather than durable. |
-| FR-024 | Deferred | Report-version comparison requires persistent storage. |
-| FR-025 | Partial | CLI fixture replay exists; no replay API is exposed. |
+| FR-023 | Implemented | Incidents, investigations, and immutable JSON/Markdown reports are persisted in Firestore. |
+| FR-024 | Implemented | Transactional report versions and deterministic version comparison are exposed by API. |
+| FR-025 | Implemented | Persisted incident replay creates a new investigation and report version; fixture CLI replay remains available. |
 
 ## Non-functional requirements
 
 | ID | Status | Lean MVP evidence or boundary |
 | --- | --- | --- |
-| NFR-001 | Implemented | Custom IAM role and Runtime package contain read-only evidence operations. |
-| NFR-002 | Partial | M8 defines isolated control, Workflow, and payment-only executor identities without changing Runtime IAM; cloud IAM negative smoke is pending. |
+| NFR-001 | Implemented | Runtime can only invoke the API; API-owned identities hold bounded read and persistence permissions. |
+| NFR-002 | Implemented | Isolated M8 control, Workflow, and payment-only executor identities passed cloud IAM negative checks. |
 | NFR-003 | Implemented | Project, resource, filter, metric, and URL inputs are server-built from allowlists. |
 | NFR-004 | Implemented | Malicious knowledge content stays evidence and has no tool authority. |
 | NFR-005 | Implemented | Source failures and zero-point metrics produce partial/inconclusive reports. |
@@ -52,13 +52,13 @@ accidental omission.
 | NFR-008 | Implemented | Log, metric, revision, knowledge, model-input, and output sizes are bounded. |
 | NFR-009 | Implemented | Demo services and Runtime use scale-to-zero boundaries. |
 | NFR-010 | Deferred | BigQuery is not part of Lean MVP v1. |
-| NFR-011 | Partial | Anonymous run IDs correlate stages without retaining question, user, or session identity. |
+| NFR-011 | Implemented | Anonymous run, incident, and investigation IDs correlate stages without retaining user/session identity. |
 | NFR-012 | Implemented | No user identity is persisted; sensitive synthetic content is redacted. |
 | NFR-013 | Implemented | Provider transport/client adapters are separated from domain normalization. |
 | NFR-014 | Implemented | HTTP normalization, auth/error mapping, mock, fixture, and Terraform contracts are tested. |
 | NFR-015 | Implemented | Terraform, deterministic packages, knowledge sync, and documented commands rebuild the environment. |
 | NFR-016 | Deferred | Lean MVP has no owned HTML report or approval UI. |
-| NFR-017 | Partial | Model/project/data-store settings are injected; fixed Runtime region and product scope remain policy constants. |
+| NFR-017 | Implemented | Model/project/store settings are injected while region, catalog, provider filters, and resource scope remain server policy. |
 | NFR-018 | Implemented | Hypotheses distinguish supporting and contradicting evidence. |
 | NFR-019 | Implemented | Support scores and product taxonomy are computed from verified evidence in code. |
 | NFR-020 | Implemented | Pydantic validation and fixed safe failure protect structured outputs. |

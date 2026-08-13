@@ -1,0 +1,51 @@
+{
+  "schema_version": "mvp-cloud-release-v1",
+  "verified_on": "2026-08-13",
+  "status": "passed",
+  "sanitized": true,
+  "scope": "dev remediation and persistent investigations",
+  "remediation": {
+    "baseline_orders": "10/10",
+    "fault_orders": "0/10",
+    "approval_gated_rollback": "SUCCEEDED",
+    "target_traffic_percent": 100,
+    "recovery_orders": "10/10",
+    "reset_orders": "10/10",
+    "public_invoker": false
+  },
+  "persistent_investigations": {
+    "runtime_events": 2,
+    "runtime_progress": true,
+    "runtime_final_markdown": true,
+    "services": 3,
+    "window_minutes": 15,
+    "report_version": 1,
+    "evidence_items": 41,
+    "replay_report_version": 2,
+    "deterministic_compare": true,
+    "duplicate_task_added_report": false,
+    "alert_states": ["OPEN", "CLOSED"],
+    "duplicate_alert_changed_state": false,
+    "alert_started_investigations": 0,
+    "raw_or_user_alert_fields_stored": false,
+    "private_invoker_count": 3,
+    "runtime_direct_reader": false,
+    "api_reader": true,
+    "approved_digest_bound": true
+  },
+  "validation": {
+    "pytest": "193/193",
+    "ruff_format": "passed",
+    "ruff_check": "passed",
+    "strict_mypy_source_files": 81,
+    "build": "passed",
+    "core_evaluation": "7/7",
+    "portfolio_evaluation": "40/40",
+    "remediation_evaluation": "12/12",
+    "runtime_package_files": 9,
+    "runtime_package_deterministic": true,
+    "terraform_bootstrap_tests": "1/1",
+    "terraform_dev_tests": "8/8",
+    "terraform_drift": "No changes"
+  }
+}

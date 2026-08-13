@@ -8,6 +8,43 @@ from opspilot.cli import build_parser, main
 from opspilot.demo.models import LoadSummary, ScenarioPhaseSummary, ScenarioRunSummary
 
 
+def test_serve_uses_cloud_run_port_and_public_bind_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_run(app: str, **kwargs: object) -> None:
+        observed["app"] = app
+        observed.update(kwargs)
+
+    monkeypatch.setenv("PORT", "8080")
+    monkeypatch.setattr("opspilot.cli.uvicorn.run", fake_run)
+
+    assert main(["serve"]) == 0
+    assert observed == {
+        "app": "opspilot.api:create_app",
+        "factory": True,
+        "host": "0.0.0.0",
+        "port": 8080,
+    }
+
+
+def test_serve_keeps_local_defaults_and_explicit_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, int]] = []
+
+    def fake_run(_app: str, **kwargs: object) -> None:
+        observed.append((str(kwargs["host"]), int(str(kwargs["port"]))))
+
+    monkeypatch.delenv("PORT", raising=False)
+    monkeypatch.setattr("opspilot.cli.uvicorn.run", fake_run)
+
+    assert main(["serve"]) == 0
+    assert main(["serve", "--host", "0.0.0.0", "--port", "9000"]) == 0
+    assert observed == [("127.0.0.1", 8000), ("0.0.0.0", 9000)]
+
+
 def test_cli_replays_scn_001_as_markdown(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["replay", "--scenario", "SCN-001", "--format", "markdown"]) == 0
     assert "EV-LOG-0001" in capsys.readouterr().out

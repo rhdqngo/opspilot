@@ -104,6 +104,37 @@ variable "deploy_agent_runtime" {
   default     = false
 }
 
+variable "enable_persistent_investigations" {
+  description = "Approval gate for the persistent investigation API, Firestore store, and Cloud Tasks queue."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_persistent_investigations || (var.deploy_agent_runtime && var.enable_live_evidence)
+    error_message = "Persistent investigations require the deployed Agent Runtime and live evidence configuration."
+  }
+}
+
+variable "investigation_image_uri" {
+  description = "Immutable image for the persistent investigation API and Cloud Tasks worker."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      var.investigation_image_uri == "" ||
+      can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/[^/]+/[^/]+/[^@]+@sha256:[0-9a-f]{64}$", var.investigation_image_uri))
+    )
+    error_message = "investigation_image_uri must be empty or an immutable Artifact Registry digest URI."
+  }
+
+  validation {
+    condition     = !var.enable_persistent_investigations || can(regex("@sha256:[0-9a-f]{64}$", var.investigation_image_uri))
+    error_message = "investigation_image_uri is required when persistent investigations are enabled."
+  }
+}
+
 variable "agent_runtime_source_archive" {
   description = "Sensitive deterministic tar.gz source archive encoded as base64 at runtime."
   type        = string
@@ -122,8 +153,24 @@ variable "agent_runtime_source_archive" {
   }
 
   validation {
-    condition     = !var.deploy_agent_runtime || length(var.agent_runtime_source_archive) > 0
-    error_message = "agent_runtime_source_archive is required when Agent Runtime is enabled."
+    condition = (
+      !var.deploy_agent_runtime ||
+      length(var.agent_runtime_source_archive) > 0 ||
+      length(var.agent_runtime_source_archive_path) > 0
+    )
+    error_message = "agent_runtime_source_archive or its local package path is required when Agent Runtime is enabled."
+  }
+}
+
+variable "agent_runtime_source_archive_path" {
+  description = "Optional local deterministic Runtime archive path for operator Terraform runs."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = var.agent_runtime_source_archive_path == "" || fileexists(var.agent_runtime_source_archive_path)
+    error_message = "agent_runtime_source_archive_path must point to an existing local package."
   }
 }
 

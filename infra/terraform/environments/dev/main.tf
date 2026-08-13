@@ -38,11 +38,18 @@ locals {
     "workflows.googleapis.com",
   ]) : toset([])
 
+  investigation_project_services = var.enable_persistent_investigations ? toset([
+    "cloudtasks.googleapis.com",
+    "firestore.googleapis.com",
+    "pubsub.googleapis.com",
+  ]) : toset([])
+
   project_services = setunion(
     local.m1_project_services,
     local.m2_project_services,
     local.m7_project_services,
     local.m8_project_services,
+    local.investigation_project_services,
   )
 
   demo_service_names = var.deploy_demo ? toset([
@@ -287,7 +294,7 @@ resource "google_project_iam_custom_role" "investigator_reader" {
 }
 
 resource "google_project_iam_member" "investigator_reader" {
-  count = var.enable_live_evidence || var.deploy_agent_runtime ? 1 : 0
+  count = (var.enable_live_evidence || var.deploy_agent_runtime) && !var.enable_persistent_investigations ? 1 : 0
 
   project = var.project_id
   role    = google_project_iam_custom_role.investigator_reader[0].name
@@ -348,11 +355,31 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
         name  = "OPSPILOT_LIVE_MODEL_ENABLED"
         value = "true"
       }
+
+      dynamic "env" {
+        for_each = var.enable_persistent_investigations ? [1] : []
+        content {
+          name  = "OPSPILOT_INVESTIGATION_API_URL"
+          value = google_cloud_run_v2_service.investigation_api[0].uri
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.enable_persistent_investigations ? [1] : []
+        content {
+          name  = "OPSPILOT_INVESTIGATION_API_AUDIENCE"
+          value = local.investigation_api_audience
+        }
+      }
     }
 
     source_code_spec {
       inline_source {
-        source_archive = var.agent_runtime_source_archive
+        source_archive = (
+          length(var.agent_runtime_source_archive_path) > 0
+          ? filebase64(var.agent_runtime_source_archive_path)
+          : var.agent_runtime_source_archive
+        )
       }
 
       python_spec {
@@ -379,6 +406,7 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
   depends_on = [
     google_project_service.m1,
     google_project_iam_member.investigator_reader,
+    google_cloud_run_v2_service_iam_member.runtime_invokes_investigation_api,
     google_service_account_iam_member.runtime_service_agent_token_creator,
   ]
 }

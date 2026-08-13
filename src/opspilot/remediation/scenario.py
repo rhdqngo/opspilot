@@ -6,6 +6,8 @@ import asyncio
 import json
 import os
 import secrets
+import shutil
+import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, Protocol, cast
@@ -20,7 +22,14 @@ from opspilot.agent.contracts import AgentEvidenceContext, ModelBackend
 from opspilot.agent.runner import run_agent_context
 from opspilot.catalog import load_service_catalog
 from opspilot.demo.load import _gcloud_identity_token
-from opspilot.domain import IncidentReport, RecommendedAction, ReportStatus, SourceType
+from opspilot.domain import (
+    EvidenceDirection,
+    EvidenceItem,
+    IncidentReport,
+    RecommendedAction,
+    ReportStatus,
+    SourceType,
+)
 from opspilot.evidence import (
     EvidenceCollectionRequest,
     LiveEvidenceClient,
@@ -226,6 +235,7 @@ async def run_scn008_command(
     prepared_at = datetime.now(UTC)
     incident_id = f"INC-{prepared_at.year:04d}-0008"
     token = await asyncio.to_thread(_gcloud_identity_token)
+    await _wait_for_healthy_baseline(os.environ["OPSPILOT_ORDER_URL"], token)
     baseline_successes = await _run_ten_orders(os.environ["OPSPILOT_ORDER_URL"], token)
     if baseline_successes != 10:
         raise RuntimeError("SCN-008 baseline must succeed before fault activation")
@@ -246,7 +256,10 @@ async def run_scn008_command(
         updated_at=prepared_at,
     )
     try:
+        await _wait_for_fault_activation(os.environ["OPSPILOT_ORDER_URL"], token)
         successes = await _run_ten_orders(os.environ["OPSPILOT_ORDER_URL"], token)
+        if successes != 0:
+            raise RuntimeError("SCN-008 fault verification must fail all ten orders")
         end_time = datetime.now(UTC)
         collection = await collect_evidence(
             LiveEvidenceClient(
@@ -264,13 +277,55 @@ async def run_scn008_command(
                 services=["payment-service"],
             ),
         )
+        # The fault activation is a controlled write.  Bind the one payment
+        # change observed after preparation as supporting evidence instead of
+        # asking the model to infer direction from neutral Cloud audit data.
+        evidence = []
+        for item in collection.evidence:
+            if (
+                item.source_type in {SourceType.CHANGE, SourceType.LOG}
+                and item.service == "payment-service"
+                and item.observed_at is not None
+                and item.observed_at >= prepared_at
+            ):
+                quality_flag = (
+                    "config_or_digest_change_match"
+                    if item.source_type is SourceType.CHANGE
+                    else "direct_error_signature_match"
+                )
+                item = item.model_copy(
+                    update={
+                        "direction": EvidenceDirection.SUPPORTS,
+                        "quality_flags": sorted({*item.quality_flags, quality_flag}),
+                    }
+                )
+            evidence.append(item)
+        evidence.append(
+            EvidenceItem(
+                evidence_id="EV-INC-0001",
+                source_type=SourceType.INCIDENT,
+                title="SCN-008 bounded synthetic order outcome",
+                service="payment-service",
+                environment="dev",
+                observed_at=end_time,
+                summary=(
+                    f"The controlled fault window completed with {successes} successful "
+                    "orders out of 10 bounded attempts."
+                ),
+                value=successes,
+                unit="successful_orders_of_10",
+                direction=EvidenceDirection.SUPPORTS,
+                source_uri="opspilot://scenario/SCN-008/orders",
+                quality_flags=["direct_error_signature_match", "bounded_synthetic_probe"],
+            )
+        )
         result = await run_agent_context(
             AgentEvidenceContext(
                 scenario_id="SCN-008",
                 incident_id=incident_id,
                 generated_at=end_time,
                 correlation_id=f"COR-{secrets.token_hex(8).upper()}",
-                evidence=collection.evidence,
+                evidence=evidence,
                 tool_errors=collection.tool_errors,
                 data_gaps=collection.data_gaps,
             ),
@@ -279,7 +334,9 @@ async def run_scn008_command(
         )
         if not result.succeeded or result.report is None:
             raise RuntimeError("SCN-008 investigation report could not be generated")
-        report = _bind_scn008_rollback_action(result.report)
+        report = _bind_scn008_rollback_action(result.report).model_copy(
+            update={"report_id": f"RPT-SCN-008-{secrets.token_hex(8).upper()}"}
+        )
         await recovery_store.save_incident(report=report, target=target)
         _write_recovery_record(
             recovery_path,
@@ -353,6 +410,28 @@ async def _run_ten_orders(order_url: str, token: str) -> int:
     return sum(results)
 
 
+async def _wait_for_healthy_baseline(order_url: str, token: str) -> None:
+    """Warm the scale-to-zero path before enforcing the ten-order baseline."""
+
+    for attempt in range(15):
+        succeeded = await asyncio.to_thread(_send_order, order_url, 50 + attempt, token)
+        if succeeded:
+            return
+        await asyncio.sleep(2)
+    raise RuntimeError("SCN-008 healthy baseline did not become observable")
+
+
+async def _wait_for_fault_activation(order_url: str, token: str) -> None:
+    """Wait for Cloud Run traffic propagation before recording the faulty window."""
+
+    for attempt in range(30):
+        succeeded = await asyncio.to_thread(_send_order, order_url, 100 + attempt, token)
+        if not succeeded:
+            return
+        await asyncio.sleep(2)
+    raise RuntimeError("SCN-008 fault revision did not become observable")
+
+
 def _send_order(order_url: str, index: int, token: str) -> bool:
     request_id = f"req_scn008_{secrets.token_hex(6)}_{index:02d}"
     request = UrlRequest(
@@ -409,7 +488,8 @@ class GoogleScenarioCloudAdmin:
         target_digest = await self._revision_digest(source_revision)
         if not self.image_uri.endswith(f"@{target_digest}"):
             raise RuntimeError("SCN-008 image must match the known-good revision digest")
-        faulty_revision = f"payment-m8-{secrets.token_hex(4)}"
+        # Cloud Run revision names must begin with the owning service name.
+        faulty_revision = f"opspilot-dev-payment-m8-{secrets.token_hex(4)}"
         body: dict[str, Any] = {
             "name": self.service_name,
             "etag": before["etag"],
@@ -422,15 +502,11 @@ class GoogleScenarioCloudAdmin:
         env = cast(list[dict[str, str]], containers[0].setdefault("env", []))
         env[:] = [item for item in env if item.get("name") != "OPSPILOT_PAYMENT_FAILURE_PROFILE"]
         env.append({"name": "OPSPILOT_PAYMENT_FAILURE_PROFILE", "value": "payment-failure"})
-        body["traffic"] = [
-            {
-                "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION",
-                "revision": faulty_revision,
-                "percent": 100,
-            }
-        ]
-        await self._patch_service(body, update_mask="template,traffic")
-        after = await self._get_service()
+        await self._patch_service(body, update_mask="template")
+
+        # Route only after the named revision operation has completed.
+        await self._replace_traffic(faulty_revision)
+        after = await self._wait_for_serving_revision(faulty_revision)
         return RemediationTarget(
             project_id=self.project_id,
             region=self.region,
@@ -473,22 +549,11 @@ class GoogleScenarioCloudAdmin:
         if serving == target.source_revision:
             if str(before.get("etag", "")) != target.service_etag:
                 raise RuntimeError("SCN-008 recovery service etag is stale")
-            body = {
-                "name": self.service_name,
-                "etag": before["etag"],
-                "traffic": [
-                    {
-                        "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION",
-                        "revision": target.target_revision,
-                        "percent": 100,
-                    }
-                ],
-            }
-            await self._patch_service(body, update_mask="traffic")
+            await self._replace_traffic(target.target_revision)
         elif serving != target.target_revision:
             raise RuntimeError("SCN-008 recovery found an unexpected serving revision")
 
-        recovered = await self._get_service()
+        recovered = await self._wait_for_serving_revision(target.target_revision)
         if self._sole_traffic_revision(recovered) != target.target_revision:
             raise RuntimeError("SCN-008 recovery traffic was not confirmed")
         if self._template_has_failure_profile(recovered):
@@ -500,14 +565,27 @@ class GoogleScenarioCloudAdmin:
             raise RuntimeError("SCN-008 recovery template remains faulty")
 
     async def _get_service(self) -> dict[str, Any]:
-        response = await asyncio.to_thread(
-            self.session.get,
-            f"https://run.googleapis.com/v2/{self.service_name}",
-            timeout=10,
+        control_response, serving_response = await asyncio.gather(
+            asyncio.to_thread(
+                self.session.get,
+                f"https://run.googleapis.com/v2/{self.service_name}",
+                timeout=10,
+            ),
+            asyncio.to_thread(self.session.get, self._serving_url(), timeout=10),
         )
-        if response.status_code != 200:
+        if control_response.status_code != 200 or serving_response.status_code != 200:
             raise RuntimeError("payment service state could not be read")
-        return cast(dict[str, Any], response.json())
+        body = cast(dict[str, Any], control_response.json())
+        serving = cast(dict[str, Any], serving_response.json())
+        status = cast(dict[str, Any], serving.get("status", {}))
+        body["trafficStatuses"] = [
+            {
+                "revision": item.get("revisionName"),
+                "percent": item.get("percent", 0),
+            }
+            for item in cast(list[dict[str, Any]], status.get("traffic", []))
+        ]
+        return body
 
     async def _patch_service(self, body: dict[str, Any], *, update_mask: str) -> None:
         response = await asyncio.to_thread(
@@ -541,6 +619,58 @@ class GoogleScenarioCloudAdmin:
                 return
             await asyncio.sleep(1)
         raise RuntimeError("payment service operation timed out")
+
+    async def _wait_for_serving_revision(self, revision: str) -> dict[str, Any]:
+        deadline = asyncio.get_running_loop().time() + 180
+        while asyncio.get_running_loop().time() < deadline:
+            service = await self._get_service()
+            try:
+                if (
+                    not bool(service.get("reconciling", False))
+                    and self._sole_traffic_revision(service) == revision
+                ):
+                    return service
+            except RuntimeError:
+                pass
+            await asyncio.sleep(2)
+        raise RuntimeError("payment service traffic did not reach the target revision")
+
+    async def _replace_traffic(self, revision: str) -> None:
+        """Use the operator CLI's serving-plane traffic implementation."""
+
+        executable = shutil.which("gcloud.cmd") or shutil.which("gcloud") or "gcloud"
+        try:
+            completed = await asyncio.to_thread(
+                subprocess.run,
+                [
+                    executable,
+                    "run",
+                    "services",
+                    "update-traffic",
+                    "opspilot-dev-payment",
+                    "--project",
+                    self.project_id,
+                    "--region",
+                    self.region,
+                    "--to-revisions",
+                    f"{revision}=100",
+                    "--quiet",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise RuntimeError("payment service traffic update was unavailable") from error
+        if completed.returncode != 0:
+            raise RuntimeError("payment service traffic update was rejected")
+
+    def _serving_url(self) -> str:
+        return (
+            f"https://{self.region}-run.googleapis.com/apis/serving.knative.dev/v1/"
+            f"namespaces/{self.project_id}/services/opspilot-dev-payment"
+        )
 
     @staticmethod
     def _sole_traffic_revision(body: dict[str, Any]) -> str:

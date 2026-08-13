@@ -1,5 +1,4 @@
-from opspilot.portfolio.demo import main  # noqa: I001
-
+from opspilot.portfolio.demo import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

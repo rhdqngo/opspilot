@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -14,9 +15,14 @@ from opspilot.remediation.contracts import RemediationRecord
 
 def gcloud_identity_token(audience: str) -> str:
     executable = shutil.which("gcloud.cmd") or shutil.which("gcloud") or "gcloud"
+    command = [executable, "auth", "print-identity-token", f"--audiences={audience}"]
+    impersonated = os.environ.get("OPSPILOT_REMEDIATION_IMPERSONATE_SERVICE_ACCOUNT", "").strip()
+    if impersonated:
+        command.append(f"--impersonate-service-account={impersonated}")
+        command.append("--include-email")
     try:
         completed = subprocess.run(
-            [executable, "auth", "print-identity-token", f"--audiences={audience}"],
+            command,
             check=False,
             capture_output=True,
             text=True,

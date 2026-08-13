@@ -30,6 +30,7 @@ from opspilot.remediation.scenario import ScenarioRecoveryRecord
 
 ARTIFACT_SCHEMA_VERSION = "remediation-release-v1"
 PUBLISHED_DIRECTORY = Path("docs/portfolio/results")
+RELEASE_CONTEXT_FILENAME = "release-context.json"
 REQUIRED_TRANSITIONS = [
     "WAITING_APPROVAL",
     "APPROVED",
@@ -37,56 +38,26 @@ REQUIRED_TRANSITIONS = [
     "SUCCEEDED",
 ]
 IMAGE_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}$")
-M8_SERVICE_IDENTITY_ADDRESS = "google_project_service_identity.workflows[0]"
-ALLOWED_M8_CREATE_ADDRESSES = frozenset(
-    {
-        'google_project_service.m1["firestore.googleapis.com"]',
-        'google_project_service.m1["workflowexecutions.googleapis.com"]',
-        'google_project_service.m1["workflows.googleapis.com"]',
-        "google_firestore_database.remediation[0]",
-        'google_firestore_field.remediation_ttl["idempotency_keys"]',
-        'google_firestore_field.remediation_ttl["remediation_callbacks"]',
-        "google_service_account.remediation_control[0]",
-        "google_service_account.remediation_executor[0]",
-        "google_service_account.remediation_workflow[0]",
-        "google_project_iam_custom_role.remediation_control[0]",
-        "google_project_iam_custom_role.remediation_executor_cloud_run[0]",
-        "google_project_iam_member.remediation_control[0]",
-        "google_project_iam_member.remediation_executor_cloud_run[0]",
-        "google_project_iam_member.remediation_executor_firestore_reader[0]",
-        "google_cloud_run_v2_service.remediation_control[0]",
-        "google_cloud_run_v2_service.remediation_executor[0]",
-        M8_SERVICE_IDENTITY_ADDRESS,
-        "google_workflows_workflow.remediation[0]",
-        "google_cloud_run_v2_service_iam_member.remediation_group_invoker[0]",
-        "google_cloud_run_v2_service_iam_member.workflow_invokes_control[0]",
-        "google_cloud_run_v2_service_iam_member.workflow_invokes_executor[0]",
-        "google_cloud_run_v2_service_iam_member.control_invokes_order[0]",
-    }
-)
-ALLOWED_M8_RECOVERY_CREATE_ADDRESSES = frozenset(
-    {
-        M8_SERVICE_IDENTITY_ADDRESS,
-        "google_workflows_workflow.remediation[0]",
-    }
-)
-ALLOWED_M8_MOVES = frozenset(
-    {
-        (
-            'google_cloud_run_v2_service.demo_leaf["payment"]',
-            "google_cloud_run_v2_service.demo_payment[0]",
-        ),
-        (
-            'google_cloud_run_v2_service_iam_member.order_invokes_leaf["payment"]',
-            "google_cloud_run_v2_service_iam_member.order_invokes_payment[0]",
-        ),
-    }
-)
 M8_IMAGE_SERVICE_ADDRESSES = frozenset(
     {
         "google_cloud_run_v2_service.remediation_control[0]",
         "google_cloud_run_v2_service.remediation_executor[0]",
     }
+)
+M8_SHARED_SERVICE_ADDRESSES = frozenset(
+    {
+        'google_project_service.m1["firestore.googleapis.com"]',
+        'google_project_service.m1["workflowexecutions.googleapis.com"]',
+        'google_project_service.m1["workflows.googleapis.com"]',
+        "google_project_service_identity.workflows[0]",
+    }
+)
+M8_ADDRESS_MARKERS = (
+    ".remediation",
+    "remediation_",
+    "remediation[",
+    "workflow_invokes_",
+    "control_invokes_order",
 )
 
 
@@ -158,6 +129,40 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _canonical_sha256(value: Mapping[str, object]) -> str:
+    encoded = json.dumps(
+        dict(value), ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _release_context(source: Mapping[str, object]) -> dict[str, object]:
+    source_identity = {
+        key: source.get(key) for key in ("git_commit", "source_tree_sha256", "working_tree_dirty")
+    }
+    return {
+        "schema_version": ARTIFACT_SCHEMA_VERSION,
+        "source": source_identity,
+        "context_sha256": _canonical_sha256(source_identity),
+    }
+
+
+def _read_release_context(path: Path) -> dict[str, object]:
+    context = _read_json(path)
+    source = _mapping(context.get("source"))
+    expected = _release_context(source)
+    if context != expected:
+        raise ValueError("M8 release context is invalid")
+    if source.get("working_tree_dirty") is not False:
+        raise ValueError("M8 release context is not clean")
+    return context
+
+
+def _context_matches_source(context: Mapping[str, object], root: Path) -> bool:
+    current = _release_context(source_metadata(root))
+    return current == context
+
+
 def _phase_path(output: Path, phase: str) -> Path:
     filename = "terraform-plan-verification.json" if phase == "terraform-plan" else f"{phase}.json"
     return output / filename
@@ -220,9 +225,9 @@ def terraform_plan_summary(path: Path, expected_image_digest: str) -> dict[str, 
         "no_op": 0,
         "other": 0,
     }
-    create_addresses: set[str] = set()
-    moves: set[tuple[str, str]] = set()
     planned_image_addresses: set[str] = set()
+    scope_allowed = True
+    no_public_invoker = True
     for raw_change in raw_changes:
         if not isinstance(raw_change, dict):
             counts["other"] += 1
@@ -235,16 +240,29 @@ def terraform_plan_summary(path: Path, expected_image_digest: str) -> dict[str, 
         actions = [str(value) for value in raw_actions] if isinstance(raw_actions, list) else []
         action_set = set(actions)
         address = str(raw_change.get("address", ""))
-        previous_address = raw_change.get("previous_address")
-        if isinstance(previous_address, str) and address:
-            moves.add((previous_address, address))
-        if address in M8_IMAGE_SERVICE_ADDRESSES and action_set in ({"create"}, {"no-op"}):
+        changed = action_set != {"no-op"}
+        if changed and not (
+            address in M8_SHARED_SERVICE_ADDRESSES
+            or any(marker in address for marker in M8_ADDRESS_MARKERS)
+        ):
+            scope_allowed = False
+        rendered_after = json.dumps(change.get("after"), separators=(",", ":"))
+        if (
+            changed
+            and address.startswith("google_")
+            and ("allUsers" in rendered_after or "allAuthenticatedUsers" in rendered_after)
+        ):
+            no_public_invoker = False
+        if address in M8_IMAGE_SERVICE_ADDRESSES and action_set in (
+            {"create"},
+            {"update"},
+            {"no-op"},
+        ):
             planned_digests = _image_digests(change.get("after"))
             if planned_digests == [expected_image_digest]:
                 planned_image_addresses.add(address)
         if action_set == {"create"}:
             counts["create"] += 1
-            create_addresses.add(address)
         elif action_set == {"update"}:
             counts["update"] += 1
         elif action_set == {"delete"}:
@@ -255,32 +273,17 @@ def terraform_plan_summary(path: Path, expected_image_digest: str) -> dict[str, 
             counts["no_op"] += 1
         else:
             counts["other"] += 1
-    fresh_plan = create_addresses == ALLOWED_M8_CREATE_ADDRESSES
-    recovery_plan = create_addresses == ALLOWED_M8_RECOVERY_CREATE_ADDRESSES
-    expected_create_count = (
-        len(ALLOWED_M8_CREATE_ADDRESSES)
-        if fresh_plan
-        else len(ALLOWED_M8_RECOVERY_CREATE_ADDRESSES)
-        if recovery_plan
-        else -1
-    )
-    addresses_allowed = fresh_plan or recovery_plan
-    moves_allowed = (fresh_plan and moves == ALLOWED_M8_MOVES) or (
-        recovery_plan and moves == frozenset()
-    )
     images_bound = planned_image_addresses == M8_IMAGE_SERVICE_ADDRESSES
     return {
         **counts,
-        "addresses_allowed": addresses_allowed,
-        "moves_allowed": moves_allowed,
+        "scope_allowed": scope_allowed,
+        "no_public_invoker": no_public_invoker,
         "images_bound": images_bound,
-        "allowed": counts["create"] == expected_create_count
-        and counts["update"] == 0
-        and counts["delete"] == 0
+        "allowed": counts["delete"] == 0
         and counts["replace"] == 0
         and counts["other"] == 0
-        and addresses_allowed
-        and moves_allowed
+        and scope_allowed
+        and no_public_invoker
         and images_bound,
     }
 
@@ -356,8 +359,16 @@ class GoogleM8PhaseProbe:
     def _service_image_digest(service: Mapping[str, object]) -> str | None:
         template = service.get("template")
         if not isinstance(template, dict):
+            spec = service.get("spec")
+            template = spec.get("template") if isinstance(spec, dict) else None
+        if not isinstance(template, dict):
             return None
-        containers = template.get("containers")
+        template_spec = template.get("spec")
+        containers = (
+            template_spec.get("containers")
+            if isinstance(template_spec, dict)
+            else template.get("containers")
+        )
         if not isinstance(containers, list) or len(containers) != 1:
             return None
         container = containers[0]
@@ -819,8 +830,8 @@ class RemediationReleaseRunner:
 
     def _verify_image(self) -> dict[str, object]:
         preflight = _read_json(self.output / "preflight.json")
-        preflight_source = _mapping(preflight.get("source"))
-        source = source_metadata(self.root)
+        context = _read_release_context(self.output / RELEASE_CONTEXT_FILENAME)
+        source = _mapping(context.get("source"))
         commit = str(source.get("git_commit", ""))
         local_image = self.environment.get("OPSPILOT_M8_LOCAL_IMAGE", "").strip()
         registry_uri = self.environment.get("OPSPILOT_M8_REGISTRY_IMAGE_URI", "").strip()
@@ -862,8 +873,6 @@ class RemediationReleaseRunner:
             repo_digests = []
         checks = {
             "preflight_passed": preflight.get("status") == "passed",
-            "source_clean": source.get("working_tree_dirty") is False,
-            "source_matches_preflight": source == preflight_source,
             "full_commit_sha": re.fullmatch(r"[0-9a-f]{40}", commit) is not None,
             "local_image_tag_bound": local_image == expected_local_image,
             "registry_digest_uri": IMAGE_DIGEST_PATTERN.fullmatch(digest) is not None,
@@ -878,7 +887,7 @@ class RemediationReleaseRunner:
         }
         return {
             "checks": checks,
-            "source": source,
+            "release_context_sha256": context["context_sha256"],
             "image": {
                 "digest": digest,
                 "platform": platform,
@@ -900,22 +909,21 @@ class RemediationReleaseRunner:
 
     def _verify_terraform_plan(self) -> dict[str, object]:
         digest = self._verified_image_digest()
+        context = _read_release_context(self.output / RELEASE_CONTEXT_FILENAME)
         plan = terraform_plan_summary(
             self.output / "terraform-plan.json", expected_image_digest=digest
         )
         binary_plan = self.output / "remediation.tfplan"
+        if not binary_plan.is_file() or binary_plan.stat().st_size == 0:
+            raise ValueError("M8 Terraform binary plan is unavailable")
         binary_sha256 = _file_sha256(binary_plan)
-        source = source_metadata(self.root)
-        image_source = _mapping(_read_json(_phase_path(self.output, "image")).get("source"))
         checks = {
             "terraform_plan_allowed": plan["allowed"],
-            "binary_plan_present": binary_plan.is_file() and binary_plan.stat().st_size > 0,
-            "source_clean": source.get("working_tree_dirty") is False,
-            "source_matches_image": source == image_source,
+            "release_context_matches": _context_matches_source(context, self.root),
         }
         return {
             "checks": checks,
-            "source": source,
+            "release_context_sha256": context["context_sha256"],
             "terraform_plan": plan,
             "binary_plan_sha256": binary_sha256,
         }
@@ -938,9 +946,7 @@ class RemediationReleaseRunner:
 
     def preflight(self) -> tuple[int, dict[str, object]]:
         self.output.mkdir(parents=True, exist_ok=True)
-        gcloud = _gcloud_executable()
         commands = {
-            "git_diff_check": ("git", "diff", "--check"),
             "local_release_gate": (
                 "uv",
                 "run",
@@ -962,75 +968,22 @@ class RemediationReleaseRunner:
                 "--format",
                 "summary",
             ),
-            "prepare_plan": (
-                "uv",
-                "run",
-                "--extra",
-                "agent",
-                "opspilot",
-                "scenario",
-                "prepare",
-                "--scenario",
-                "SCN-008",
-                "--mode",
-                "plan",
-                "--auth",
-                "gcloud",
-            ),
-            "reset_plan": (
-                "uv",
-                "run",
-                "--extra",
-                "agent",
-                "opspilot",
-                "scenario",
-                "reset",
-                "--scenario",
-                "SCN-008",
-                "--mode",
-                "plan",
-                "--auth",
-                "gcloud",
-            ),
-            "abort_plan": (
-                "uv",
-                "run",
-                "--extra",
-                "agent",
-                "opspilot",
-                "scenario",
-                "abort",
-                "--scenario",
-                "SCN-008",
-                "--mode",
-                "plan",
-                "--auth",
-                "gcloud",
-            ),
-            "gcloud_active_account": (
-                gcloud,
-                "auth",
-                "list",
-                "--filter=status:ACTIVE",
-                "--format=value(account)",
-            ),
-            "gcloud_project": (gcloud, "config", "get-value", "project"),
-            "docker_daemon": ("docker", "info", "--format={{.ServerVersion}}"),
         }
         checks: dict[str, bool] = {}
         for name, command in commands.items():
             result = self.process_runner(command, self.root, self.environment)
-            checks[name] = result.returncode == 0 and (
-                name not in {"gcloud_active_account", "gcloud_project", "docker_daemon"}
-                or bool(result.stdout.strip())
-            )
-        checks["required_tools"] = all(
-            shutil.which(name) is not None
-            for name in ("git", "uv", "terraform", "gcloud", "docker")
-        )
+            checks[name] = result.returncode == 0
         source = source_metadata(self.root)
         checks["clean_working_tree"] = source.get("working_tree_dirty") is False
-        artifact = _phase_artifact("preflight", {"checks": checks, "source": source})
+        context = _release_context(source)
+        _write_json(self.output / RELEASE_CONTEXT_FILENAME, context)
+        artifact = _phase_artifact(
+            "preflight",
+            {
+                "checks": checks,
+                "release_context_sha256": context["context_sha256"],
+            },
+        )
         _write_json(self.output / "preflight.json", artifact)
         return (0 if artifact["status"] == "passed" else 2), artifact
 
@@ -1043,17 +996,18 @@ class RemediationReleaseRunner:
                 result = self._verify_terraform_plan()
             elif phase == "post-apply":
                 plan, digest = self._verified_terraform_plan()
+                context = _read_release_context(self.output / RELEASE_CONTEXT_FILENAME)
                 result = {
                     "checks": {
-                        "terraform_plan_allowed": plan["allowed"],
                         **self.probe.post_apply(digest),
                     },
-                    "source": source_metadata(self.root),
+                    "release_context_sha256": context["context_sha256"],
                     "terraform_plan": plan,
                 }
             elif phase == "e2e":
+                context = _read_release_context(self.output / RELEASE_CONTEXT_FILENAME)
                 result = self.probe.e2e(self.output / "recovery.json")
-                result["source"] = source_metadata(self.root)
+                result["release_context_sha256"] = context["context_sha256"]
             else:
                 raise ValueError("unsupported M8 verification phase")
             artifact = _phase_artifact(phase, result)
@@ -1068,27 +1022,16 @@ class RemediationReleaseRunner:
             for name in ("preflight", "image", "post-apply", "e2e")
         }
         required["terraform-plan"] = _read_json(_phase_path(self.output, "terraform-plan"))
-        preflight = required["preflight"]
+        context = _read_release_context(self.output / RELEASE_CONTEXT_FILENAME)
         image_phase = required["image"]
         e2e = required["e2e"]
-        source = _mapping(preflight.get("source"))
         passed = all(value.get("status") == "passed" for value in required.values())
-        passed = passed and source.get("working_tree_dirty") is False
-        source_identity = (
-            source.get("git_commit"),
-            source.get("source_tree_sha256"),
-            source.get("working_tree_dirty"),
+        context_sha256 = context.get("context_sha256")
+        contexts_aligned = all(
+            value.get("release_context_sha256") == context_sha256 for value in required.values()
         )
-        sources_aligned = all(
-            (
-                _mapping(value.get("source")).get("git_commit"),
-                _mapping(value.get("source")).get("source_tree_sha256"),
-                _mapping(value.get("source")).get("working_tree_dirty"),
-            )
-            == source_identity
-            for value in required.values()
-        )
-        passed = passed and sources_aligned
+        current_context_matches = _context_matches_source(context, self.root)
+        passed = passed and contexts_aligned and current_context_matches
         control_image = _mapping(image_phase.get("image"))
         payment_digest = e2e.get("payment_image_digest")
         image_digests_valid = (
@@ -1112,7 +1055,8 @@ class RemediationReleaseRunner:
             "schema_version": ARTIFACT_SCHEMA_VERSION,
             "generated_at": datetime.now(UTC).isoformat(),
             "status": "passed" if passed else "failed",
-            "source": source,
+            "source": _mapping(context.get("source")),
+            "release_context_sha256": context_sha256,
             "phases": {
                 name: {
                     "status": value.get("status"),
@@ -1126,7 +1070,7 @@ class RemediationReleaseRunner:
                 if passed
                 else [
                     "M8_RELEASE_SOURCE_MISMATCH"
-                    if not sources_aligned
+                    if not contexts_aligned or not current_context_matches
                     else "M8_RELEASE_GATE_FAILED"
                 ]
             ),

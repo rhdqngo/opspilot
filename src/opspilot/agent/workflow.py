@@ -482,16 +482,6 @@ def finalize_report(ctx: Context, node_input: ReportNarrativeDraft) -> IncidentR
     )
 
 
-def validate_model_request(
-    callback_context: Context, llm_request: LlmRequest
-) -> LlmResponse | None:
-    """Fail closed before any model call can receive unsafe scope or tools."""
-
-    del callback_context
-    _validated_model_request_bytes(llm_request)
-    return None
-
-
 def _validated_model_request_bytes(llm_request: LlmRequest) -> int:
     """Return the serialized byte count after enforcing the model boundary."""
 

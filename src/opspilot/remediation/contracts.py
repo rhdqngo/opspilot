@@ -36,17 +36,6 @@ class RemediationStatus(StrEnum):
     EXECUTION_FAILED = "EXECUTION_FAILED"
 
 
-TERMINAL_STATUSES = frozenset(
-    {
-        RemediationStatus.POLICY_REJECTED,
-        RemediationStatus.REJECTED,
-        RemediationStatus.EXPIRED,
-        RemediationStatus.SUCCEEDED,
-        RemediationStatus.VERIFICATION_FAILED,
-        RemediationStatus.EXECUTION_FAILED,
-    }
-)
-
 LEGAL_TRANSITIONS: dict[RemediationStatus, frozenset[RemediationStatus]] = {
     RemediationStatus.PROPOSED: frozenset(
         {RemediationStatus.POLICY_REJECTED, RemediationStatus.WAITING_APPROVAL}

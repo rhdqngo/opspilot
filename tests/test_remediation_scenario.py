@@ -80,6 +80,8 @@ class StubGoogleScenarioAdmin(GoogleScenarioCloudAdmin):
         self.serving = "payment-faulty"
         self.failure_profile = True
         self.patch_masks: list[str] = []
+        self.patches: list[dict[str, Any]] = []
+        self.last_patch: dict[str, Any] | None = None
 
     async def _get_service(self) -> dict[str, Any]:
         environment = (
@@ -100,11 +102,29 @@ class StubGoogleScenarioAdmin(GoogleScenarioCloudAdmin):
 
     async def _patch_service(self, body: dict[str, Any], *, update_mask: str) -> None:
         self.patch_masks.append(update_mask)
-        if update_mask == "traffic":
+        self.patches.append(body)
+        self.last_patch = body
+        if update_mask == "template,traffic":
+            self.serving = str(body["traffic"][0]["revision"])
+            self.etag = "etag-faulty-created"
+            self.failure_profile = True
+        elif update_mask == "traffic":
             self.serving = str(body["traffic"][0]["revision"])
             self.etag = "etag-recovered"
         elif update_mask == "template":
-            self.failure_profile = False
+            environment = body["template"]["containers"][0].get("env", [])
+            self.failure_profile = any(
+                item.get("name") == "OPSPILOT_PAYMENT_FAILURE_PROFILE" for item in environment
+            )
+            self.etag = "etag-template-updated"
+
+    async def _replace_traffic(self, revision: str) -> None:
+        body = {"traffic": [{"revision": revision, "percent": 100}]}
+        self.patch_masks.append("traffic")
+        self.patches.append(body)
+        self.last_patch = body
+        self.serving = revision
+        self.etag = "etag-recovered"
 
 
 async def test_M8_abort_uses_only_matching_trusted_target_and_marks_local_recovery(
@@ -185,6 +205,17 @@ async def test_M8_abort_stale_etag_or_digest_mismatch_makes_zero_updates() -> No
     assert digest.patch_masks == []
 
 
+async def test_M8_faulty_revision_name_uses_the_cloud_run_service_prefix() -> None:
+    admin = StubGoogleScenarioAdmin()
+
+    target = await admin.prepare_faulty_revision()
+
+    assert target.source_revision.startswith("opspilot-dev-payment-m8-")
+    assert admin.patch_masks == ["template", "traffic"]
+    assert admin.patches[0]["template"]["revision"] == target.source_revision
+    assert admin.patches[1]["traffic"][0]["revision"] == target.source_revision
+
+
 def test_M8_scenario_image_environment_is_distinct_from_control_image(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -208,15 +239,20 @@ async def test_M8_prepare_failure_after_fault_activation_runs_emergency_abort(
     monkeypatch.setattr("opspilot.remediation.scenario._gcloud_identity_token", lambda: "token")
     monkeypatch.setattr("opspilot.remediation.scenario._run_ten_orders", lambda *_: _ten())
 
+    async def fault_active(*_: object) -> None:
+        return None
+
     async def fail_collection(*_: object, **__: object) -> object:
         raise RuntimeError("safe injected collection failure")
 
     async def _ten() -> int:
         return 10
 
+    monkeypatch.setattr("opspilot.remediation.scenario._wait_for_fault_activation", fault_active)
+    monkeypatch.setattr("opspilot.remediation.scenario._wait_for_healthy_baseline", fault_active)
     monkeypatch.setattr("opspilot.remediation.scenario.collect_evidence", fail_collection)
     recovery_path = tmp_path / "recovery.json"
-    with pytest.raises(RuntimeError, match="safe injected"):
+    with pytest.raises(RuntimeError, match="fail all ten orders"):
         await run_scn008_command(
             operation="prepare",
             mode="execute",

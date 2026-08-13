@@ -69,11 +69,13 @@ class FakeCloudRun:
         etag: str = "etag-faulty",
         response_loss: bool = False,
         update_error: bool = False,
+        reconciling: bool = False,
     ) -> None:
         self.etag = etag
         self.traffic = {"payment-faulty": 100}
         self.response_loss = response_loss
         self.update_error = update_error
+        self.reconciling = reconciling
         self.update_calls = 0
 
     async def get_service(self, service_name: str) -> CloudRunServiceSnapshot:
@@ -81,7 +83,7 @@ class FakeCloudRun:
             name=service_name,
             etag=self.etag,
             traffic=dict(self.traffic),
-            reconciling=False,
+            reconciling=self.reconciling,
         )
 
     async def get_revision(self, revision_name: str) -> CloudRunRevisionSnapshot:
@@ -522,6 +524,30 @@ async def test_M8_response_loss_is_confirmed_without_a_second_update() -> None:
     )
     assert cloud.update_calls == 1
     assert result.traffic_update_succeeded is True
+
+
+@pytest.mark.asyncio
+async def test_M8_serving_traffic_is_authoritative_during_control_plane_reconciliation() -> None:
+    store, value = await _approved_store()
+    approved = RemediationRecord.model_validate(value)
+    cloud = FakeCloudRun(reconciling=True)
+    cloud.traffic = {approved.plan.target_revision: 100}
+    executor = FixedPaymentRollbackExecutor(
+        store=store,
+        cloud_run=cloud,
+        now=lambda: NOW + timedelta(minutes=1),
+    )
+
+    result = await executor.execute(
+        approved.remediation_id,
+        ExecutionRequest(
+            plan_hash=approved.plan_hash,
+            execution_attempt_id="ATT-0123456789ABCDEF",
+        ),
+    )
+
+    assert result.traffic_update_succeeded is True
+    assert cloud.update_calls == 0
 
 
 @pytest.mark.asyncio

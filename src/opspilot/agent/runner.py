@@ -9,7 +9,6 @@ import os
 import platform
 import shutil
 import subprocess
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -47,15 +46,6 @@ from opspilot.reporting import render_markdown
 
 APP_NAME = "opspilot"
 MODEL_NODE_NAMES = frozenset(("rca_analyst", "report_composer"))
-EXPECTED_ROOT_CAUSES = {
-    "SCN-001": "PAYMENT_DB_POOL_EXHAUSTION",
-    "SCN-002": "PAYMENT_UPSTREAM_TIMEOUT",
-    "SCN-003": "INVENTORY_ENDPOINT_MISCONFIGURATION",
-    "SCN-004": "CLOUD_RUN_CAPACITY_LIMIT",
-    "SCN-005": "UPSTREAM_RATE_LIMIT",
-    "SCN-006": "INSUFFICIENT_EVIDENCE",
-    "SCN-007": "RUNBOOK_PROMPT_INJECTION",
-}
 
 
 def _safe_error(error: Exception) -> AgentRunError:
@@ -777,7 +767,3 @@ def write_evaluation_artifacts(result: AgentEvalResult, output: Path) -> tuple[P
     )
     markdown_path.write_text(render_evaluation_markdown(result), encoding="utf-8")
     return json_path, markdown_path
-
-
-def public_agent_fields() -> Sequence[str]:
-    return ("scenario", "suite", "format", "output")

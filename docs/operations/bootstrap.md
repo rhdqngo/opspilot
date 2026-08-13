@@ -113,6 +113,25 @@ Expected repository variables after bootstrap:
 
 Store `GCP_BUDGET_NOTIFICATION_EMAIL` as a GitHub repository secret, not a variable or file.
 
+The final manual hosted dev plan also requires these readiness variables:
+
+- `TF_M2_IMAGE_READY=true`
+- `TF_M3_IMAGE_READY=true`
+- `TF_M4_KNOWLEDGE_READY=true`
+- `TF_M5_LIVE_EVIDENCE_READY=true`
+- `TF_M7_RUNTIME_READY=true`
+- `TF_M8_REMEDIATION_READY=true`
+- `TF_PERSISTENT_INVESTIGATIONS_READY=true`
+
+Keep immutable `GCP_DEMO_IMAGE_URI` as the existing repository variable. Store
+`GCP_INVESTIGATION_IMAGE_URI`, `GCP_REMEDIATION_IMAGE_URI`,
+`GCP_INVESTIGATOR_OPERATOR_EMAIL`, and `GCP_REMEDIATION_APPROVER_GROUP` as repository secrets. The
+plan artifact redacts all image URIs,
+the operator, approver group, project, state bucket, billing account, and budget recipient. The CI
+plan-reader role is read-only and includes refresh access for Cloud Tasks queues, Firestore
+database/index metadata, Pub/Sub topic/subscription metadata, and Workflow metadata; it has no
+mutation permission.
+
 ## Approval 2: dev foundation (completed locally)
 
 The completed procedure was:

@@ -95,15 +95,28 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "vars.TF_M4_KNOWLEDGE_READY == 'true'" in live_plan
     assert "vars.TF_M5_LIVE_EVIDENCE_READY == 'true'" in live_plan
     assert "vars.TF_M7_RUNTIME_READY == 'true'" in live_plan
+    assert "vars.TF_M8_REMEDIATION_READY == 'true'" in live_plan
+    assert "vars.TF_PERSISTENT_INVESTIGATIONS_READY == 'true'" in live_plan
     assert 'TF_VAR_deploy_demo: "true"' in live_plan
     assert 'TF_VAR_deploy_knowledge: "true"' in live_plan
     assert 'TF_VAR_enable_live_evidence: "true"' in live_plan
     assert 'TF_VAR_deploy_agent_runtime: "true"' in live_plan
+    assert 'TF_VAR_enable_persistent_investigations: "true"' in live_plan
+    assert 'TF_VAR_enable_remediation: "true"' in live_plan
     assert "opspilot agent runtime package" in live_plan
     assert "TF_VAR_agent_runtime_source_archive" in live_plan
     assert "TF_VAR_investigator_operator_email" in live_plan
     assert "secrets.GCP_INVESTIGATOR_OPERATOR_EMAIL" in live_plan
     assert "TF_VAR_demo_image_uri" in live_plan
+    assert "TF_VAR_investigation_image_uri" in live_plan
+    assert "secrets.GCP_INVESTIGATION_IMAGE_URI" in live_plan
+    assert "TF_VAR_remediation_image_uri" in live_plan
+    assert "secrets.GCP_REMEDIATION_IMAGE_URI" in live_plan
+    assert "TF_VAR_remediation_approver_group" in live_plan
+    assert "secrets.GCP_REMEDIATION_APPROVER_GROUP" in live_plan
+    assert "OPSPILOT_REDACT_INVESTIGATION_IMAGE_URI" in live_plan
+    assert "OPSPILOT_REDACT_REMEDIATION_IMAGE_URI" in live_plan
+    assert "OPSPILOT_REDACT_REMEDIATION_APPROVER_GROUP" in live_plan
     assert live_plan.count("-lock=false") == 2
     assert "vars.TF_DEV_STATE_READY != 'true'" in live_plan
     assert "vars.TF_DEV_STATE_READY == 'true'" in live_plan
@@ -123,6 +136,10 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     bootstrap_source = (TERRAFORM_ROOT / "bootstrap" / "main.tf").read_text(encoding="utf-8")
     assert "aiplatform.reasoningEngines.get" not in bootstrap_source
     assert "aiplatform.reasoningEngines.list" not in bootstrap_source
+    assert '"cloudtasks.queues.get"' in bootstrap_source
+    assert '"datastore.databases.get"' in bootstrap_source
+    assert '"pubsub.subscriptions.get"' in bootstrap_source
+    assert '"workflows.workflows.get"' in bootstrap_source
 
 
 def test_M2_terraform_defines_only_private_bounded_demo_resources() -> None:

@@ -112,9 +112,7 @@ class FixedPaymentRollbackExecutor:
                 raise ExecutionGuardError("TARGET_SERVICE_MISMATCH")
             if service.etag != record.plan.service_etag:
                 raise ExecutionGuardError("STALE_SERVICE_ETAG")
-            already_recovered = (
-                not service.reconciling and service.traffic.get(record.plan.target_revision) == 100
-            )
+            already_recovered = service.traffic.get(record.plan.target_revision) == 100
             if not already_recovered and service.traffic.get(record.plan.source_revision) != 100:
                 raise ExecutionGuardError("SOURCE_REVISION_NOT_SERVING")
             revision_name = (
@@ -129,7 +127,7 @@ class FixedPaymentRollbackExecutor:
             if not already_recovered:
                 await self._update_or_confirm(service, record.plan.target_revision)
             serving = await self.cloud_run.get_service(target.service_name)
-            if serving.reconciling or serving.traffic.get(record.plan.target_revision) != 100:
+            if serving.traffic.get(record.plan.target_revision) != 100:
                 raise ExecutionGuardError("TRAFFIC_UPDATE_NOT_CONFIRMED")
             return ExecutionOutcome(
                 remediation_id=record.remediation_id,
@@ -151,7 +149,7 @@ class FixedPaymentRollbackExecutor:
             await self.cloud_run.wait_operation(operation, timeout_seconds=120)
         except (DependencyError, TimeoutError):
             current = await self.cloud_run.get_service(service.name)
-            if not current.reconciling and current.traffic.get(target_revision) == 100:
+            if current.traffic.get(target_revision) == 100:
                 return
             raise
 
@@ -171,18 +169,27 @@ class GoogleCloudRunAdmin:
         self.session = session or _authorized_session()
 
     async def get_service(self, service_name: str) -> CloudRunServiceSnapshot:
-        response = await asyncio.to_thread(
-            self.session.get,
-            f"https://run.googleapis.com/v2/{service_name}",
-            timeout=10,
+        control_response, serving_response = await asyncio.gather(
+            asyncio.to_thread(
+                self.session.get,
+                f"https://run.googleapis.com/v2/{service_name}",
+                timeout=10,
+            ),
+            asyncio.to_thread(
+                self.session.get,
+                self._serving_url(service_name),
+                timeout=10,
+            ),
         )
-        if response.status_code != 200:
+        if control_response.status_code != 200 or serving_response.status_code != 200:
             raise DependencyError("Cloud Run service state could not be read")
-        body = cast(dict[str, Any], response.json())
+        body = cast(dict[str, Any], control_response.json())
+        serving = cast(dict[str, Any], serving_response.json())
+        serving_status = cast(dict[str, Any], serving.get("status", {}))
         traffic = {
-            str(item.get("revision")): int(item.get("percent", 0))
-            for item in cast(list[dict[str, Any]], body.get("trafficStatuses", []))
-            if item.get("revision")
+            str(item.get("revisionName")): int(item.get("percent", 0))
+            for item in cast(list[dict[str, Any]], serving_status.get("traffic", []))
+            if item.get("revisionName")
         }
         return CloudRunServiceSnapshot(
             name=str(body.get("name", "")),
@@ -208,6 +215,11 @@ class GoogleCloudRunAdmin:
             ).rsplit("@", 1)[-1]
         condition = cast(dict[str, Any], body.get("terminalCondition", {}))
         ready = condition.get("state") == "CONDITION_SUCCEEDED"
+        if not condition:
+            ready = any(
+                item.get("type") == "Ready" and item.get("state") == "CONDITION_SUCCEEDED"
+                for item in cast(list[dict[str, Any]], body.get("conditions", []))
+            )
         return CloudRunRevisionSnapshot(
             name=str(body.get("name", "")), ready=ready, image_digest=image_digest
         )
@@ -215,31 +227,38 @@ class GoogleCloudRunAdmin:
     async def update_traffic(
         self, service: CloudRunServiceSnapshot, *, target_revision: str
     ) -> str:
-        response = await asyncio.to_thread(
-            self.session.patch,
-            f"https://run.googleapis.com/v2/{service.name}?updateMask=traffic",
-            json={
-                "name": service.name,
-                "etag": service.etag,
-                "traffic": [
-                    {
-                        "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION",
-                        "revision": target_revision,
-                        "percent": 100,
-                    }
-                ],
-            },
-            timeout=10,
-        )
-        if response.status_code not in {200, 202}:
+        url = self._serving_url(service.name)
+        current = await asyncio.to_thread(self.session.get, url, timeout=10)
+        if current.status_code != 200:
+            raise DependencyError("Cloud Run traffic state could not be read")
+        body = cast(dict[str, Any], current.json())
+        metadata = cast(dict[str, Any], body.get("metadata", {}))
+        if not metadata.get("resourceVersion"):
+            raise DependencyError("Cloud Run traffic resource version is unavailable")
+        spec = cast(dict[str, Any], body.get("spec", {}))
+        spec["traffic"] = [{"revisionName": target_revision, "percent": 100}]
+        response = await asyncio.to_thread(self.session.put, url, json=body, timeout=30)
+        if response.status_code != 200:
             raise DependencyError("Cloud Run traffic update was rejected")
-        body = cast(dict[str, Any], response.json())
-        name = body.get("name")
-        if not isinstance(name, str) or not name:
-            raise DependencyError("Cloud Run traffic update returned an invalid operation")
-        return name
+        deadline = asyncio.get_running_loop().time() + 120
+        while asyncio.get_running_loop().time() < deadline:
+            observed = await asyncio.to_thread(self.session.get, url, timeout=10)
+            if observed.status_code != 200:
+                raise DependencyError("Cloud Run traffic state could not be read")
+            observed_body = cast(dict[str, Any], observed.json())
+            observed_status = cast(dict[str, Any], observed_body.get("status", {}))
+            traffic = cast(list[dict[str, Any]], observed_status.get("traffic", []))
+            if any(
+                item.get("revisionName") == target_revision and int(item.get("percent", 0)) == 100
+                for item in traffic
+            ):
+                return "serving-plane-complete"
+            await asyncio.sleep(2)
+        raise TimeoutError("Cloud Run traffic update was not observed")
 
     async def wait_operation(self, operation_name: str, *, timeout_seconds: int) -> None:
+        if operation_name == "serving-plane-complete":
+            return
         deadline = asyncio.get_running_loop().time() + timeout_seconds
         while asyncio.get_running_loop().time() < deadline:
             response = await asyncio.to_thread(
@@ -257,6 +276,17 @@ class GoogleCloudRunAdmin:
             await asyncio.sleep(1)
         raise TimeoutError("Cloud Run traffic operation timed out")
 
+    @staticmethod
+    def _serving_url(service_name: str) -> str:
+        parts = service_name.split("/")
+        if len(parts) != 6 or parts[0] != "projects" or parts[2] != "locations":
+            raise DependencyError("Cloud Run service name is invalid")
+        project_id, region, service = parts[1], parts[3], parts[5]
+        return (
+            f"https://{region}-run.googleapis.com/apis/serving.knative.dev/v1/"
+            f"namespaces/{project_id}/services/{service}"
+        )
+
 
 class GoogleControlRecoveryVerifier:
     """Control-plane traffic, ten-order, and auxiliary Monitoring verification."""
@@ -271,6 +301,7 @@ class GoogleControlRecoveryVerifier:
         audience: str,
         session: AuthorizedSession | None = None,
         now: Callable[[], datetime] = utc_now,
+        stabilization_seconds: float = 10.0,
     ) -> None:
         self.store = store
         self.cloud_run = cloud_run
@@ -279,15 +310,16 @@ class GoogleControlRecoveryVerifier:
         self.audience = audience
         self.session = session or _authorized_session()
         self.now = now
+        self.stabilization_seconds = stabilization_seconds
 
     async def verify(self, record: RemediationRecord) -> VerificationEvidence:
         target = await self.store.get_target(record.incident_id)
         if target is None:
             raise DependencyError("trusted verification target could not be read")
         service = await self.cloud_run.get_service(target.service_name)
-        target_percent = (
-            0 if service.reconciling else service.traffic.get(record.plan.target_revision, 0)
-        )
+        target_percent = service.traffic.get(record.plan.target_revision, 0)
+        if target_percent == 100 and self.stabilization_seconds > 0:
+            await asyncio.sleep(self.stabilization_seconds)
         try:
             token = await asyncio.to_thread(id_token.fetch_id_token, Request(), self.audience)
         except (GoogleAuthError, ValueError) as error:

@@ -39,8 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
     replay.add_argument("--scenario", default="SCN-001")
     replay.add_argument("--format", choices=("json", "markdown"), default="json")
     serve = subcommands.add_parser("serve", help="Run the local FastAPI service")
-    serve.add_argument("--host", default="127.0.0.1")
-    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--host", default=None)
+    serve.add_argument("--port", type=int, default=None)
     cleanup = subcommands.add_parser("cleanup", help="Render non-executing cleanup plans")
     cleanup_commands = cleanup.add_subparsers(dest="cleanup_command", required=True)
     cleanup_plan = cleanup_commands.add_parser(
@@ -170,9 +170,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "replay":
         return asyncio.run(_replay(str(args.scenario), str(args.format)))
     if args.command == "serve":
-        uvicorn.run(
-            "opspilot.api:create_app", factory=True, host=str(args.host), port=int(args.port)
+        cloud_run_port = os.environ.get("PORT")
+        host = (
+            str(args.host)
+            if args.host is not None
+            else ("0.0.0.0" if cloud_run_port is not None else "127.0.0.1")
         )
+        port = int(args.port) if args.port is not None else int(cloud_run_port or "8000")
+        uvicorn.run("opspilot.api:create_app", factory=True, host=host, port=port)
         return 0
     if args.command == "cleanup" and args.cleanup_command == "plan":
         print(render_cleanup_plan(build_cleanup_plan(), str(args.format)), end="")

@@ -79,8 +79,11 @@ class ReportStatus(StrEnum):
     INCONCLUSIVE = "INCONCLUSIVE"
 
 
+INCIDENT_ID_PATTERN = r"^INC-\d{4}-(?:\d{4}|[A-F0-9]{16})$"
+
+
 class InvestigationRequest(BaseModel):
-    incident_id: str | None = Field(default=None, pattern=r"^INC-\d{4}-\d{4}$")
+    incident_id: str | None = Field(default=None, pattern=INCIDENT_ID_PATTERN)
     user_query: str = Field(min_length=3, max_length=2_000)
     services: list[str] = Field(default_factory=list)
     environment: Environment = Environment.DEV
@@ -213,7 +216,7 @@ class IncidentReport(BaseModel):
     schema_version: str = "1.0"
     report_id: str
     report_version: int = Field(ge=1)
-    incident_id: str = Field(pattern=r"^INC-\d{4}-\d{4}$")
+    incident_id: str = Field(pattern=INCIDENT_ID_PATTERN)
     generated_at: datetime
     correlation_id: str
     title: str

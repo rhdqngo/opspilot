@@ -36,7 +36,14 @@ def test_M8_terraform_is_default_off_and_executor_has_no_order_or_runtime_grant(
     assert "provider = google-beta" in remediation
     assert 'service = "workflows.googleapis.com"' in remediation
     assert "depends_on = [google_project_service_identity.workflows]" in remediation
-    assert 'title       = "payment-service-only"' in remediation
+    assert (
+        'resource "google_cloud_run_v2_service_iam_member" "remediation_executor_payment"'
+        in remediation
+    )
+    assert "name     = google_cloud_run_v2_service.demo_payment[0].name" in remediation
+    assert (
+        'resource "google_project_iam_member" "remediation_executor_cloud_run"' not in remediation
+    )
     assert (
         'resource "google_cloud_run_v2_service_iam_member" "executor_invokes_order"'
         not in remediation
