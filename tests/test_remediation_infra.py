@@ -32,6 +32,10 @@ def test_M8_terraform_is_default_off_and_executor_has_no_order_or_runtime_grant(
     assert 'ingress              = "INGRESS_TRAFFIC_INTERNAL_ONLY"' in remediation
     assert "max_instance_request_concurrency = 1" in remediation
     assert 'member   = "group:${var.remediation_approver_group}"' in remediation
+    assert 'resource "google_project_service_identity" "workflows"' in remediation
+    assert "provider = google-beta" in remediation
+    assert 'service = "workflows.googleapis.com"' in remediation
+    assert "depends_on = [google_project_service_identity.workflows]" in remediation
     assert 'title       = "payment-service-only"' in remediation
     assert (
         'resource "google_cloud_run_v2_service_iam_member" "executor_invokes_order"'

@@ -120,13 +120,16 @@ sanitized image facts in `.tmp/m8-release/image.json`. The local containers rece
 synthetic configuration values needed for settings validation; no cloud identifier, URL, or
 credential is passed to them.
 
-Before post-apply verification, save the reviewed plan JSON at
-`.tmp/m8-release/terraform-plan.json`. The verifier requires exactly 21 additive M8 addresses, the
-two payment resource state moves, the approved digest on both new Cloud Run services, and zero
-update, delete, replacement, or unknown action. The human-reviewed binary plan remains under
-`.tmp` and is the only plan eligible for the separately approved apply. Run the Terraform-plan
-phase before requesting apply approval; it records only the binary SHA-256 and sanitized action
-summary. Post-apply verification recalculates both values and fails if either plan file changed.
+Before post-apply verification, save the reviewed plan JSON at the selected release output path.
+The verifier accepts only one of two exact contracts: a fresh 22-create M8 plan containing the
+Workflows service identity and the two payment resource state moves, or the two-create recovery
+plan containing only that service identity and the Workflow after a retained partial apply. The
+recovery plan must contain no moves, and both existing Cloud Run services must remain no-op on the
+approved digest. Both contracts reject update, delete, replacement, and unknown actions. The
+human-reviewed binary plan remains under `.tmp` and is the only plan eligible for the separately
+approved apply. Run the Terraform-plan phase before requesting apply approval; it records only the
+binary SHA-256 and sanitized action summary. Post-apply verification recalculates both values and
+fails if either plan file changed.
 
 Gate order:
 
@@ -136,9 +139,11 @@ Gate order:
 2. After image-push approval, build Linux/amd64, verify non-root control/executor health, push one
    full-commit-SHA tag, resolve its digest, and pass the image phase before injecting only the
    digest URI.
-3. Generate and review the remote-state Terraform plan. Stop on any existing-resource update,
-   delete, replacement, Runtime/investigator/demo change, or permission expansion. Apply only that
-   reviewed binary plan after a new approval.
+3. Generate and review the remote-state Terraform plan. A normal first apply must match the exact
+   fresh contract; recovery from the recorded first-apply failure must use a separate output path
+   and match the exact two-create recovery contract. Stop on any existing-resource update, delete,
+   replacement, Runtime/investigator/demo change, or permission expansion. Apply only that reviewed
+   binary plan after a new approval.
 4. Post-apply verification checks Ready state, internal executor ingress, named Firestore/TTL,
    active Workflow, no public invoker, Group control access, workflow-only executor invocation,
    unauthenticated denial, investigator denial, and external executor denial.

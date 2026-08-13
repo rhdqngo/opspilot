@@ -272,6 +272,16 @@ resource "google_cloud_run_v2_service" "remediation_executor" {
   }
 }
 
+resource "google_project_service_identity" "workflows" {
+  provider = google-beta
+  count    = var.enable_remediation ? 1 : 0
+
+  project = var.project_id
+  service = "workflows.googleapis.com"
+
+  depends_on = [google_project_service.m1]
+}
+
 resource "google_workflows_workflow" "remediation" {
   count = var.enable_remediation ? 1 : 0
 
@@ -287,6 +297,8 @@ resource "google_workflows_workflow" "remediation" {
     executor_url      = google_cloud_run_v2_service.remediation_executor[0].uri
     executor_audience = local.remediation_executor_audience
   })
+
+  depends_on = [google_project_service_identity.workflows]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "remediation_group_invoker" {

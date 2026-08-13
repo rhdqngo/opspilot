@@ -41,9 +41,10 @@ submit an approval. The known-good payment digest uses
 `OPSPILOT_SCN008_KNOWN_GOOD_IMAGE_URI`; `TF_VAR_remediation_image_uri` remains exclusive to the
 control and executor image. The image phase binds a clean full commit SHA to one Registry digest,
 Linux/amd64, non-root execution, and both health boundaries without storing the Registry URI. The
-Terraform verifier accepts exactly the 21 additive M8 resource addresses, the two reviewed state
-moves, zero update/delete/replacement, and an unchanged reviewed binary plan. No M8 cloud evidence
-has been published yet.
+Terraform verifier accepts either a fresh 22-resource M8 plan, including the explicitly managed
+Workflows service identity and two reviewed state moves, or the exact two-create recovery plan for
+the retained partial state. Both contracts require zero update/delete/replacement and an unchanged
+reviewed binary plan. No M8 cloud evidence has been published yet.
 
 [Architecture](docs/portfolio/architecture.md) ·
 [Evaluation](docs/portfolio/evaluation.md) ·

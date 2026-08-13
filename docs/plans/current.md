@@ -1,7 +1,7 @@
 # Current Project State
 
 status: in_progress
-phase: M8-release-health-readiness-corrected / gate-a-push-approval-next
+phase: M8-workflows-service-identity-recovery-ready / source-commit-approval-next
 updated: 2026-08-13
 
 ## Delivered MVP
@@ -341,6 +341,44 @@ updated: 2026-08-13
   Runtime archives, Terraform format/validate, bootstrap `1/1`, dev `7/7`, and all three SCN-008
   plan commands. Gate A must restart from the correction commit with a new full-SHA image; push
   approval remains separate.
+
+## M8 first apply blocker checkpoint
+
+- Clean source commit `d782b37` was pushed to `origin/main`. Its preflight, Linux/amd64 non-root
+  image, Artifact Registry digest binding, and Terraform-plan verification all passed. The reviewed
+  binary plan contained `21 create / 0 update / 0 delete / 0 replacement` and its SHA-256 matched
+  immediately before apply.
+- The approved binary apply created the bounded M8 APIs, identities, roles, Firestore database and
+  TTL fields, Cloud Run services, and IAM bindings, but failed while creating the Workflow because
+  the Google-managed Workflows service agent did not yet exist. Terraform state retained the
+  successful partial resources; the Workflow is absent.
+- A read-only follow-up confirmed that the Workflows service agent is still absent. The saved plan
+  is stale after the partial apply and must not be reused. The current `hashicorp/google` provider
+  schema does not expose `google_project_service_identity`, so a recovery needs a separately
+  reviewed service-identity materialization step or provider/configuration change, followed by a
+  new clean-source preflight, image binding, Terraform plan, and approval.
+- Post-apply verification, SCN-008 fault activation, remediation request/decision, reset, E2E
+  evidence, and publication were not started. The payment workload remains outside an M8 fault
+  window, so emergency abort was neither needed nor executed.
+
+## M8 service-identity recovery readiness checkpoint
+
+- The retained partial resources remain untouched. Terraform now pins `hashicorp/google-beta`
+  `7.39.0` alongside the existing provider and materializes the Google-managed Workflows service
+  identity after API enablement and before Workflow creation.
+- The release verifier keeps the existing artifact schema and accepts only a fresh 22-create plan
+  with the two reviewed moves or the exact retained-state recovery plan: service identity plus
+  Workflow, no moves, and both control-plane services no-op on the approved digest. The obsolete
+  21-create plan and every update, delete, replacement, unexpected address, move, or image change
+  are rejected.
+- Recovery implementation validation passed 186 pytest tests, Ruff format/check, strict mypy over
+  78 source files, wheel/sdist build without `.tmp` content, core `7/7`, portfolio `40/40`,
+  remediation `12/12`, two identical 17-file Runtime archives, Terraform format/validate,
+  bootstrap `1/1`, and dev `7/7` tests.
+- No service identity, Workflow, image, Terraform plan/apply, fault, approval, reset, or publication
+  write followed the failed apply. A clean recovery source commit is the next approval checkpoint;
+  the failed `.tmp/m8-release` artifacts remain local and the new run will use
+  `.tmp/m8-release-recovery`.
 
 ## Validation authority
 

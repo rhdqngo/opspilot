@@ -13,6 +13,7 @@ from opspilot.portfolio import remediation_release
 from opspilot.portfolio.remediation_release import (
     ALLOWED_M8_CREATE_ADDRESSES,
     ALLOWED_M8_MOVES,
+    ALLOWED_M8_RECOVERY_CREATE_ADDRESSES,
     ARTIFACT_SCHEMA_VERSION,
     ProcessResult,
     RemediationReleaseRunner,
@@ -112,15 +113,18 @@ def _clean_source(_: Path) -> dict[str, object]:
     }
 
 
-def _write_allowed_plan(output: Path) -> None:
+def _write_allowed_plan(output: Path, *, recovery: bool = False) -> None:
     output.mkdir(parents=True, exist_ok=True)
     changes: list[dict[str, object]] = []
-    for address in sorted(ALLOWED_M8_CREATE_ADDRESSES):
+    create_addresses = (
+        ALLOWED_M8_RECOVERY_CREATE_ADDRESSES if recovery else ALLOWED_M8_CREATE_ADDRESSES
+    )
+    for address in sorted(create_addresses):
         after: dict[str, object] = {}
         if address.startswith("google_cloud_run_v2_service.remediation_"):
             after = {"template": [{"containers": [{"image": f"registry/image@{DIGEST}"}]}]}
         changes.append({"address": address, "change": {"actions": ["create"], "after": after}})
-    for previous, address in sorted(ALLOWED_M8_MOVES):
+    for previous, address in sorted(ALLOWED_M8_MOVES if not recovery else frozenset()):
         changes.append(
             {
                 "address": address,
@@ -128,6 +132,19 @@ def _write_allowed_plan(output: Path) -> None:
                 "change": {"actions": ["no-op"]},
             }
         )
+    if recovery:
+        for address in sorted(remediation_release.M8_IMAGE_SERVICE_ADDRESSES):
+            changes.append(
+                {
+                    "address": address,
+                    "change": {
+                        "actions": ["no-op"],
+                        "after": {
+                            "template": [{"containers": [{"image": f"registry/image@{DIGEST}"}]}]
+                        },
+                    },
+                }
+            )
     (output / "terraform-plan.json").write_text(
         json.dumps({"resource_changes": changes}),
         encoding="utf-8",
@@ -215,8 +232,44 @@ def test_M8_terraform_plan_requires_exact_addresses_moves_and_images(tmp_path: P
         root / ".tmp/m8-release/terraform-plan.json", expected_image_digest=DIGEST
     )
     assert allowed["allowed"] is True
-    assert allowed["create"] == 21
+    assert allowed["create"] == 22
 
+    _write_allowed_plan(root / ".tmp/m8-release", recovery=True)
+    recovery = terraform_plan_summary(
+        root / ".tmp/m8-release/terraform-plan.json", expected_image_digest=DIGEST
+    )
+    assert recovery["allowed"] is True
+    assert recovery["create"] == 2
+    assert recovery["moves_allowed"] is True
+
+    payload = json.loads((root / ".tmp/m8-release/terraform-plan.json").read_text())
+    payload["resource_changes"].append(
+        {
+            "address": remediation_release.M8_SERVICE_IDENTITY_ADDRESS,
+            "change": {"actions": ["create"], "after": {}},
+        }
+    )
+    (root / ".tmp/m8-release/terraform-plan.json").write_text(json.dumps(payload))
+    duplicate_recovery_create = terraform_plan_summary(
+        root / ".tmp/m8-release/terraform-plan.json", expected_image_digest=DIGEST
+    )
+    assert duplicate_recovery_create["allowed"] is False
+
+    _write_allowed_plan(root / ".tmp/m8-release")
+    payload = json.loads((root / ".tmp/m8-release/terraform-plan.json").read_text())
+    payload["resource_changes"] = [
+        change
+        for change in payload["resource_changes"]
+        if change["address"] != remediation_release.M8_SERVICE_IDENTITY_ADDRESS
+    ]
+    (root / ".tmp/m8-release/terraform-plan.json").write_text(json.dumps(payload))
+    old_twenty_one = terraform_plan_summary(
+        root / ".tmp/m8-release/terraform-plan.json", expected_image_digest=DIGEST
+    )
+    assert old_twenty_one["allowed"] is False
+    assert old_twenty_one["addresses_allowed"] is False
+
+    _write_allowed_plan(root / ".tmp/m8-release")
     payload = json.loads((root / ".tmp/m8-release/terraform-plan.json").read_text())
     payload["resource_changes"][0]["address"] = "google_storage_bucket.unexpected[0]"
     (root / ".tmp/m8-release/terraform-plan.json").write_text(json.dumps(payload))
@@ -242,6 +295,31 @@ def test_M8_terraform_plan_requires_exact_addresses_moves_and_images(tmp_path: P
     )
     assert wrong_image["allowed"] is False
     assert wrong_image["images_bound"] is False
+
+    _write_allowed_plan(root / ".tmp/m8-release", recovery=True)
+    payload = json.loads((root / ".tmp/m8-release/terraform-plan.json").read_text())
+    payload["resource_changes"][0]["previous_address"] = "google_service_account.unexpected"
+    (root / ".tmp/m8-release/terraform-plan.json").write_text(json.dumps(payload))
+    recovery_with_move = terraform_plan_summary(
+        root / ".tmp/m8-release/terraform-plan.json", expected_image_digest=DIGEST
+    )
+    assert recovery_with_move["allowed"] is False
+    assert recovery_with_move["moves_allowed"] is False
+
+    for actions in (["update"], ["delete"], ["delete", "create"]):
+        _write_allowed_plan(root / ".tmp/m8-release", recovery=True)
+        payload = json.loads((root / ".tmp/m8-release/terraform-plan.json").read_text())
+        payload["resource_changes"].append(
+            {
+                "address": "google_cloud_run_v2_service.unexpected[0]",
+                "change": {"actions": actions, "after": {}},
+            }
+        )
+        (root / ".tmp/m8-release/terraform-plan.json").write_text(json.dumps(payload))
+        changed_recovery = terraform_plan_summary(
+            root / ".tmp/m8-release/terraform-plan.json", expected_image_digest=DIGEST
+        )
+        assert changed_recovery["allowed"] is False
 
 
 class ImageProcesses:

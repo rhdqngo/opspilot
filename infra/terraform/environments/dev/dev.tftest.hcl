@@ -6,6 +6,8 @@ mock_provider "google" {
   }
 }
 
+mock_provider "google-beta" {}
+
 run "bounded_dev_foundation" {
   command = plan
 
@@ -85,6 +87,7 @@ run "bounded_dev_foundation" {
       length(google_service_account.remediation_executor) == 0 &&
       length(google_cloud_run_v2_service.remediation_control) == 0 &&
       length(google_cloud_run_v2_service.remediation_executor) == 0 &&
+      length(google_project_service_identity.workflows) == 0 &&
       length(google_workflows_workflow.remediation) == 0
     )
     error_message = "The default M2 gate must preserve the M1-only resource graph."
@@ -513,6 +516,14 @@ run "m8_remediation_default_off_and_apply_ready_contract" {
   assert {
     condition     = length(google_project_service.m1) == 15
     error_message = "M8 may add only Firestore, Workflows, and Workflow Executions APIs."
+  }
+
+  assert {
+    condition = (
+      length(google_project_service_identity.workflows) == 1 &&
+      google_project_service_identity.workflows[0].service == "workflows.googleapis.com"
+    )
+    error_message = "M8 must materialize the Google-managed Workflows service identity before the Workflow."
   }
 
   assert {

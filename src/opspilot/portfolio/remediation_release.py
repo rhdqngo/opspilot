@@ -37,6 +37,7 @@ REQUIRED_TRANSITIONS = [
     "SUCCEEDED",
 ]
 IMAGE_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}$")
+M8_SERVICE_IDENTITY_ADDRESS = "google_project_service_identity.workflows[0]"
 ALLOWED_M8_CREATE_ADDRESSES = frozenset(
     {
         'google_project_service.m1["firestore.googleapis.com"]',
@@ -55,11 +56,18 @@ ALLOWED_M8_CREATE_ADDRESSES = frozenset(
         "google_project_iam_member.remediation_executor_firestore_reader[0]",
         "google_cloud_run_v2_service.remediation_control[0]",
         "google_cloud_run_v2_service.remediation_executor[0]",
+        M8_SERVICE_IDENTITY_ADDRESS,
         "google_workflows_workflow.remediation[0]",
         "google_cloud_run_v2_service_iam_member.remediation_group_invoker[0]",
         "google_cloud_run_v2_service_iam_member.workflow_invokes_control[0]",
         "google_cloud_run_v2_service_iam_member.workflow_invokes_executor[0]",
         "google_cloud_run_v2_service_iam_member.control_invokes_order[0]",
+    }
+)
+ALLOWED_M8_RECOVERY_CREATE_ADDRESSES = frozenset(
+    {
+        M8_SERVICE_IDENTITY_ADDRESS,
+        "google_workflows_workflow.remediation[0]",
     }
 )
 ALLOWED_M8_MOVES = frozenset(
@@ -230,13 +238,13 @@ def terraform_plan_summary(path: Path, expected_image_digest: str) -> dict[str, 
         previous_address = raw_change.get("previous_address")
         if isinstance(previous_address, str) and address:
             moves.add((previous_address, address))
+        if address in M8_IMAGE_SERVICE_ADDRESSES and action_set in ({"create"}, {"no-op"}):
+            planned_digests = _image_digests(change.get("after"))
+            if planned_digests == [expected_image_digest]:
+                planned_image_addresses.add(address)
         if action_set == {"create"}:
             counts["create"] += 1
             create_addresses.add(address)
-            if address in M8_IMAGE_SERVICE_ADDRESSES:
-                planned_digests = _image_digests(change.get("after"))
-                if planned_digests == [expected_image_digest]:
-                    planned_image_addresses.add(address)
         elif action_set == {"update"}:
             counts["update"] += 1
         elif action_set == {"delete"}:
@@ -247,15 +255,26 @@ def terraform_plan_summary(path: Path, expected_image_digest: str) -> dict[str, 
             counts["no_op"] += 1
         else:
             counts["other"] += 1
-    addresses_allowed = create_addresses == ALLOWED_M8_CREATE_ADDRESSES
-    moves_allowed = moves == ALLOWED_M8_MOVES
+    fresh_plan = create_addresses == ALLOWED_M8_CREATE_ADDRESSES
+    recovery_plan = create_addresses == ALLOWED_M8_RECOVERY_CREATE_ADDRESSES
+    expected_create_count = (
+        len(ALLOWED_M8_CREATE_ADDRESSES)
+        if fresh_plan
+        else len(ALLOWED_M8_RECOVERY_CREATE_ADDRESSES)
+        if recovery_plan
+        else -1
+    )
+    addresses_allowed = fresh_plan or recovery_plan
+    moves_allowed = (fresh_plan and moves == ALLOWED_M8_MOVES) or (
+        recovery_plan and moves == frozenset()
+    )
     images_bound = planned_image_addresses == M8_IMAGE_SERVICE_ADDRESSES
     return {
         **counts,
         "addresses_allowed": addresses_allowed,
         "moves_allowed": moves_allowed,
         "images_bound": images_bound,
-        "allowed": counts["create"] == len(ALLOWED_M8_CREATE_ADDRESSES)
+        "allowed": counts["create"] == expected_create_count
         and counts["update"] == 0
         and counts["delete"] == 0
         and counts["replace"] == 0
