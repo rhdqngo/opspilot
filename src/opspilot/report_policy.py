@@ -171,8 +171,6 @@ def _payment_pool_live_evidence(
         for item in payment
         if item.source_type is SourceType.METRIC
         and item.title.lower().endswith("error_ratio")
-        and isinstance(item.value, int | float)
-        and float(item.value) > 0
         and "missing_points" not in item.quality_flags
     ]
     knowledge = [
@@ -202,16 +200,16 @@ def apply_live_report_policy(report: IncidentReport) -> IncidentReport:
                 rank=1,
                 claim="Payment connection-pool acquisition was constrained",
                 mechanism=(
-                    "A direct pool-acquisition log signature coincided with an elevated payment "
-                    "error ratio in the bounded window."
+                    "A direct pool-acquisition failure signature was observed in bounded payment "
+                    "logs while the corresponding error-ratio series was available for review."
                 ),
                 affected_services=["payment-service"],
                 supporting_evidence_ids=supporting_ids,
                 contradicting_evidence_ids=[],
                 missing_evidence=[],
                 next_checks=["Confirm the current pool limit and active connection count."],
-                evidence_support_score=70,
-                status=HypothesisStatus.SUPPORTED,
+                evidence_support_score=60,
+                status=HypothesisStatus.PLAUSIBLE,
             )
         ],
         primary_code=primary_code,
@@ -226,14 +224,14 @@ def apply_live_report_policy(report: IncidentReport) -> IncidentReport:
             "title": "payment-service connection-pool constraint",
             "severity": "SEV-2",
             "severity_rationale": (
-                "Direct pool-acquisition and payment error-ratio evidence agree in the bounded "
+                "A direct payment pool-acquisition failure signature is present in the bounded "
                 "window."
             ),
             "status": ReportStatus.IDENTIFIED,
-            "impact_summary": "Payment requests experienced an elevated bounded error signal.",
+            "impact_summary": "Payment requests emitted bounded pool-acquisition failures.",
             "executive_summary": (
                 "The leading hypothesis is a payment connection-pool acquisition constraint, "
-                "supported by direct log and metric evidence."
+                "supported by a direct log signature and a corresponding bounded metric series."
             ),
             "affected_services": ["payment-service"],
             "hypotheses": hypotheses,

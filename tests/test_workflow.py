@@ -46,7 +46,7 @@ def _live_inconclusive_report(*, include_metric: bool = True) -> IncidentReport:
                 title="Cloud Run error_ratio",
                 service="payment-service",
                 summary="Observed bounded error-ratio points.",
-                value=0.6,
+                value=0.0,
                 direction=EvidenceDirection.UNKNOWN,
                 quality_flags=["live_read_only"],
             )
