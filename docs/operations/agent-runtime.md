@@ -13,6 +13,11 @@ result, Runtime emits one localized safe failure; it never changes to a differen
 The Runtime identity needs only permission to invoke that API. Logging, Monitoring, Cloud Run,
 Search, Cloud Tasks, and Firestore access remain on API-owned identities.
 
+Agent Engine can expose `GOOGLE_CLOUD_PROJECT` as a numeric project hint. The Runtime entrypoint
+resolves the project ID from the platform metadata endpoint before importing the Vertex SDK. This
+avoids granting `resourcemanager.projects.get` to the Runtime identity and does not persist or log
+either value.
+
 Input supports the catalog services `order-service`, `payment-service`, and `inventory-service`
 and Korean or English relative windows from 1 to 120 minutes. Missing service means all three;
 missing time means 30 minutes. Commands, write requests, project IDs, URLs, tokens, raw filters,

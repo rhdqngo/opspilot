@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+import opspilot.agent.runtime as runtime_module
 from opspilot.audit import ToolAuditContext, ToolCallAuditEvent, log_tool_call
 from opspilot.domain import SourceType, ToolErrorCategory
 from opspilot.evidence import (
@@ -238,3 +239,20 @@ def test_tool_call_uses_json_stdout_on_cloud_run(
     payload = json.loads(capsys.readouterr().out)
     assert payload["event"] == "opspilot_tool_call"
     assert payload["tool_name"] == "logging.query"
+
+
+def test_runtime_stages_use_json_stdout_on_agent_engine(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY", "true")
+
+    runtime_module._log_runtime_stage(
+        "accepted",
+        run_id="RUN-0123456789ABCDEF",
+        correlation_id="COR-0123456789ABCDEF",
+        trace_id="0123456789abcdef0123456789abcdef",
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["event"] == "opspilot_runtime"
+    assert payload["stage"] == "accepted"

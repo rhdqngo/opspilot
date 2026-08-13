@@ -6,7 +6,8 @@ Status: deployed M7 boundary; M8 roles are implemented default-off and not appli
 | --- | --- | --- |
 | Local operator | Reviewed Terraform apply, bounded manual validation | Automatic remediation, broad runtime role |
 | Terraform plan identity | Remote-state read and resource get/list needed for manual plans | Apply, API enable/disable, IAM write, import, model query |
-| Investigator/Runtime SA | Read bounded Logging/Monitoring/Run/Search evidence; invoke the fixed Vertex model | Keys, IAM write, Cloud Run update/invoke, Search import/write, Storage object read, remediation |
+| Runtime SA | Invoke only the private investigation API; use platform metadata for SDK bootstrap | Project role, evidence reads, Firestore, Tasks, remediation, keys, IAM write |
+| Investigation API SA | Read bounded Logging/Monitoring/Run/Search evidence; create bounded tasks and investigation records | IAM write, Cloud Run update, remediation, delete permissions |
 | Order runtime SA | Invoke payment and inventory Cloud Run services | Project-wide role, key, other service invocation |
 | Payment/inventory runtime SAs | Run their private services | Project role, key, downstream invocation |
 | Reasoning Engine service agent | Mint short-lived credentials for the investigator SA only | Project-wide Token Creator grant |
@@ -33,7 +34,9 @@ Logging/Monitoring filter, or serving config.
 ## Runtime and workload boundary
 
 - Three Cloud Run services remain private; only the order identity has the two leaf invoker grants.
-- The managed Runtime reuses the investigator SA and publishes one async-stream operation.
+- The managed Runtime reuses the investigator SA and publishes one async-stream operation. With
+  persistent investigations enabled it has no project role; numeric project metadata is normalized
+  before Vertex SDK import so SDK bootstrap does not require `resourcemanager.projects.get`.
 - Enterprise-supplied session IDs are handled only by an in-process `InMemorySessionService`.
   `aiplatform.sessions.create` is intentionally not granted; no session or user identity is persisted.
 - No public principal, service-account key, broad predefined runtime role, OAuth delegation,

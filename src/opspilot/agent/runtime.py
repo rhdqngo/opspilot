@@ -174,7 +174,11 @@ def _log_runtime_stage(
     }
     if summary is not None:
         payload["outcome"] = summary.outcome
-    LOGGER.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    serialized = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    if os.getenv("GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY") == "true":
+        print(serialized, flush=True)
+        return
+    LOGGER.info("%s", serialized)
 
 
 def validate_runtime_api_input(value: str) -> RuntimeInputDecision:

@@ -395,7 +395,7 @@ class PreQaReleaseRunner:
             raise ValueError("release context Runtime contract is missing")
         digest = self.environment.get("OPSPILOT_PREQA_IMAGE_DIGEST", "")
         summary = terraform_plan_summary(
-            self.output / "terraform-plan.json",
+            self.output / "terraform-plan-raw.json",
             expected_image_digest=digest,
             expected_runtime_sha256=str(runtime.get("sha256", "")),
         )

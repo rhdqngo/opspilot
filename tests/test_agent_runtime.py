@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import tarfile
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,7 @@ from opspilot.agent.runtime import (
 )
 from opspilot.agent.runtime_agent import (
     OpsPilotRuntimeApp,
+    _normalize_agent_engine_project,
     create_ephemeral_session_service,
     create_runtime_app,
     root_agent,
@@ -62,6 +64,30 @@ def _request_json(
             "sessionId": session,
         }
     )
+
+
+def test_agent_engine_normalizes_numeric_project_without_project_iam(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MetadataResponse:
+        def __enter__(self) -> MetadataResponse:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"safe-project-id"
+
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "123456789012")
+    monkeypatch.setattr(
+        "opspilot.agent.runtime_agent.urlopen",
+        lambda *_args, **_kwargs: MetadataResponse(),
+    )
+
+    _normalize_agent_engine_project()
+
+    assert os.environ["GOOGLE_CLOUD_PROJECT"] == "safe-project-id"
 
 
 def test_enterprise_adapter_accepts_catalog_scope_windows_and_defaults() -> None:

@@ -1,9 +1,38 @@
 """Agent Runtime entrypoint; local M6 discovery remains unchanged."""
 
-from google.adk.sessions import InMemorySessionService
-from vertexai import agent_engines
+from __future__ import annotations
 
-from opspilot.agent.runtime import (
+import os
+import re
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
+
+def _normalize_agent_engine_project() -> None:
+    """Replace Agent Engine's numeric project hint before Vertex SDK initialization."""
+
+    configured = os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
+    if not configured.isdigit():
+        return
+    request = Request(
+        "http://metadata.google.internal/computeMetadata/v1/project/project-id",
+        headers={"Metadata-Flavor": "Google"},
+    )
+    try:
+        with urlopen(request, timeout=2) as response:
+            project_id = response.read().decode("utf-8").strip()
+    except (OSError, UnicodeDecodeError, URLError):
+        return
+    if re.fullmatch(r"[a-z][a-z0-9-]{4,28}[a-z0-9]", project_id):
+        os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+
+
+_normalize_agent_engine_project()
+
+from google.adk.sessions import InMemorySessionService  # noqa: E402
+from vertexai import agent_engines  # noqa: E402
+
+from opspilot.agent.runtime import (  # noqa: E402
     RuntimeHandler,
     create_runtime_root_agent,
     run_live_runtime_investigation,

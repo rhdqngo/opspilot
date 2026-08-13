@@ -203,3 +203,31 @@ def test_record_rejects_unknown_or_missing_checks(
 
     assert exit_code == 2
     assert artifact["checks"]["fixed_schema"] is False  # type: ignore[index]
+
+
+def test_terraform_plan_keeps_raw_plan_separate_from_phase_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "repo"
+    output = root / ".tmp" / "preqa"
+    output.mkdir(parents=True)
+    source = {
+        "git_commit": "commit-a",
+        "working_tree_dirty": False,
+        "source_tree_sha256": "1" * 64,
+    }
+    monkeypatch.setattr("opspilot.portfolio.preqa_release.source_metadata", lambda _root: source)
+    monkeypatch.setenv("OPSPILOT_PREQA_IMAGE_DIGEST", IMAGE_DIGEST)
+    _write(
+        output / "release-context.json",
+        {"source": source, "runtime": {"file_count": 11, "sha256": RUNTIME_SHA256}},
+    )
+    _write(output / "terraform-plan-raw.json", _allowed_plan())
+    (output / "preqa.tfplan").write_bytes(b"reviewed-plan")
+
+    exit_code, artifact = PreQaReleaseRunner(root=root, output=Path(".tmp/preqa")).terraform_plan()
+
+    assert exit_code == 0
+    assert artifact["status"] == "passed"
+    assert (output / "terraform-plan-raw.json").is_file()
+    assert json.loads((output / "terraform-plan.json").read_text())["phase"] == "terraform-plan"
