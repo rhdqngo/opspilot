@@ -1,4 +1,4 @@
-.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run scenario-remediation-plan scenario-remediation-abort-plan remediation-eval m8-release-preflight m8-release-post-apply m8-release-e2e m8-release-publish knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-eval-portfolio agent-runtime-package cleanup-plan portfolio-release-check portfolio-release-publish portfolio-demo demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
+.PHONY: install install-agent run build test lint typecheck replay scenario-replay-all scenario-run scenario-remediation-plan scenario-remediation-abort-plan remediation-eval m8-release-preflight m8-release-image m8-release-plan m8-release-post-apply m8-release-e2e m8-release-publish knowledge-validate knowledge-sync knowledge-smoke evidence-smoke agent-run agent-eval agent-eval-portfolio agent-runtime-package cleanup-plan portfolio-release-check portfolio-release-publish portfolio-demo demo-up demo-smoke demo-down image-build infra-fmt infra-validate infra-test infra-lint infra-plan
 
 TERRAFORM ?= terraform
 TFLINT_IMAGE ?= ghcr.io/terraform-linters/tflint:v0.64.0
@@ -46,6 +46,12 @@ remediation-eval:
 
 m8-release-preflight:
 	uv run python scripts/m8_release.py preflight --output .tmp/m8-release
+
+m8-release-image:
+	uv run python scripts/m8_release.py verify --phase image --output .tmp/m8-release
+
+m8-release-plan:
+	uv run python scripts/m8_release.py verify --phase terraform-plan --output .tmp/m8-release
 
 m8-release-post-apply:
 	uv run python scripts/m8_release.py verify --phase post-apply --output .tmp/m8-release

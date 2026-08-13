@@ -76,5 +76,7 @@ uv run opspilot remediation eval --suite remediation --format summary
 uv run --extra agent opspilot scenario prepare --scenario SCN-008 --mode plan --auth gcloud
 uv run --extra agent opspilot scenario abort --scenario SCN-008 --mode plan --auth gcloud
 uv run python scripts/m8_release.py preflight --output .tmp/m8-release
+uv run python scripts/m8_release.py verify --phase image --output .tmp/m8-release
+uv run python scripts/m8_release.py verify --phase terraform-plan --output .tmp/m8-release
 uv run opspilot cleanup plan --format summary
 ```

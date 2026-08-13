@@ -1,8 +1,8 @@
 # Current Project State
 
 status: in_progress
-phase: M8-gate-a-local-verified / image-push-approval-pending
-updated: 2026-08-12
+phase: M8-release-contract-sealed / image-push-approval-pending
+updated: 2026-08-13
 
 ## Delivered MVP
 
@@ -291,6 +291,27 @@ updated: 2026-08-12
   containers were removed.
 - Artifact Registry push is the next explicit approval checkpoint. Terraform plan/apply, faulty
   activation, approval, and cloud evidence remain separately blocked.
+
+## M8 release evidence binding checkpoint
+
+- The image release phase now requires a full clean commit tag, independently re-reads the
+  Artifact Registry digest, binds it to the local image repo digest, verifies Linux/amd64 and
+  `65532:65532`, and starts both control and executor health boundaries with guaranteed temporary
+  container cleanup. Its artifact excludes the Registry URI and project.
+- Terraform verification now runs before apply and accepts exactly 21 additive M8 resource
+  addresses, the two reviewed payment state moves, both control-plane services on the approved
+  digest, and zero update, delete, replacement, or unknown action. The reviewed binary plan hash is
+  fixed under `.tmp` and post-apply verification rejects any later change.
+- Final publication requires aligned preflight, image, Terraform-plan, post-apply, and E2E source
+  metadata. It records the control/executor and payment known-good digests as separate sanitized
+  fields and still excludes cloud identifiers, URLs, actors, and raw errors.
+- The pre-commit release gate passed 185 pytest tests, Ruff format/check, strict mypy over 78 source
+  files, wheel/sdist build, core `7/7`, portfolio `40/40`, remediation `12/12`, two identical
+  17-file Runtime archives with SHA-256
+  `a1eb4b5c548fb6f88396ca506c9e5f16512e093d21e80b23ee239cd87ebaa79b`, Terraform
+  format/validate, bootstrap `1/1`, dev `7/7`, and all three SCN-008 plan commands.
+- No image push, Terraform plan/apply, IAM change, fault activation, approval decision, evidence
+  publish, Git push, or PR occurred. The next external checkpoint remains Artifact Registry push.
 
 ## Validation authority
 

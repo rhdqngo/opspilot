@@ -105,15 +105,26 @@ apply, scenario execute, or remediation decision command.
 
 ```powershell
 uv run python scripts/m8_release.py preflight --output .tmp/m8-release
+uv run python scripts/m8_release.py verify --phase image --output .tmp/m8-release
+uv run python scripts/m8_release.py verify --phase terraform-plan --output .tmp/m8-release
 uv run python scripts/m8_release.py verify --phase post-apply --output .tmp/m8-release
 uv run python scripts/m8_release.py verify --phase e2e --output .tmp/m8-release
 uv run python scripts/m8_release.py publish --output .tmp/m8-release
 ```
 
+The image phase reads `OPSPILOT_M8_LOCAL_IMAGE` and `OPSPILOT_M8_REGISTRY_IMAGE_URI` from the
+operator environment. The local tag must be `opspilot-m8:<full clean HEAD SHA>` and the Registry
+value must be an immutable digest URI. The phase rechecks the Registry digest, Linux/amd64,
+`65532:65532`, and both health endpoints, always removes its temporary containers, and stores only
+sanitized image facts in `.tmp/m8-release/image.json`.
+
 Before post-apply verification, save the reviewed plan JSON at
-`.tmp/m8-release/terraform-plan.json`. Its resource actions must contain one or more creates and no
-update, delete, or replacement. The human-reviewed binary plan remains under `.tmp` and is the only
-plan eligible for the separately approved apply.
+`.tmp/m8-release/terraform-plan.json`. The verifier requires exactly 21 additive M8 addresses, the
+two payment resource state moves, the approved digest on both new Cloud Run services, and zero
+update, delete, replacement, or unknown action. The human-reviewed binary plan remains under
+`.tmp` and is the only plan eligible for the separately approved apply. Run the Terraform-plan
+phase before requesting apply approval; it records only the binary SHA-256 and sanitized action
+summary. Post-apply verification recalculates both values and fails if either plan file changed.
 
 Gate order:
 
@@ -121,7 +132,8 @@ Gate order:
    remediation 12/12, all three scenario plans, gcloud configuration, required tools, and Docker
    daemon readiness.
 2. After image-push approval, build Linux/amd64, verify non-root control/executor health, push one
-   commit-SHA tag, resolve its digest, and inject only the digest URI.
+   full-commit-SHA tag, resolve its digest, and pass the image phase before injecting only the
+   digest URI.
 3. Generate and review the remote-state Terraform plan. Stop on any existing-resource update,
    delete, replacement, Runtime/investigator/demo change, or permission expansion. Apply only that
    reviewed binary plan after a new approval.
@@ -137,8 +149,9 @@ Gate order:
 8. Execute reset, require another 10/10, no active Workflow, and Terraform `No changes`; then run
    E2E verification and publish.
 
-Only a clean passed preflight, passed post-apply verification, passed non-aborted E2E, and final
-zero-drift plan may create `docs/portfolio/results/remediation-release-v1.{json,md}`. Published
-evidence contains aggregate actions, checks, orders, transitions, hash-presence booleans, and safe
-failure codes only. It excludes project, region, URLs, emails, actual actor hashes, revision,
-workflow, callback, remediation, execution, and request identifiers.
+Only aligned clean preflight, image, post-apply, and non-aborted E2E phases plus a final zero-drift
+plan may create `docs/portfolio/results/remediation-release-v1.{json,md}`. Published evidence keeps
+control/executor and payment known-good digests separate and contains aggregate actions, checks,
+orders, transitions, hash-presence booleans, and safe failure codes only. It excludes project,
+region, Registry and service URLs, emails, actual actor hashes, revision, workflow, callback,
+remediation, execution, and request identifiers.
