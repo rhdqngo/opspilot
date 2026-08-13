@@ -61,6 +61,13 @@ tasks/reports/executor attempts are observed.
 Hosted Runner zero-step failures caused by the existing billing or quota condition are recorded as an
 external non-blocking result; they do not replace the local and managed-environment gates.
 
+## Completed checkpoint
+
+The implementation commit passed the source-bound release profile and the sanitized result is
+published at [`long-spec-preqa-v1.md`](../portfolio/results/long-spec-preqa-v1.md). The existing
+OpsPilot registration is enabled and still targets the unchanged Runtime. The Preview chat was not
+opened and no Preview query was submitted.
+
 ## Enterprise QA handoff cases
 
 Do not execute these in Preview during pre-QA preparation. Hand them to the QA operator with the

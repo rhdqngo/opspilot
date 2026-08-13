@@ -1,7 +1,7 @@
 # Current Project State
 
-status: in_progress
-phase: long-master-spec defect remediation locally verified; cloud rollout pending
+status: ready_for_enterprise_qa
+phase: managed pre-QA rollout verified; Gemini Enterprise Preview query QA pending
 updated: 2026-08-13
 
 ## Completed product scope
@@ -15,45 +15,57 @@ updated: 2026-08-13
 - Fixture/evaluation graph, core 7/7, portfolio 40/40, and isolated approval-gated SCN-008 rollback
   with remediation 12/12.
 
-## Defect-remediation result
+## Long-spec defect remediation
 
 - FR-001 parses one incident ID, accepts dev aliases, rejects conflicting IDs and explicit
   prod/stage/qa, and records omitted dev scope as an assumption.
-- FR-011 adds a safe server-owned alternative hypothesis and separates evidence-grounded
-  containment, mitigation, and root-fix recommendations. SCN-008 `ACT-01 / ROLLBACK_CLOUD_RUN`
-  remains unchanged.
-- FR-016/FR-017 add shared run/correlation/trace propagation and one privacy-safe structured event
-  per logical evidence tool call.
-- NFR-006 adds bounded exponential full-jitter retry to Evidence, Runtime API, and remediation
-  transports; state-changing POST retries require an idempotency key.
-- NFR-011/NFR-012 add source-domain actor/session/query hashes, verified internal caller identities,
-  redaction before persistence, and additive legacy Firestore compatibility.
-- Runtime run ID is the idempotency key and deterministically maps to one investigation; task and
-  report creation remain deduplicated under concurrent submission/redelivery.
+- FR-011 preserves the verified top cause, adds a safe non-assertive H-02 when appropriate, and
+  separates cited containment, mitigation, and root-fix/prevention recommendations.
+- FR-016/FR-017 propagate one run/correlation/trace identity through Runtime, API, task, executor,
+  and report, with one privacy-safe structured event per logical evidence tool.
+- NFR-006 uses bounded exponential full-jitter retry with deadline enforcement and requires an
+  idempotency key before retrying a state-changing POST.
+- NFR-011/NFR-012 retain only source-domain actor/session/query hashes and redacted query text;
+  additive optional fields preserve legacy Firestore reads.
 
-## Current validation
+## Validation state
 
-- Ruff format/check pass; strict mypy passes over 86 checked files; pytest passes 213/213; package
-  build passes.
-- Core 7/7, portfolio 40/40, and remediation 12/12 pass with citation and safety gates intact.
-- Two 11-file Runtime archives are byte-identical with SHA-256
-  `1c7f7b14a95e850a31db1b1d5b6003f2b2acff02c42216a8a7d712dbfd6eda1f`.
-- Terraform format/validate, bootstrap 1/1, and dev 8/8 pass after restoring provider caches.
-- Fixture replay renders H-01/H-02 and the three recommendation sections. The rebuilt local demo
-  image passes 10/10 orders with two concurrent workers; containers were stopped afterward.
+- Source-bound preflight passes 230/230 pytest, Ruff format/check, strict mypy over 88 files,
+  package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap 1/1, and dev 8/8.
+- Two 11-file Runtime packages are byte-identical. The implementation image is linux/amd64,
+  non-root, health-checked, and digest-bound to the implementation commit.
+- Reviewed Terraform apply changed only the investigation API in place during the final recovery;
+  the Agent Runtime resource and Gemini Enterprise registration target remained stable.
+- Remote SCN-001 passed baseline 5/5, incident 4 fulfilled and 6 failed, recovery 5/5, with ground
+  truth matched.
+- Managed Runtime direct smoke returned exactly one progress and one final event. The persisted
+  report contains H-01/H-02, all three recommendation classes, and citations contained in Sources.
+- Twenty concurrent submissions with one run identity produced one investigation, one task
+  attempt, and one report version. Four callers received the completed report and sixteen reached
+  the bounded 12-second wait response; persisted idempotency remained intact.
+- Firestore/report/log scans found no synthetic email or token sentinel. Runtime and direct API
+  audit hashes, shared trace/correlation linkage, four structured tool events, and negative auth
+  boundaries passed.
+- Cloud Run is Ready, the Runtime is callable, public invoker is absent, and only the three intended
+  service identities can invoke the investigation service.
+- Gemini Enterprise admin view shows OpsPilot enabled and bound to the unchanged Runtime. No
+  Preview chat or query was opened.
+- Final Terraform plan with the same image digest and Runtime archive reports `No changes`.
+- Sanitized evidence: [long-spec-preqa-v1.md](../portfolio/results/long-spec-preqa-v1.md).
 
-## Remaining release validation
+## External non-blocking item
 
-- No cloud deployment, image push, Runtime update, Terraform apply/plan, or external-service write
-  was performed in this change. The investigation API image and Runtime archive require the normal
-  reviewed source-bound release flow.
-- After rollout, verify one live Runtime turn uses the same trace/correlation IDs through persisted
-  report audit, inspect the fixed `opspilot_tool_call` schema and redacted audit document, and finish
-  with Terraform `No changes`.
-- GitHub hosted runner workflows remain externally blocked by the previously recorded account
-  billing/spending-limit condition; rerun the three manual workflows when runners are available.
+- The three manual GitHub workflows were dispatched against the implementation commit. Each job
+  ended with zero executed steps under the existing hosted-runner billing/spending-limit condition.
+  The managed and local gates above are authoritative until Hosted Runner service is available.
 
-## Deferred beyond this repair
+## Next checkpoint
+
+- Execute the cases in [gemini-enterprise-preqa.md](../operations/gemini-enterprise-preqa.md) from
+  the Gemini Enterprise Preview web UI and record observed results. Do not change Runtime,
+  registration, IAM, M8, or demo resources as part of QA.
+
+## Deferred beyond this milestone
 
 Feedback persistence, public simulation/live switching, BigQuery, HTML/approval UI, Cloud Deploy
 rollouts, Model Armor, VPC Service Controls/private connectivity, multi-project/A2A/MCP, managed

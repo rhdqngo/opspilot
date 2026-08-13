@@ -1,0 +1,67 @@
+{
+  "schema_version": "long-spec-preqa-v1",
+  "generated_at": "2026-08-13T09:18:02.474309+00:00",
+  "status": "passed",
+  "source": {
+    "git_commit": "e7ffe615f4dac011c1a54841187628412a8aba03",
+    "working_tree_dirty": false,
+    "source_tree_sha256": "e97c8e49d25fb1e4f3d7ff2ac096825ffa8b1692b23acedec937a3d22754edc2"
+  },
+  "runtime": {
+    "file_count": 11,
+    "sha256": "eac19a816950b88703673ab2882ee46d8aed874cd337b0d109d846e9ee2ae038"
+  },
+  "release_context_sha256": "29474374e47449c7e627e7791c21045d0efdff927554f6caa8431b83295dcd4c",
+  "binary_plan_sha256_present": true,
+  "terraform_plan": {
+    "allowed": true,
+    "add": 0,
+    "update": 1,
+    "destroy": 0,
+    "exact_scope": true,
+    "actions_valid": true,
+    "image_bound": true,
+    "runtime_bound": false,
+    "runtime_name_stable": true,
+    "public_iam_absent": true
+  },
+  "checks": {
+    "post-apply": {
+      "api_ready": true,
+      "public_invoker_absent": true,
+      "registration_stable": true,
+      "runtime_name_stable": true,
+      "runtime_ready": true,
+      "unexpected_iam_absent": true,
+      "release_context_matches": true
+    },
+    "smoke": {
+      "citations_valid": true,
+      "classified_actions": true,
+      "h01_h02": true,
+      "idempotent_20": true,
+      "persisted_report": true,
+      "privacy_log_scan_clean": true,
+      "redaction_verified": true,
+      "runtime_alert_denied": true,
+      "runtime_allowed": true,
+      "runtime_task_denied": true,
+      "runtime_two_events": true,
+      "scenario_recovered": true,
+      "tool_logs_valid": true,
+      "trace_linked": true,
+      "unauthenticated_denied": true,
+      "release_context_matches": true
+    },
+    "final-plan": {
+      "terraform_no_changes": true,
+      "release_context_matches": true
+    },
+    "hosted": {
+      "pr_checks_recorded": true,
+      "terraform_checks_recorded": true,
+      "terraform_plan_recorded": true,
+      "release_context_matches": true
+    }
+  }
+}
