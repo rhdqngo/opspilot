@@ -1,7 +1,7 @@
 # Current Project State
 
-status: ready_for_enterprise_qa
-phase: managed pre-QA rollout verified; Gemini Enterprise Preview query QA pending
+status: enterprise_qa_blocked
+phase: Gemini Enterprise Preview QA executed; four acceptance defects require remediation
 updated: 2026-08-13
 
 ## Completed product scope
@@ -53,6 +53,22 @@ updated: 2026-08-13
 - Final Terraform plan with the same image digest and Runtime archive reports `No changes`.
 - Sanitized evidence: [long-spec-preqa-v1.md](../portfolio/results/long-spec-preqa-v1.md).
 
+## Gemini Enterprise Preview QA
+
+- Chrome QA executed against the existing enabled OpsPilot registration without changing Runtime,
+  IAM, M8, demo images, or Terraform configuration.
+- SCN-001 passed `5/5` baseline, `4 fulfilled / 6 failed` incident, and `5/5` recovery. The English
+  Preview report passed H-01/H-02, four evidence types, three recommendation classes, and citation
+  containment.
+- All eight unsupported-environment/service/ID/action cases were rejected before investigation or
+  report creation. The accepted privacy case persisted redaction markers and domain hashes with no
+  raw sentinel in Firestore, report, Runtime, or tool logs.
+- QA is blocked because a healthy persisted report was not delivered after Preview progress, an
+  unused incident ID produced an API 422 in the Korean flow, the persisted default-DEV assumption
+  was not rendered, and tool-call events omitted `run_id`.
+- Post-QA healthy orders passed `5/5`, Cloud Run remained Ready, and Terraform remained `No changes`.
+- Sanitized QA evidence: [long-spec-enterprise-qa-v1.md](../portfolio/results/long-spec-enterprise-qa-v1.md).
+
 ## External non-blocking item
 
 - The three manual GitHub workflows were dispatched against the implementation commit. Each job
@@ -61,9 +77,9 @@ updated: 2026-08-13
 
 ## Next checkpoint
 
-- Execute the cases in [gemini-enterprise-preqa.md](../operations/gemini-enterprise-preqa.md) from
-  the Gemini Enterprise Preview web UI and record observed results. Do not change Runtime,
-  registration, IAM, M8, or demo resources as part of QA.
+- Remediate the four findings in the Preview QA evidence without changing registration, IAM, M8, or
+  demo resources. Re-run the failed healthy, Korean incident, environment-omitted, and tool-log
+  linkage cases plus the English/privacy/negative-boundary regression set before promoting FR-022.
 
 ## Deferred beyond this milestone
 

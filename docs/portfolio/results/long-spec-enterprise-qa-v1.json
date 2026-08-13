@@ -1,0 +1,100 @@
+{
+  "schema_version": "long-spec-enterprise-qa-v1",
+  "generated_at": "2026-08-13T13:39:00.3684744Z",
+  "status": "blocked",
+  "source": {
+    "qa_base_commit": "6bed2afd312d57a6e929bc80746d994821fdf6e4",
+    "implementation_commit": "e7ffe615f4dac011c1a54841187628412a8aba03",
+    "working_tree_clean_at_start": true
+  },
+  "start_gate": {
+    "main_matches_origin": true,
+    "terraform_no_changes": true,
+    "cloud_run_ready": true,
+    "runtime_registration_stable": true,
+    "remediation_fault_inactive": true
+  },
+  "scenario": {
+    "executions": 1,
+    "baseline_fulfilled": 5,
+    "incident_fulfilled": 4,
+    "incident_failed": 6,
+    "recovery_fulfilled": 5,
+    "recovered": true,
+    "ground_truth_matched": true
+  },
+  "preview_cases": {
+    "healthy": {
+      "status": "failed",
+      "progress_events": 1,
+      "final_report_visible": false,
+      "persisted_report_complete": true,
+      "persisted_hypotheses": 0,
+      "persisted_actions": 0
+    },
+    "english_positive": {
+      "status": "passed",
+      "latency_ms": 24913,
+      "progress_events": 1,
+      "h01_h02": true,
+      "classified_actions": true,
+      "evidence_types": 4,
+      "citations_valid": true,
+      "unsafe_payload_absent": true
+    },
+    "korean_incident": {
+      "status": "failed",
+      "latency_ms": 7089,
+      "progress_events": 1,
+      "safe_failure_visible": true,
+      "api_status": 422,
+      "investigations_created": 0
+    },
+    "environment_omitted": {
+      "status": "failed",
+      "latency_ms": 9565,
+      "report_visible": true,
+      "persisted_dev_assumption": true,
+      "preview_dev_assumption_visible": false
+    },
+    "privacy_redaction": {
+      "status": "passed",
+      "latency_ms": 10583,
+      "report_visible": true,
+      "redacted_email_persisted": true,
+      "redacted_token_persisted": true,
+      "raw_sentinel_absent_from_firestore_report_runtime_tool_logs": true,
+      "domain_hashes_valid": true,
+      "citations_valid": true
+    },
+    "negative_boundaries": {
+      "status": "passed",
+      "cases": 8,
+      "rejected_without_progress": 8,
+      "reports_created": 0
+    }
+  },
+  "managed_cross_checks": {
+    "accepted_investigations": 4,
+    "one_task_and_report_per_accepted_investigation": true,
+    "runtime_trace_and_correlation_consistent": true,
+    "tool_event_groups": 4,
+    "tool_events_per_group": 4,
+    "tool_schema_complete": true,
+    "tool_trace_and_correlation_consistent": true,
+    "tool_run_id_present": false,
+    "tool_forbidden_fields_absent": true
+  },
+  "exit_gate": {
+    "healthy_orders": "5/5",
+    "cloud_run_ready": true,
+    "terraform_no_changes": true,
+    "infrastructure_changed": false
+  },
+  "blocking_findings": [
+    "preview_final_not_delivered_for_healthy_report",
+    "unused_incident_id_rejected_end_to_end",
+    "default_dev_assumption_not_rendered_in_preview",
+    "tool_event_run_id_missing"
+  ]
+}

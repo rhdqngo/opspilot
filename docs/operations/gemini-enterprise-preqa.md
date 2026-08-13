@@ -83,3 +83,12 @@ expected result:
 | Alternative hypothesis | Conclusive SCN-001 result | H-01 unchanged and non-assertive H-02 present |
 | Recommendation policy | Conclusive canonical cause | containment, mitigation, and root-fix/prevention sections, all cited |
 | Privacy sentinel | Synthetic email and token-shaped text | Redacted storage/output; only domain-separated hashes retained |
+
+## Executed Preview QA
+
+The handoff cases were executed on 2026-08-13 and the sanitized record is published at
+[`long-spec-enterprise-qa-v1.md`](../portfolio/results/long-spec-enterprise-qa-v1.md). English
+SCN-001, privacy redaction, all eight negative boundaries, scenario recovery, and final no-drift
+checks passed. The release remains blocked on healthy final delivery, the Korean unused-incident-ID
+flow, visible default-DEV assumption, and missing tool-event `run_id`. No product or infrastructure
+change was made during QA.
