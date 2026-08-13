@@ -1,0 +1,115 @@
+{
+  "schema_version": "long-spec-enterprise-qa-v2",
+  "generated_at": "2026-08-13T15:10:00Z",
+  "status": "blocked",
+  "cycles": 2,
+  "source": {
+    "preview_blocker_fix_commit": "b71570bdcb86a167d918a75031e80b64b690cf30",
+    "scenario_warmup_commit": "e3dfc1455c12a54db4ce80292c1088a984ac3f91",
+    "runtime_archive_unchanged_between_cycles": true,
+    "restored_deployment_commit": "b71570bdcb86a167d918a75031e80b64b690cf30"
+  },
+  "cycle_1": {
+    "managed_gates": "passed",
+    "healthy_preview_runs": {
+      "executed": 3,
+      "passed": 3,
+      "one_progress_and_final": true,
+      "one_investigation_task_report": true,
+      "four_runtime_stages_and_tools": true
+    },
+    "scenario": {
+      "managed_executions": 1,
+      "baseline_fulfilled": 3,
+      "incident_fulfilled": 4,
+      "incident_failed": 6,
+      "recovery_fulfilled": 5,
+      "recovered": true,
+      "ground_truth_matched": false,
+      "finding": "counted_baseline_started_before_scale_to_zero_service_was_ready"
+    }
+  },
+  "cycle_2": {
+    "local_gates": {
+      "pytest": "235/235",
+      "core": "7/7",
+      "portfolio": "40/40",
+      "remediation": "12/12",
+      "ruff": "passed",
+      "mypy": "passed",
+      "build": "passed",
+      "terraform": "1/1 and 8/8",
+      "runtime_reproducible": true
+    },
+    "deployment": {
+      "add": 0,
+      "update": 1,
+      "destroy": 0,
+      "only_investigation_api_image": true,
+      "runtime_and_registration_unchanged": true
+    },
+    "healthy_preview_runs": [
+      {
+        "case": "healthy-1",
+        "runtime_elapsed_ms": 2144,
+        "preview_final_visible": true,
+        "preview_stream_closed": true,
+        "backend_invariants": "passed"
+      },
+      {
+        "case": "healthy-2",
+        "runtime_elapsed_ms": 6999,
+        "preview_final_visible": true,
+        "preview_stream_closed": false,
+        "backend_invariants": "passed"
+      },
+      {
+        "case": "healthy-retry-a",
+        "runtime_elapsed_ms": 5972,
+        "preview_final_visible": true,
+        "preview_stream_closed": false,
+        "backend_invariants": "passed"
+      },
+      {
+        "case": "healthy-retry-b",
+        "runtime_elapsed_ms": 6896,
+        "preview_final_visible": false,
+        "preview_stream_closed": false,
+        "backend_invariants": "passed"
+      }
+    ],
+    "managed_cross_checks": {
+      "accepted_runs": 4,
+      "runtime_stage_contract_passed": 4,
+      "single_task_and_report_passed": 4,
+      "trace_and_correlation_linked": 4,
+      "four_tool_events_passed": 4,
+      "duplicate_or_privacy_finding": false
+    },
+    "remaining_preview_matrix_executed": false
+  },
+  "blocking_finding": {
+    "code": "gemini_enterprise_preview_stream_provider_failure",
+    "runtime_final_emitted": true,
+    "persisted_report_complete": true,
+    "preview_reproduced": true,
+    "application_fix_or_redeploy_indicated": false,
+    "external_action": "Retry the full matrix after Gemini Enterprise Preview streaming is healthy or provider support identifies the delivery failure."
+  },
+  "recovery": {
+    "restored_last_preview_healthy_image": true,
+    "recovery_plan": "0 add / 1 update / 0 destroy",
+    "cloud_run_ready": true,
+    "runtime_direct_two_events": true,
+    "healthy_orders": "5/5",
+    "terraform_no_changes": true
+  },
+  "not_executed_after_safety_stop": [
+    "cycle-2 SCN-001",
+    "English positive",
+    "Korean unused incident",
+    "environment omitted",
+    "privacy sentinel",
+    "eight negative boundaries"
+  ]
+}

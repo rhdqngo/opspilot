@@ -1,8 +1,8 @@
 # Current Project State
 
-status: enterprise_qa_remediating
-phase: Iterative Preview-fix candidate passes local gates and awaits source-bound limited rollout
-updated: 2026-08-13
+status: enterprise_qa_blocked
+phase: Application and backend gates pass; Gemini Enterprise Preview repeatedly fails final delivery
+updated: 2026-08-14
 
 ## Completed product scope
 
@@ -48,8 +48,8 @@ updated: 2026-08-13
   boundaries passed.
 - Cloud Run is Ready, the Runtime is callable, public invoker is absent, and only the three intended
   service identities can invoke the investigation service.
-- Gemini Enterprise admin view shows OpsPilot enabled and bound to the unchanged Runtime. No
-  Preview chat or query was opened.
+- Gemini Enterprise admin view showed OpsPilot enabled and bound to the unchanged Runtime before
+  Preview v2 began.
 - Final Terraform plan with the same image digest and Runtime archive reports `No changes`.
 - Sanitized evidence: [long-spec-preqa-v1.md](../portfolio/results/long-spec-preqa-v1.md).
 
@@ -82,6 +82,16 @@ updated: 2026-08-13
   baseline. It passes 235/235 pytest, Ruff, strict mypy over 88 files, build, core 7/7, portfolio
   40/40, remediation 12/12, Terraform bootstrap 1/1 and dev 8/8. Its two 11-file Runtime packages
   remain byte-identical to candidate 1, so the managed Runtime is unaffected.
+- Candidate 2 used a one-address Cloud Run image rollout. The first healthy Preview chat passed,
+  but the next chat and both prescribed same-deployment retries remained in Preview processing.
+  The final retry rendered no final even though Runtime logged `final_emitted` in 6.896 seconds and
+  Firestore, Task, report, trace, and four tool events were complete and unique.
+- This is the plan's confirmed provider-failure safety stop. The remaining v2 matrix was not sent.
+  A reviewed one-address recovery plan restored candidate 1's last Preview-healthy image; direct
+  Runtime returned two events, healthy load passed 5/5, Cloud Run is Ready, and Terraform reports
+  `No changes`.
+- Sanitized iterative evidence:
+  [long-spec-enterprise-qa-v2.md](../portfolio/results/long-spec-enterprise-qa-v2.md).
 
 ## External non-blocking item
 
@@ -91,11 +101,11 @@ updated: 2026-08-13
 
 ## Next checkpoint
 
-- Freeze candidate 2 in a source-bound commit and deploy only the investigation image in place;
-  retain the byte-identical Runtime archive and unchanged registration. Re-run SCN-001 once for
-  candidate 2, then restart the complete Preview v2 matrix from healthy checks.
-- Repeat the minimal fix and limited rollout loop until one immutable candidate passes healthy,
-  English, Korean incident, environment-omitted, privacy, and all negative-boundary cases.
+- Wait for Gemini Enterprise Preview streaming to recover or obtain provider guidance for the
+  confirmed final-delivery failure. Do not change application code, Runtime, IAM, or registration
+  for this external condition.
+- When the provider boundary is healthy, deploy the already verified scenario warm-up candidate
+  with the same one-address plan, then restart the entire v2 matrix from three healthy chats.
 
 ## Deferred beyond this milestone
 
