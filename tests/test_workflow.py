@@ -1,10 +1,94 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
-from opspilot.domain import OutputLanguage, ReportStatus, SourceType
+from opspilot.domain import (
+    EvidenceDirection,
+    EvidenceItem,
+    IncidentReport,
+    OutputLanguage,
+    ReportStatus,
+    SourceType,
+)
+from opspilot.report_policy import apply_live_report_policy
 from opspilot.reporting import render_markdown
 from opspilot.workflow import run_fixture_investigation
+
+
+def _live_inconclusive_report(*, include_metric: bool = True) -> IncidentReport:
+    evidence = [
+        EvidenceItem(
+            evidence_id="EV-LOG-0001",
+            source_type=SourceType.LOG,
+            title="Cloud Run log signature",
+            service="payment-service",
+            summary="Synthetic payment pool acquisition failed.",
+            value=6,
+            direction=EvidenceDirection.UNKNOWN,
+            quality_flags=["live_read_only", "redacted"],
+        ),
+        EvidenceItem(
+            evidence_id="EV-KNW-0001",
+            source_type=SourceType.KNOWLEDGE,
+            title="Payment connection pool runbook",
+            service="payment-service",
+            summary="Review the bounded pool evidence.",
+            direction=EvidenceDirection.UNKNOWN,
+        ),
+    ]
+    if include_metric:
+        evidence.append(
+            EvidenceItem(
+                evidence_id="EV-MET-0001",
+                source_type=SourceType.METRIC,
+                title="Cloud Run error_ratio",
+                service="payment-service",
+                summary="Observed bounded error-ratio points.",
+                value=0.6,
+                direction=EvidenceDirection.UNKNOWN,
+                quality_flags=["live_read_only"],
+            )
+        )
+    return IncidentReport(
+        report_id="RPT-LIVE-001",
+        report_version=1,
+        incident_id="INC-2026-0001",
+        generated_at=datetime.now(UTC),
+        correlation_id="COR-LIVE",
+        title="Bounded Multi-Service Investigation",
+        severity="UNCLASSIFIED",
+        severity_rationale="Evidence review is pending.",
+        status=ReportStatus.INCONCLUSIVE,
+        impact_summary="Impact review is pending.",
+        executive_summary="No root cause is asserted.",
+        affected_services=["payment-service"],
+        evidence=evidence,
+        audit={"execution_mode": "live-api", "model_calls": 0},
+    )
+
+
+def test_live_policy_identifies_only_direct_log_metric_conjunction() -> None:
+    identified = apply_live_report_policy(_live_inconclusive_report())
+    insufficient = apply_live_report_policy(_live_inconclusive_report(include_metric=False))
+
+    assert identified.status is ReportStatus.IDENTIFIED
+    assert [item.hypothesis_id for item in identified.hypotheses] == ["H-01", "H-02"]
+    assert [item.category for item in identified.recommended_actions] == [
+        "CONTAINMENT",
+        "MITIGATION",
+        "ROOT_FIX",
+    ]
+    evidence_ids = {item.evidence_id for item in identified.evidence}
+    assert all(
+        set(action.supporting_evidence_ids).issubset(evidence_ids)
+        for action in identified.recommended_actions
+    )
+    assert identified.audit["model_calls"] == 0
+    assert insufficient.status is ReportStatus.INCONCLUSIVE
+    assert insufficient.hypotheses == []
+    assert insufficient.recommended_actions == []
 
 
 @pytest.mark.asyncio

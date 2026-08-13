@@ -44,6 +44,7 @@ from opspilot.evidence import (
 from opspilot.parser import parse_investigation_request
 from opspilot.redaction import redact_text
 from opspilot.remediation.google import _authorized_session
+from opspilot.report_policy import apply_live_report_policy
 from opspilot.workflow import run_fixture_investigation
 
 
@@ -348,6 +349,7 @@ class LiveInvestigationExecutor:
                 "trace_id": effective_trace,
             },
         )
+        report = apply_live_report_policy(report)
         return InvestigationExecution(
             report=report,
             completed_collectors=completed_collectors,

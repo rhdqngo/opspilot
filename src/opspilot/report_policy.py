@@ -5,9 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from opspilot.domain import (
+    EvidenceItem,
     HypothesisStatus,
+    IncidentReport,
     RecommendedAction,
+    ReportStatus,
     RootCauseHypothesis,
+    SourceType,
 )
 
 
@@ -149,3 +153,96 @@ def policy_actions(
             **shared,
         ),
     ]
+
+
+def _payment_pool_live_evidence(
+    evidence: list[EvidenceItem],
+) -> tuple[list[EvidenceItem], bool]:
+    payment = [item for item in evidence if item.service == "payment-service"]
+    logs = [
+        item
+        for item in payment
+        if item.source_type is SourceType.LOG
+        and "pool" in item.summary.lower()
+        and "acquisition" in item.summary.lower()
+    ]
+    metrics = [
+        item
+        for item in payment
+        if item.source_type is SourceType.METRIC
+        and item.title.lower().endswith("error_ratio")
+        and isinstance(item.value, int | float)
+        and float(item.value) > 0
+        and "missing_points" not in item.quality_flags
+    ]
+    knowledge = [
+        item
+        for item in payment
+        if item.source_type is SourceType.KNOWLEDGE
+        and "pool" in f"{item.title} {item.summary}".lower()
+    ]
+    supporting = [*logs[:1], *metrics[:1], *knowledge[:1]]
+    return supporting, bool(logs and metrics)
+
+
+def apply_live_report_policy(report: IncidentReport) -> IncidentReport:
+    """Identify one canonical live cause only from a fixed direct-signal conjunction."""
+
+    if report.status is not ReportStatus.INCONCLUSIVE or report.hypotheses:
+        return report
+    supporting, identified = _payment_pool_live_evidence(report.evidence)
+    if not identified:
+        return report
+    primary_code = "PAYMENT_DB_POOL_EXHAUSTION"
+    supporting_ids = [item.evidence_id for item in supporting]
+    hypotheses = add_unverified_alternative(
+        [
+            RootCauseHypothesis(
+                hypothesis_id="H-01",
+                rank=1,
+                claim="Payment connection-pool acquisition was constrained",
+                mechanism=(
+                    "A direct pool-acquisition log signature coincided with an elevated payment "
+                    "error ratio in the bounded window."
+                ),
+                affected_services=["payment-service"],
+                supporting_evidence_ids=supporting_ids,
+                contradicting_evidence_ids=[],
+                missing_evidence=[],
+                next_checks=["Confirm the current pool limit and active connection count."],
+                evidence_support_score=70,
+                status=HypothesisStatus.SUPPORTED,
+            )
+        ],
+        primary_code=primary_code,
+    )
+    actions = policy_actions(
+        primary_code=primary_code,
+        target_service="payment-service",
+        supporting_evidence_ids=supporting_ids,
+    )
+    return report.model_copy(
+        update={
+            "title": "payment-service connection-pool constraint",
+            "severity": "SEV-2",
+            "severity_rationale": (
+                "Direct pool-acquisition and payment error-ratio evidence agree in the bounded "
+                "window."
+            ),
+            "status": ReportStatus.IDENTIFIED,
+            "impact_summary": "Payment requests experienced an elevated bounded error signal.",
+            "executive_summary": (
+                "The leading hypothesis is a payment connection-pool acquisition constraint, "
+                "supported by direct log and metric evidence."
+            ),
+            "affected_services": ["payment-service"],
+            "hypotheses": hypotheses,
+            "recommended_actions": actions,
+            "audit": {
+                **report.audit,
+                "root_cause_code": primary_code,
+                "citation_coverage": 1.0,
+            },
+        },
+        deep=True,
+    )

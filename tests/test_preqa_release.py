@@ -150,6 +150,32 @@ def test_preqa_final_plan_requires_all_resources_to_be_noop(tmp_path: Path) -> N
     assert terraform_no_changes(path) is False
 
 
+def test_preqa_recovery_plan_accepts_only_explicit_allowed_subset(tmp_path: Path) -> None:
+    payload = _allowed_plan()
+    changes = payload["resource_changes"]
+    assert isinstance(changes, list)
+    payload["resource_changes"] = changes[:1]
+    path = tmp_path / "plan.json"
+    _write(path, payload)
+
+    summary = terraform_plan_summary(
+        path,
+        expected_image_digest=IMAGE_DIGEST,
+        expected_runtime_sha256=RUNTIME_SHA256,
+        expected_addresses=frozenset({IMAGE_ADDRESS}),
+    )
+
+    assert summary["allowed"] is True
+    assert summary["exact_scope"] is True
+    with pytest.raises(ValueError, match="non-empty allowed subset"):
+        terraform_plan_summary(
+            path,
+            expected_image_digest=IMAGE_DIGEST,
+            expected_runtime_sha256=RUNTIME_SHA256,
+            expected_addresses=frozenset({"google_project_iam_member.forbidden"}),
+        )
+
+
 def test_release_context_detects_source_context_tampering(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

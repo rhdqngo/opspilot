@@ -42,6 +42,11 @@ an unapproved investigation image digest, a mismatched Runtime archive, or a cha
 name. Apply only the verified `.tmp/preqa-release/preqa.tfplan`; never recreate it between review and
 apply.
 
+The default expected set is both addresses. If a failed smoke requires a source-bound recovery and
+one resource already has the final bytes, set `OPSPILOT_PREQA_EXPECTED_ADDRESSES` to the exact
+comma-separated non-empty subset before verification. The subset must still be drawn from the two
+addresses above; a third address, empty plan, or unrequested second change is rejected.
+
 ## Post-apply evidence
 
 Phase inputs use fixed boolean schemas and contain no cloud identifiers. Keep project IDs, URLs,

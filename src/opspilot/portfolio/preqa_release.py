@@ -123,6 +123,7 @@ def terraform_plan_summary(
     *,
     expected_image_digest: str,
     expected_runtime_sha256: str,
+    expected_addresses: frozenset[str] = ALLOWED_ADDRESSES,
 ) -> dict[str, object]:
     if DIGEST_PATTERN.fullmatch(expected_image_digest) is None:
         raise ValueError("expected investigation image digest is invalid")
@@ -188,13 +189,17 @@ def terraform_plan_summary(
                 except (binascii.Error, ValueError):
                     continue
             runtime_bound = expected_runtime_sha256 in decoded_hashes
-    exact_scope = set(changed) == ALLOWED_ADDRESSES and len(changed) == 2
+    if not expected_addresses or not expected_addresses.issubset(ALLOWED_ADDRESSES):
+        raise ValueError("expected Terraform addresses must be a non-empty allowed subset")
+    exact_scope = set(changed) == expected_addresses and len(changed) == len(expected_addresses)
+    image_required = IMAGE_ADDRESS in expected_addresses
+    runtime_required = RUNTIME_ADDRESS in expected_addresses
     allowed = all(
         (
             exact_scope,
             actions_valid,
-            image_bound,
-            runtime_bound,
+            image_bound if image_required else True,
+            runtime_bound if runtime_required else True,
             runtime_name_stable,
             not public_iam,
         )
@@ -394,10 +399,17 @@ class PreQaReleaseRunner:
         if not isinstance(runtime, dict):
             raise ValueError("release context Runtime contract is missing")
         digest = self.environment.get("OPSPILOT_PREQA_IMAGE_DIGEST", "")
+        raw_addresses = self.environment.get("OPSPILOT_PREQA_EXPECTED_ADDRESSES", "").strip()
+        expected_addresses = (
+            frozenset(item.strip() for item in raw_addresses.split(",") if item.strip())
+            if raw_addresses
+            else ALLOWED_ADDRESSES
+        )
         summary = terraform_plan_summary(
             self.output / "terraform-plan-raw.json",
             expected_image_digest=digest,
             expected_runtime_sha256=str(runtime.get("sha256", "")),
+            expected_addresses=expected_addresses,
         )
         binary = self.output / "preqa.tfplan"
         checks = {
