@@ -4,6 +4,11 @@
   "status": "passed",
   "sanitized": true,
   "scope": "dev remediation and persistent investigations",
+  "source": {
+    "git_commit": "eaea85038f0bbfbf58e8d43b811567c2b5bf9612",
+    "source_tree_sha256": "38e42efae7df3330119da99f6787b42d69633a1abf48fa5ff593088dcdc0a53a",
+    "release_context_sha256": "5552acb21131638ead5f5c79000a2b1931f3cb6adea37970f9bb2cf5652de42a"
+  },
   "remediation": {
     "baseline_orders": "10/10",
     "fault_orders": "0/10",
@@ -33,11 +38,31 @@
     "api_reader": true,
     "approved_digest_bound": true
   },
+  "closure_alignment": {
+    "runtime_events": 2,
+    "runtime_safe_failure": false,
+    "runtime_package_sha256": "b3c0c5559246d7ebd2db13b534459f4db7745315fbaaaf39919cc603ec132b12",
+    "investigation_container_health": true,
+    "cloud_run_services_ready": 3,
+    "source_only_updates": 4,
+    "created": 0,
+    "destroyed": 0,
+    "bootstrap_drift": "No changes",
+    "dev_drift": "No changes",
+    "hosted_workflows": {
+      "status": "blocked_before_runner_assignment",
+      "reason": "GitHub account billing or spending limit",
+      "pr_checks_run": 31675348391,
+      "terraform_checks_run": 31675350779,
+      "terraform_plan_run": 31675352527,
+      "jobs_started": 0
+    }
+  },
   "validation": {
     "pytest": "193/193",
     "ruff_format": "passed",
     "ruff_check": "passed",
-    "strict_mypy_source_files": 81,
+    "strict_mypy_checked_files": 82,
     "build": "passed",
     "core_evaluation": "7/7",
     "portfolio_evaluation": "40/40",

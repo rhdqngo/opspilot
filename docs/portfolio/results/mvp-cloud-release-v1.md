@@ -4,6 +4,9 @@
 - Verified: `2026-08-13`
 - Scope: dev M8 remediation plus persistent investigation release
 - Evidence policy: sanitized; no project IDs, URLs, identities, incident IDs, or image digests
+- Source commit: `eaea85038f0bbfbf58e8d43b811567c2b5bf9612`
+- Source tree SHA-256: `38e42efae7df3330119da99f6787b42d69633a1abf48fa5ff593088dcdc0a53a`
+- Release context SHA-256: `5552acb21131638ead5f5c79000a2b1931f3cb6adea37970f9bb2cf5652de42a`
 
 ## M8 remediation
 
@@ -35,13 +38,32 @@
 | Runtime direct evidence role | absent |
 | Approved API image digest | bound |
 
+## Closure alignment
+
+| Check | Result |
+| --- | ---: |
+| Runtime stream after source update | progress + persisted final (2 events) |
+| Runtime safe failure | none |
+| Runtime package | 9 files / `b3c0c5559246d7ebd2db13b534459f4db7745315fbaaaf39919cc603ec132b12` |
+| Investigation container health | passed |
+| Updated Cloud Run services | 3 / Ready |
+| Source-only Terraform update | 4 in-place / 0 create / 0 destroy |
+| Bootstrap / dev drift | No changes / No changes |
+| Hosted PR checks | blocked before runner assignment (`31675348391`) |
+| Hosted Terraform checks | blocked before runner assignment (`31675350779`) |
+| Hosted Terraform plan | blocked before runner assignment (`31675352527`) |
+
+The hosted jobs created zero steps because GitHub rejected runner assignment for an account billing
+or spending-limit condition. This is an external hosted-validation blocker, not a repository check
+failure; the equivalent local checks and both operator Terraform drift plans passed.
+
 ## Validation
 
 | Check | Result |
 | --- | ---: |
 | Pytest | 193/193 |
 | Ruff format / lint | passed |
-| Strict mypy | 81 source files |
+| Strict mypy | 82 checked files |
 | Package build | passed |
 | Core evaluation | 7/7 |
 | Portfolio evaluation | 40/40 |

@@ -1,11 +1,11 @@
 {
   "schema_version": "portfolio-release-v1",
-  "generated_at": "2026-08-12T13:35:36.274483+00:00",
+  "generated_at": "2026-08-13T06:26:05.183809+00:00",
   "status": "passed",
   "source": {
-    "git_commit": "c4e274b92b63be5dbfe19045b8cf8374639f6066",
+    "git_commit": "eaea85038f0bbfbf58e8d43b811567c2b5bf9612",
     "working_tree_dirty": false,
-    "source_tree_sha256": "1363ffb79d5da0f0a0f556c741f2965145b02f5611e832000272d52f06d5cdb0"
+    "source_tree_sha256": "38e42efae7df3330119da99f6787b42d69633a1abf48fa5ff593088dcdc0a53a"
   },
   "environment": {
     "execution_mode": "local-offline-release",
@@ -21,7 +21,7 @@
     {
       "name": "ruff_format",
       "status": "passed",
-      "duration_ms": 63
+      "duration_ms": 62
     },
     {
       "name": "ruff_check",
@@ -31,32 +31,32 @@
     {
       "name": "mypy",
       "status": "passed",
-      "duration_ms": 1094
+      "duration_ms": 1078
     },
     {
       "name": "pytest",
       "status": "passed",
-      "duration_ms": 11031
+      "duration_ms": 8563
     },
     {
       "name": "core_evaluation",
       "status": "passed",
-      "duration_ms": 2000
+      "duration_ms": 1844
     },
     {
       "name": "portfolio_evaluation",
       "status": "passed",
-      "duration_ms": 2469
+      "duration_ms": 2218
     },
     {
       "name": "runtime_package_one",
       "status": "passed",
-      "duration_ms": 1843
+      "duration_ms": 1657
     },
     {
       "name": "runtime_package_two",
       "status": "passed",
-      "duration_ms": 1844
+      "duration_ms": 1687
     },
     {
       "name": "build",
@@ -71,22 +71,22 @@
     {
       "name": "terraform_bootstrap_validate",
       "status": "passed",
-      "duration_ms": 453
+      "duration_ms": 437
     },
     {
       "name": "terraform_bootstrap_test",
       "status": "passed",
-      "duration_ms": 359
+      "duration_ms": 344
     },
     {
       "name": "terraform_dev_validate",
       "status": "passed",
-      "duration_ms": 469
+      "duration_ms": 828
     },
     {
       "name": "terraform_dev_test",
       "status": "passed",
-      "duration_ms": 516
+      "duration_ms": 969
     },
     {
       "name": "runtime_determinism",
@@ -96,11 +96,11 @@
   ],
   "validation": {
     "pytest": {
-      "executed": 144,
-      "passed": 143,
+      "executed": 193,
+      "passed": 193,
       "failures": 0,
       "errors": 0,
-      "skipped": 1
+      "skipped": 0
     },
     "core_evaluation": {
       "suite": "core",
@@ -119,8 +119,8 @@
         "prompt_injection_success_count": 0
       },
       "duration_percentiles": {
-        "p50_ms": 14,
-        "p95_ms": 32
+        "p50_ms": 13,
+        "p95_ms": 31
       },
       "gate_failures": [],
       "failed_cases": []
@@ -142,15 +142,15 @@
         "prompt_injection_success_count": 0
       },
       "duration_percentiles": {
-        "p50_ms": 12,
-        "p95_ms": 14
+        "p50_ms": 11,
+        "p95_ms": 13
       },
       "gate_failures": [],
       "failed_cases": []
     },
     "runtime_package": {
-      "file_count": 17,
-      "sha256": "a1eb4b5c548fb6f88396ca506c9e5f16512e093d21e80b23ee239cd87ebaa79b"
+      "file_count": 9,
+      "sha256": "b3c0c5559246d7ebd2db13b534459f4db7745315fbaaaf39919cc603ec132b12"
     },
     "terraform_included": true
   },

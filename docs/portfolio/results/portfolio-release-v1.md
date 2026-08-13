@@ -1,24 +1,24 @@
 # OpsPilot Portfolio Release Evidence
 
 - Status: **PASSED**
-- Generated: `2026-08-12T13:35:36.274483+00:00`
-- Source commit: `c4e274b92b63be5dbfe19045b8cf8374639f6066`
+- Generated: `2026-08-13T06:26:05.183809+00:00`
+- Source commit: `eaea85038f0bbfbf58e8d43b811567c2b5bf9612`
 - Working tree dirty before validation: `False`
-- Source tree SHA-256: `1363ffb79d5da0f0a0f556c741f2965145b02f5611e832000272d52f06d5cdb0`
+- Source tree SHA-256: `38e42efae7df3330119da99f6787b42d69633a1abf48fa5ff593088dcdc0a53a`
 
 ## Verified results
 
 | Result | Value |
 | --- | ---: |
-| Pytest | 143/144 |
+| Pytest | 193/193 |
 | Core evaluation | 7/7 |
 | Portfolio evaluation | 40/40 |
 | RCA top-1 / top-3 | 1.000 / 1.000 |
 | Required-tool recall | 1.000 |
 | Citation coverage | 1.000 |
 | Evidence-ID validity | 1.000 |
-| P50 / P95 fixture duration | 12 ms / 14 ms |
-| Runtime package | 17 files / `a1eb4b5c548fb6f88396ca506c9e5f16512e093d21e80b23ee239cd87ebaa79b` |
+| P50 / P95 fixture duration | 11 ms / 13 ms |
+| Runtime package | 9 files / `b3c0c5559246d7ebd2db13b534459f4db7745315fbaaaf39919cc603ec132b12` |
 
 ## Checks
 

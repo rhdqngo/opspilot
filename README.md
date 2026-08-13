@@ -20,8 +20,8 @@ Current verified surfaces:
 - deployed, default-off M8 approval control plane for one verified SCN-008 payment rollback.
 
 <!-- BEGIN GENERATED:PORTFOLIO_METRICS -->
-Latest published verification: **143/144 pytest**; core **7/7**; portfolio **40/40**.
-RCA top-1/top-3, required-tool recall, citation coverage, and evidence-ID validity: **1.000/1.000/1.000/1.000/1.000**; fixture P50/P95 **12/14 ms**.
+Latest published verification: **193/193 pytest**; core **7/7**; portfolio **40/40**.
+RCA top-1/top-3, required-tool recall, citation coverage, and evidence-ID validity: **1.000/1.000/1.000/1.000/1.000**; fixture P50/P95 **11/13 ms**.
 The generated [Markdown evidence](docs/portfolio/results/portfolio-release-v1.md) and [JSON evidence](docs/portfolio/results/portfolio-release-v1.json) are the source of record.
 <!-- END GENERATED:PORTFOLIO_METRICS -->
 
