@@ -21,6 +21,41 @@ ScenarioSender = Callable[
     [str, str, int, str | None, ScenarioContext | None],
     Awaitable[tuple[int, int, bool]],
 ]
+ReadyProbe = Callable[[str, str | None], Awaitable[bool]]
+ScenarioWarmer = Callable[[str, str | None], Awaitable[None]]
+
+
+def _probe_ready_sync(target: str, token: str | None) -> bool:
+    headers: dict[str, str] = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = UrlRequest(f"{target.rstrip('/')}/ready", headers=headers, method="GET")
+    try:
+        with urlopen(request, timeout=8) as response:
+            response.read()
+            return int(response.status) == 200
+    except (HTTPError, URLError, TimeoutError):
+        return False
+
+
+async def _probe_ready(target: str, token: str | None) -> bool:
+    return await asyncio.to_thread(_probe_ready_sync, target, token)
+
+
+async def _wait_for_healthy_baseline(
+    target: str,
+    token: str | None,
+    *,
+    probe: ReadyProbe = _probe_ready,
+    sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> None:
+    """Warm a scale-to-zero order service before counting the fixed baseline."""
+
+    for _ in range(15):
+        if await probe(target, token):
+            return
+        await sleeper(2.0)
+    raise RuntimeError("SCN-001 healthy baseline did not become observable")
 
 
 def _percentile(values: list[int], percentile: float) -> int:
@@ -123,6 +158,7 @@ async def run_scenario(
     scenario_id: str,
     auth: str,
     sender: ScenarioSender = _send_scenario_order,
+    warmer: ScenarioWarmer = _wait_for_healthy_baseline,
 ) -> ScenarioRunSummary:
     if scenario_id != "SCN-001":
         raise ValueError("only SCN-001 supports live execution in M3 MVP")
@@ -131,6 +167,7 @@ async def run_scenario(
     target = os.environ.get("OPSPILOT_ORDER_URL", "http://127.0.0.1:8100")
     token = await asyncio.to_thread(_gcloud_identity_token) if auth == "gcloud" else None
     run_id = f"RUN-SCN-001-{secrets.token_hex(6).upper()}"
+    await warmer(target, token)
 
     baseline, baseline_statuses = await _run_phase(
         target=target,

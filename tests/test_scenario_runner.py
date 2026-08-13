@@ -3,7 +3,11 @@ from __future__ import annotations
 import pytest
 
 from opspilot.demo.scenario_context import ScenarioContext
-from opspilot.demo.scenario_runner import render_scenario_summary, run_scenario
+from opspilot.demo.scenario_runner import (
+    _wait_for_healthy_baseline,
+    render_scenario_summary,
+    run_scenario,
+)
 
 
 @pytest.mark.asyncio
@@ -11,6 +15,12 @@ async def test_M3_scenario_runner_matches_baseline_incident_recovery_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[tuple[str, int, ScenarioContext | None]] = []
+    lifecycle: list[str] = []
+
+    async def warmer(target: str, token: str | None) -> None:
+        assert target == "http://order.example.invalid"
+        assert token is None
+        lifecycle.append("warm")
 
     async def sender(
         target: str,
@@ -21,12 +31,13 @@ async def test_M3_scenario_runner_matches_baseline_incident_recovery_contract(
     ) -> tuple[int, int, bool]:
         assert target == "http://order.example.invalid"
         assert token is None
+        assert lifecycle == ["warm"]
         calls.append((phase, index, scenario))
         status = 502 if scenario is not None and scenario.inject_payment_failure else 201
         return status, 10 + index, True
 
     monkeypatch.setenv("OPSPILOT_ORDER_URL", "http://order.example.invalid")
-    result = await run_scenario(scenario_id="SCN-001", auth="local", sender=sender)
+    result = await run_scenario(scenario_id="SCN-001", auth="local", sender=sender, warmer=warmer)
 
     assert result.baseline.fulfilled == 5
     assert result.incident.model_dump()["fulfilled"] == 4
@@ -39,6 +50,32 @@ async def test_M3_scenario_runner_matches_baseline_incident_recovery_contract(
     rendered = render_scenario_summary(result)
     assert "ground_truth_matched: true" in rendered
     assert "http" not in rendered
+
+
+@pytest.mark.asyncio
+async def test_M3_scenario_runner_waits_for_scale_to_zero_service_without_counting_probe() -> None:
+    attempts = 0
+    sleeps: list[float] = []
+
+    async def probe(target: str, token: str | None) -> bool:
+        nonlocal attempts
+        assert target == "https://order.example.invalid"
+        assert token == "synthetic-token"
+        attempts += 1
+        return attempts == 3
+
+    async def sleeper(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    await _wait_for_healthy_baseline(
+        "https://order.example.invalid",
+        "synthetic-token",
+        probe=probe,
+        sleeper=sleeper,
+    )
+
+    assert attempts == 3
+    assert sleeps == [2.0, 2.0]
 
 
 @pytest.mark.asyncio

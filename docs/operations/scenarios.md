@@ -10,6 +10,9 @@ Status: M3 complete; offline corpus and bounded live SCN-001 validated
 - Only `SCN-001` can execute against the demo workload in the M3 MVP.
 - A strict scenario ID, synthetic run ID, and step are propagated only for the incident phase.
 - Baseline and recovery requests carry no scenario context and exercise the normal API contract.
+- Before the counted baseline, the runner probes the authenticated order `/ready` endpoint with a
+  bounded 15-attempt, two-second interval. This wakes a scale-to-zero revision without adding an
+  order, scenario header, or counted trace to the fixed profile.
 - The fixed run profile is 5 baseline, 10 incident, and 5 recovery orders at concurrency two.
 
 ## Commands
@@ -34,6 +37,10 @@ docker compose exec -T -e OPSPILOT_ORDER_URL=http://127.0.0.1:8080 order `
   opspilot scenario run --scenario SCN-001 --auth local --format summary
 docker compose down --remove-orphans
 ```
+
+For a managed run, set `OPSPILOT_ORDER_URL` from the existing private order service before invoking
+the same command with `--auth gcloud`. Omitting it intentionally targets the local default and is
+not a managed scenario execution.
 
 Expected result:
 

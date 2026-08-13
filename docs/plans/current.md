@@ -68,10 +68,20 @@ updated: 2026-08-13
   was not rendered, and tool-call events omitted `run_id`.
 - Post-QA healthy orders passed `5/5`, Cloud Run remained Ready, and Terraform remained `No changes`.
 - Sanitized QA evidence: [long-spec-enterprise-qa-v1.md](../portfolio/results/long-spec-enterprise-qa-v1.md).
-- The iterative candidate starts the handler before progress, creates valid unused incidents,
-  localizes Korean narrative and assumptions, and propagates run ID into live tool audit. It passes
-  234/234 pytest, Ruff, strict mypy over 88 files, build, core 7/7, portfolio 40/40, remediation
-  12/12, Terraform bootstrap 1/1 and dev 8/8, plus two byte-identical 11-file Runtime packages.
+- Iteration candidate 1 starts the handler before progress, creates valid unused incidents,
+  localizes Korean narrative and assumptions, and propagates run ID into live tool audit. Its
+  limited two-address deployment passed managed Runtime, privacy, idempotency, trace, audit, IAM,
+  registration, and Ready gates.
+- Candidate 1 passed three consecutive healthy Preview chats. Every chat emitted one progress and
+  one final, persisted one investigation/task/report, and linked four Runtime stages and four tool
+  events with no hypothesis or changing recommendation.
+- The first managed SCN-001 attempt exposed a QA-runner cold-start defect: after an operator setup
+  attempt stayed on the local default URL, the actual remote run recovered `5/5` and matched the
+  `4/6` incident split but counted only `3/5` baseline orders. Preview QA stopped at that evidence.
+- Iteration candidate 2 adds a bounded authenticated `/ready` warm-up before the counted SCN-001
+  baseline. It passes 235/235 pytest, Ruff, strict mypy over 88 files, build, core 7/7, portfolio
+  40/40, remediation 12/12, Terraform bootstrap 1/1 and dev 8/8. Its two 11-file Runtime packages
+  remain byte-identical to candidate 1, so the managed Runtime is unaffected.
 
 ## External non-blocking item
 
@@ -81,8 +91,9 @@ updated: 2026-08-13
 
 ## Next checkpoint
 
-- Freeze the locally verified candidate in a source-bound commit, deploy only the investigation
-  image and existing Runtime archive, then run managed smoke and the complete Preview v2 matrix.
+- Freeze candidate 2 in a source-bound commit and deploy only the investigation image in place;
+  retain the byte-identical Runtime archive and unchanged registration. Re-run SCN-001 once for
+  candidate 2, then restart the complete Preview v2 matrix from healthy checks.
 - Repeat the minimal fix and limited rollout loop until one immutable candidate passes healthy,
   English, Korean incident, environment-omitted, privacy, and all negative-boundary cases.
 
