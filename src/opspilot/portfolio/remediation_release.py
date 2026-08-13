@@ -167,7 +167,7 @@ def _status_code(url: str, token: str | None = None) -> int:
         status = error.code
         error.close()
         return status
-    except (URLError, TimeoutError):
+    except (URLError, OSError):
         return 0
 
 

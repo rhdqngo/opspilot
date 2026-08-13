@@ -1,7 +1,7 @@
 # Current Project State
 
 status: in_progress
-phase: M8-release-contract-sealed / gcloud-reauth-required
+phase: M8-release-health-readiness-corrected / gate-a-push-approval-next
 updated: 2026-08-13
 
 ## Delivered MVP
@@ -323,6 +323,24 @@ updated: 2026-08-13
   eligible for release after this durable-state change; after interactive reauthentication, start
   again from the new clean HEAD with preflight, build, local health, repository lookup, and tag
   absence verification before requesting the Gate A push approval.
+
+## M8 image readiness correction checkpoint
+
+- Interactive Google authentication and ADC refresh completed. Sanitized read-only checks confirmed
+  active configuration, both token paths, the dev remote state, configured-project alignment, and
+  Artifact Registry access without retaining account, project, repository, or token values.
+- The first image smoke from `8d10f13` exposed a real startup race: a transient HTTP
+  `RemoteDisconnected` before the health server was ready escaped the bounded polling loop. No
+  Registry push or other cloud write was attempted, so that release run was discarded.
+- The release health probe now classifies startup `OSError` failures as not ready and continues its
+  existing bounded polling. A regression test covers the exact disconnect, and the actual
+  Linux/amd64 image passed `65532:65532`, control health, executor health, and temporary-container
+  cleanup after the correction.
+- The corrected local gate passed 186 tests, Ruff format/check, strict mypy over 78 source files,
+  wheel/sdist build, core `7/7`, portfolio `40/40`, remediation `12/12`, two identical 17-file
+  Runtime archives, Terraform format/validate, bootstrap `1/1`, dev `7/7`, and all three SCN-008
+  plan commands. Gate A must restart from the correction commit with a new full-SHA image; push
+  approval remains separate.
 
 ## Validation authority
 

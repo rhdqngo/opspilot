@@ -4,6 +4,7 @@ import json
 import shutil
 import time
 from collections.abc import Mapping, Sequence
+from http.client import RemoteDisconnected
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,17 @@ from opspilot.portfolio.remediation_release import (
 )
 
 DIGEST = "sha256:" + "a" * 64
+
+
+def test_M8_status_code_treats_startup_disconnect_as_not_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def disconnect(*_args: object, **_kwargs: object) -> object:
+        raise RemoteDisconnected("not ready")
+
+    monkeypatch.setattr(remediation_release, "urlopen", disconnect)
+
+    assert remediation_release._status_code("http://127.0.0.1:49153/health") == 0
 
 
 class FakeProcesses:
