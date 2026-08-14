@@ -136,6 +136,14 @@ def terraform_plan_summary(
     if SHA256_PATTERN.fullmatch(expected_runtime_sha256) is None:
         raise ValueError("expected Runtime SHA-256 is invalid")
     payload = _read_json(path)
+    configuration = payload.get("configuration", {})
+    root_module = configuration.get("root_module", {}) if isinstance(configuration, dict) else {}
+    configured_resources = root_module.get("resources", []) if isinstance(root_module, dict) else []
+    configured_by_address = {
+        str(resource.get("address", "")): resource
+        for resource in configured_resources
+        if isinstance(resource, dict)
+    }
     changes = payload.get("resource_changes", [])
     if not isinstance(changes, list):
         raise ValueError("Terraform plan resource_changes must be a list")
@@ -209,11 +217,26 @@ def terraform_plan_summary(
         if address == RUNTIME_METADATA_BINDING_ADDRESS:
             members = [str(item) for item in _walk_key(after, "member") if isinstance(item, str)]
             roles = [str(item) for item in _walk_key(after, "role") if isinstance(item, str)]
+            after_unknown = change.get("after_unknown")
+            role_is_computed = isinstance(after_unknown, dict) and after_unknown.get("role") is True
+            configured = configured_by_address.get(
+                RUNTIME_METADATA_BINDING_ADDRESS.removesuffix("[0]"), {}
+            )
+            expressions = configured.get("expressions", {}) if isinstance(configured, dict) else {}
+            role_expression = expressions.get("role", {}) if isinstance(expressions, dict) else {}
+            role_references = (
+                role_expression.get("references", []) if isinstance(role_expression, dict) else []
+            )
+            computed_role_is_bounded = role_is_computed and (
+                "google_project_iam_custom_role.runtime_project_metadata[0].name" in role_references
+            )
             runtime_metadata_bounded = runtime_metadata_bounded and (
                 len(members) == 1
                 and members[0].startswith("serviceAccount:")
-                and len(roles) == 1
-                and roles[0].endswith("/roles/opspilotRuntimeProjectMetadata")
+                and (
+                    (len(roles) == 1 and roles[0].endswith("/roles/opspilotRuntimeProjectMetadata"))
+                    or computed_role_is_bounded
+                )
             )
     if not expected_addresses or not expected_addresses.issubset(PERMITTED_ADDRESSES):
         raise ValueError("expected Terraform addresses must be a non-empty allowed subset")

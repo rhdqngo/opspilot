@@ -135,6 +135,72 @@ def test_preqa_plan_accepts_only_bounded_runtime_metadata_bootstrap(
     assert summary["runtime_metadata_bounded"] is True
 
 
+def test_preqa_plan_accepts_computed_runtime_metadata_role_reference(
+    tmp_path: Path,
+) -> None:
+    payload = _allowed_plan()
+    changes = payload["resource_changes"]
+    assert isinstance(changes, list)
+    binding_change = _change(
+        RUNTIME_METADATA_BINDING_ADDRESS,
+        ["create"],
+        None,
+        {
+            "member": "serviceAccount:runtime@example.invalid",
+            "role": None,
+        },
+    )
+    binding_details = binding_change["change"]
+    assert isinstance(binding_details, dict)
+    binding_details["after_unknown"] = {"role": True}
+    changes.extend(
+        [
+            _change(
+                RUNTIME_METADATA_ROLE_ADDRESS,
+                ["create"],
+                None,
+                {"permissions": ["resourcemanager.projects.get"]},
+            ),
+            binding_change,
+        ]
+    )
+    payload["configuration"] = {
+        "root_module": {
+            "resources": [
+                {
+                    "address": "google_project_iam_member.runtime_project_metadata",
+                    "expressions": {
+                        "role": {
+                            "references": [
+                                "google_project_iam_custom_role.runtime_project_metadata[0].name"
+                            ]
+                        }
+                    },
+                }
+            ]
+        }
+    }
+    path = tmp_path / "plan.json"
+    _write(path, payload)
+
+    summary = terraform_plan_summary(
+        path,
+        expected_image_digest=IMAGE_DIGEST,
+        expected_runtime_sha256=RUNTIME_SHA256,
+        expected_addresses=frozenset(
+            {
+                IMAGE_ADDRESS,
+                RUNTIME_ADDRESS,
+                RUNTIME_METADATA_ROLE_ADDRESS,
+                RUNTIME_METADATA_BINDING_ADDRESS,
+            }
+        ),
+    )
+
+    assert summary["allowed"] is True
+    assert summary["runtime_metadata_bounded"] is True
+
+
 @pytest.mark.parametrize("mutation", ("permission", "member", "role"))
 def test_preqa_plan_rejects_broadened_runtime_metadata_bootstrap(
     tmp_path: Path, mutation: str
