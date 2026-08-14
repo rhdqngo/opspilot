@@ -269,7 +269,7 @@ def test_runtime_write_retries_only_with_an_idempotency_key(
         calls += 1
         raise URLError("unavailable")
 
-    monkeypatch.setattr(runtime_module, "urlopen", unavailable)
+    monkeypatch.setattr(runtime_module, "_direct_urlopen", unavailable)
     status, _ = runtime_module._api_request(
         "https://sensitive.invalid",
         token="secret-token",
@@ -301,7 +301,7 @@ def test_runtime_write_retries_only_with_an_idempotency_key(
             raise URLError("unavailable")
         return Response()
 
-    monkeypatch.setattr(runtime_module, "urlopen", eventually_available)
+    monkeypatch.setattr(runtime_module, "_direct_urlopen", eventually_available)
     status, body = runtime_module._api_request(
         "https://sensitive.invalid",
         token="secret-token",

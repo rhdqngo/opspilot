@@ -21,10 +21,10 @@ from contextvars import ContextVar
 from functools import partial
 from pathlib import Path
 from time import perf_counter
-from typing import Literal, NamedTuple
+from typing import Any, Literal, NamedTuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import ProxyHandler, build_opener, urlopen
+from urllib.request import ProxyHandler, build_opener
 from urllib.request import Request as UrlRequest
 from uuid import uuid4
 
@@ -144,6 +144,12 @@ def _token_expiry(token: str, *, now: float) -> float:
         return now + 300
 
 
+def _direct_urlopen(request: UrlRequest, *, timeout: float) -> Any:
+    """Open one server-owned Runtime URL without environment proxy inheritance."""
+
+    return build_opener(ProxyHandler({})).open(request, timeout=timeout)
+
+
 def _fetch_metadata_id_token(audience: str) -> str:
     """Fetch one Agent Engine identity token without proxying link-local metadata."""
 
@@ -152,8 +158,7 @@ def _fetch_metadata_id_token(audience: str) -> str:
         f"{METADATA_IDENTITY_ENDPOINT}?{query}",
         headers={"Metadata-Flavor": "Google"},
     )
-    metadata_opener = build_opener(ProxyHandler({}))
-    with metadata_opener.open(
+    with _direct_urlopen(
         request,
         timeout=ID_TOKEN_REQUEST_TIMEOUT_SECONDS,
     ) as response:
@@ -372,7 +377,7 @@ def _api_request(
             headers["Idempotency-Key"] = idempotency_key
         request = UrlRequest(url, method=method, data=data, headers=headers)
         try:
-            with urlopen(request, timeout=timeout_seconds) as response:
+            with _direct_urlopen(request, timeout=timeout_seconds) as response:
                 return int(response.status), response.read()
         except HTTPError as error:
             body = error.read()
