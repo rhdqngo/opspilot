@@ -164,6 +164,16 @@ KOREAN_TEXT = {
         "서비스가 지정되지 않아 구성된 허용 서비스 목록을 사용합니다."
     ),
     "No meaningful incident impact was established.": "유의미한 장애 영향이 확인되지 않았습니다.",
+    "Impact requires evidence-backed operator review.": (
+        "영향 판단에는 증거 기반 운영자 검토가 필요합니다."
+    ),
+    (
+        "The leading hypothesis is payment connection-pool acquisition was constrained, "
+        "supported by server-verified direct evidence from the requested window."
+    ): (
+        "가장 유력한 가설은 payment-service 연결 풀 획득 제한이며, "
+        "요청 구간의 서버 검증 직접 증거가 이를 뒷받침합니다."
+    ),
     (
         "No meaningful incident evidence was found in the bounded window. "
         "Source delay and data gaps are listed below."

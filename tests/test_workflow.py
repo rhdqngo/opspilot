@@ -92,6 +92,20 @@ def test_live_policy_identifies_only_direct_log_metric_conjunction() -> None:
     assert insufficient.recommended_actions == []
 
 
+def test_korean_live_report_localizes_identified_and_partial_summary_copy() -> None:
+    identified = apply_live_report_policy(_live_inconclusive_report())
+    identified_markdown = render_markdown(identified, language=OutputLanguage.KO)
+    partial = _live_inconclusive_report(include_metric=False).model_copy(
+        update={"impact_summary": "Impact requires evidence-backed operator review."}
+    )
+    partial_markdown = render_markdown(partial, language=OutputLanguage.KO)
+
+    assert "요청 구간의 서버 검증 직접 증거가 이를 뒷받침합니다." in identified_markdown
+    assert "The leading hypothesis" not in identified_markdown
+    assert "영향 판단에는 증거 기반 운영자 검토가 필요합니다." in partial_markdown
+    assert "Impact requires evidence-backed operator review" not in partial_markdown
+
+
 @pytest.mark.parametrize(
     ("service", "signature", "knowledge", "expected_code"),
     [
