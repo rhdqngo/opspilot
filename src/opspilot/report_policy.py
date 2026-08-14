@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from opspilot.domain import (
+    EvidenceDirection,
     EvidenceItem,
     HypothesisStatus,
     IncidentReport,
@@ -33,6 +34,17 @@ class AlternativePolicy:
     claim: str
     mechanism: str
     missing_evidence: str
+    next_check: str
+
+
+@dataclass(frozen=True)
+class LiveCausePolicy:
+    code: str
+    service: str | None
+    direct_terms: tuple[str, ...]
+    knowledge_terms: tuple[str, ...]
+    claim: str
+    mechanism: str
     next_check: str
 
 
@@ -73,6 +85,66 @@ ALTERNATIVES: dict[str, AlternativePolicy] = {
         next_check="Compare local capacity signals with upstream 429 events.",
     ),
 }
+
+
+LIVE_CAUSES = (
+    LiveCausePolicy(
+        code="RUNBOOK_PROMPT_INJECTION",
+        service=None,
+        direct_terms=("prompt injection", "untrusted instruction"),
+        knowledge_terms=("prompt injection", "untrusted instruction"),
+        claim="Retrieved operational guidance contained an untrusted instruction",
+        mechanism="A bounded knowledge result attempted to override the investigation policy.",
+        next_check="Quarantine the source document and review its provenance.",
+    ),
+    LiveCausePolicy(
+        code="PAYMENT_DB_POOL_EXHAUSTION",
+        service="payment-service",
+        direct_terms=("pool acquisition", "connection pool", "db_pool"),
+        knowledge_terms=("connection pool", "pool exhaustion", "pool configuration"),
+        claim="Payment connection-pool acquisition was constrained",
+        mechanism=(
+            "A direct pool-acquisition failure signature aligned with a bounded payment metric."
+        ),
+        next_check="Confirm the current pool limit and active connection count.",
+    ),
+    LiveCausePolicy(
+        code="PAYMENT_UPSTREAM_TIMEOUT",
+        service="payment-service",
+        direct_terms=("provider timeout", "upstream timeout", "dependency timeout"),
+        knowledge_terms=("provider timeout", "dependency timeout", "provider latency"),
+        claim="The payment provider exceeded the bounded dependency timeout",
+        mechanism="Direct timeout signatures aligned with a bounded payment metric.",
+        next_check="Compare provider latency and timeout signatures for the same window.",
+    ),
+    LiveCausePolicy(
+        code="INVENTORY_ENDPOINT_MISCONFIGURATION",
+        service="inventory-service",
+        direct_terms=("dns", "hostname", "endpoint misconfig"),
+        knowledge_terms=("dns", "hostname", "endpoint"),
+        claim="The inventory dependency endpoint was misconfigured",
+        mechanism="Direct endpoint-resolution signatures aligned with a bounded inventory metric.",
+        next_check="Review bounded endpoint configuration and DNS signatures.",
+    ),
+    LiveCausePolicy(
+        code="UPSTREAM_RATE_LIMIT",
+        service=None,
+        direct_terms=("rate limit", "rate-limit", " 429", "http 429"),
+        knowledge_terms=("rate limit", "quota", "429"),
+        claim="Upstream requests were rate limited",
+        mechanism="Direct rate-limit signatures aligned with a bounded service metric.",
+        next_check="Compare upstream quota and retry signals for the same window.",
+    ),
+    LiveCausePolicy(
+        code="CLOUD_RUN_CAPACITY_LIMIT",
+        service=None,
+        direct_terms=("instance cap", "capacity limit", "max instance", "startup latency"),
+        knowledge_terms=("instance cap", "capacity", "startup latency"),
+        claim="Cloud Run capacity constrained request handling",
+        mechanism="Direct capacity signatures aligned with a bounded service metric.",
+        next_check="Compare instance count, concurrency, and startup latency.",
+    ),
+)
 
 
 def add_unverified_alternative(
@@ -167,91 +239,123 @@ def policy_actions(
     ]
 
 
-def _payment_pool_live_evidence(
-    evidence: list[EvidenceItem],
-) -> tuple[list[EvidenceItem], bool]:
-    payment = [item for item in evidence if item.service == "payment-service"]
+def _contains_any(item: EvidenceItem, terms: tuple[str, ...]) -> bool:
+    combined = f"{item.title} {item.summary}".casefold()
+    return any(term in combined for term in terms)
+
+
+def _live_cause_matches(
+    evidence: list[EvidenceItem], policy: LiveCausePolicy
+) -> tuple[str | None, list[EvidenceItem]]:
     logs = [
         item
-        for item in payment
+        for item in evidence
         if item.source_type is SourceType.LOG
-        and "pool" in item.summary.lower()
-        and "acquisition" in item.summary.lower()
-    ]
-    metrics = [
-        item
-        for item in payment
-        if item.source_type is SourceType.METRIC
-        and item.title.lower().endswith("error_ratio")
-        and "missing_points" not in item.quality_flags
+        and (policy.service is None or item.service == policy.service)
+        and _contains_any(item, policy.direct_terms)
     ]
     knowledge = [
         item
-        for item in payment
+        for item in evidence
         if item.source_type is SourceType.KNOWLEDGE
-        and "pool" in f"{item.title} {item.summary}".lower()
+        and (policy.service is None or item.service in {None, policy.service})
+        and _contains_any(item, policy.knowledge_terms)
     ]
-    supporting = [*logs[:1], *metrics[:1], *knowledge[:1]]
-    return supporting, bool(logs and metrics)
+    if policy.code == "RUNBOOK_PROMPT_INJECTION":
+        unsafe = [
+            item
+            for item in knowledge
+            if _contains_any(item, policy.direct_terms)
+            or any("prompt" in flag.casefold() for flag in item.quality_flags)
+        ]
+        return (unsafe[0].service if unsafe else None), unsafe[:1]
+    if not logs:
+        return None, []
+    service = policy.service or logs[0].service
+    if service is None:
+        return None, []
+    metrics = [
+        item
+        for item in evidence
+        if item.source_type is SourceType.METRIC
+        and item.service == service
+        and "missing_points" not in item.quality_flags
+    ]
+    if not metrics:
+        return None, []
+    changes = [
+        item
+        for item in evidence
+        if item.source_type is SourceType.CHANGE
+        and item.service == service
+        and item.direction is EvidenceDirection.SUPPORTS
+    ]
+    service_knowledge = [item for item in knowledge if item.service in {None, service}]
+    return service, [*logs[:1], *metrics[:1], *service_knowledge[:1], *changes[:1]]
 
 
 def apply_live_report_policy(report: IncidentReport) -> IncidentReport:
-    """Identify one canonical live cause only from a fixed direct-signal conjunction."""
+    """Recover canonical live causes from direct signals when model verification is inconclusive."""
 
     if report.status is not ReportStatus.INCONCLUSIVE or report.hypotheses:
         return report
-    supporting, identified = _payment_pool_live_evidence(report.evidence)
-    if not identified:
+    matches: list[tuple[LiveCausePolicy, str | None, list[EvidenceItem]]] = []
+    for policy in LIVE_CAUSES:
+        service, supporting = _live_cause_matches(report.evidence, policy)
+        if supporting:
+            matches.append((policy, service, supporting))
+    if not matches:
         return report
-    primary_code = "PAYMENT_DB_POOL_EXHAUSTION"
-    supporting_ids = [item.evidence_id for item in supporting]
-    hypotheses = add_unverified_alternative(
-        [
-            RootCauseHypothesis(
-                hypothesis_id="H-01",
-                rank=1,
-                claim="Payment connection-pool acquisition was constrained",
-                mechanism=(
-                    "A direct pool-acquisition failure signature was observed in bounded payment "
-                    "logs while the corresponding error-ratio series was available for review."
-                ),
-                affected_services=["payment-service"],
-                supporting_evidence_ids=supporting_ids,
-                contradicting_evidence_ids=[],
-                missing_evidence=[],
-                next_checks=["Confirm the current pool limit and active connection count."],
-                evidence_support_score=60,
-                status=HypothesisStatus.PLAUSIBLE,
-            )
-        ],
-        primary_code=primary_code,
-    )
+    hypotheses = [
+        RootCauseHypothesis(
+            hypothesis_id=f"H-{index:02d}",
+            rank=index,
+            claim=policy.claim,
+            mechanism=policy.mechanism,
+            affected_services=[service] if service else [],
+            supporting_evidence_ids=[item.evidence_id for item in supporting],
+            contradicting_evidence_ids=[],
+            missing_evidence=[],
+            next_checks=[policy.next_check],
+            evidence_support_score=60,
+            status=HypothesisStatus.PLAUSIBLE,
+        )
+        for index, (policy, service, supporting) in enumerate(matches[:3], start=1)
+    ]
+    primary_policy, primary_service, primary_supporting = matches[0]
+    primary_code = primary_policy.code
+    if len(hypotheses) == 1:
+        hypotheses = add_unverified_alternative(hypotheses, primary_code=primary_code)
+    supporting_ids = [item.evidence_id for item in primary_supporting]
     actions = policy_actions(
         primary_code=primary_code,
-        target_service="payment-service",
+        target_service=primary_service,
         supporting_evidence_ids=supporting_ids,
     )
     return report.model_copy(
         update={
-            "title": "payment-service connection-pool constraint",
-            "severity": "SEV-2",
+            "title": f"Evidence-grounded finding: {primary_code}",
+            "severity": "SEV-3" if primary_code == "RUNBOOK_PROMPT_INJECTION" else "SEV-2",
             "severity_rationale": (
-                "A direct payment pool-acquisition failure signature is present in the bounded "
-                "window."
+                "A direct canonical signal and bounded corroborating evidence are present."
             ),
             "status": ReportStatus.IDENTIFIED,
-            "impact_summary": "Payment requests emitted bounded pool-acquisition failures.",
+            "impact_summary": primary_policy.claim,
             "executive_summary": (
-                "The leading hypothesis is a payment connection-pool acquisition constraint, "
-                "supported by a direct log signature and a corresponding bounded metric series."
+                f"The leading hypothesis is {primary_policy.claim.casefold()}, supported by "
+                "server-verified direct evidence from the requested window."
             ),
-            "affected_services": ["payment-service"],
+            "affected_services": sorted(
+                {service for _, service, _ in matches[:3] if service is not None}
+            ),
             "hypotheses": hypotheses,
             "recommended_actions": actions,
             "audit": {
                 **report.audit,
                 "root_cause_code": primary_code,
+                "root_cause_codes": [policy.code for policy, _, _ in matches[:3]],
                 "citation_coverage": 1.0,
+                "deterministic_live_fallback": True,
             },
         },
         deep=True,

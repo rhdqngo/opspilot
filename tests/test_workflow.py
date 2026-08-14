@@ -92,6 +92,79 @@ def test_live_policy_identifies_only_direct_log_metric_conjunction() -> None:
     assert insufficient.recommended_actions == []
 
 
+@pytest.mark.parametrize(
+    ("service", "signature", "knowledge", "expected_code"),
+    [
+        (
+            "payment-service",
+            "External provider timeout exceeded the dependency timeout.",
+            "Provider timeout response guide.",
+            "PAYMENT_UPSTREAM_TIMEOUT",
+        ),
+        (
+            "inventory-service",
+            "Inventory hostname failed DNS resolution.",
+            "Inventory endpoint and DNS configuration.",
+            "INVENTORY_ENDPOINT_MISCONFIGURATION",
+        ),
+        (
+            "order-service",
+            "Upstream returned HTTP 429 rate limit.",
+            "Upstream rate limit and quota guide.",
+            "UPSTREAM_RATE_LIMIT",
+        ),
+    ],
+)
+def test_live_policy_classifies_canonical_causes_across_services(
+    service: str, signature: str, knowledge: str, expected_code: str
+) -> None:
+    report = _live_inconclusive_report().model_copy(
+        update={
+            "affected_services": [service],
+            "evidence": [
+                EvidenceItem(
+                    evidence_id="EV-LOG-0001",
+                    source_type=SourceType.LOG,
+                    title="Cloud Run log signature",
+                    service=service,
+                    summary=signature,
+                    direction=EvidenceDirection.UNKNOWN,
+                ),
+                EvidenceItem(
+                    evidence_id="EV-MET-0001",
+                    source_type=SourceType.METRIC,
+                    title="Cloud Run error_ratio",
+                    service=service,
+                    summary="Observed bounded error-ratio points.",
+                    value=0.3,
+                    direction=EvidenceDirection.UNKNOWN,
+                    quality_flags=["live_read_only"],
+                ),
+                EvidenceItem(
+                    evidence_id="EV-KNW-0001",
+                    source_type=SourceType.KNOWLEDGE,
+                    title="Canonical operations guidance",
+                    service=service,
+                    summary=knowledge,
+                    direction=EvidenceDirection.UNKNOWN,
+                ),
+            ],
+        },
+        deep=True,
+    )
+
+    identified = apply_live_report_policy(report)
+
+    assert identified.status is ReportStatus.IDENTIFIED
+    assert identified.audit["root_cause_code"] == expected_code
+    assert identified.hypotheses[0].affected_services == [service]
+    assert {item.category for item in identified.recommended_actions} == {
+        "CONTAINMENT",
+        "MITIGATION",
+        "ROOT_FIX",
+    }
+
+
 @pytest.mark.asyncio
 async def test_M3_all_seven_scenario_contracts_replay() -> None:
     reports = [await run_fixture_investigation(f"SCN-{index:03d}") for index in range(1, 8)]

@@ -474,6 +474,7 @@ class LiveInvestigationExecutor:
                     },
                     deep=True,
                 )
+                report = apply_live_report_policy(report)
                 report = add_prod_sim_rollback_request(report)
                 return InvestigationExecution(
                     report=report,
