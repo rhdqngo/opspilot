@@ -77,6 +77,8 @@ run "bounded_dev_foundation" {
       length(google_discovery_engine_search_engine.knowledge) == 0 &&
       length(google_project_iam_custom_role.investigator_reader) == 0 &&
       length(google_project_iam_member.investigator_reader) == 0 &&
+      length(google_project_iam_custom_role.runtime_project_metadata) == 0 &&
+      length(google_project_iam_member.runtime_project_metadata) == 0 &&
       length(google_service_account_iam_member.investigator_operator_token_creator) == 0 &&
       length(google_service_account_iam_member.runtime_service_agent_token_creator) == 0 &&
       length(google_vertex_ai_reasoning_engine.opspilot) == 0 &&
@@ -416,9 +418,16 @@ run "m7_agent_runtime_apply_ready_contract" {
   assert {
     condition = (
       length(google_service_account_iam_member.runtime_service_agent_token_creator) == 1 &&
+      length(google_project_iam_custom_role.runtime_project_metadata) == 1 &&
+      length(google_project_iam_member.runtime_project_metadata) == 1 &&
       length(google_vertex_ai_reasoning_engine.opspilot) == 1
     )
-    error_message = "M7 must add one leaf Token Creator grant and one Agent Runtime only."
+    error_message = "M7 must add one leaf Token Creator grant, one project-metadata binding, and one Agent Runtime only."
+  }
+
+  assert {
+    condition     = toset(google_project_iam_custom_role.runtime_project_metadata[0].permissions) == toset(["resourcemanager.projects.get"])
+    error_message = "The Runtime project lookup role must contain exactly one read-only permission."
   }
 
   assert {
@@ -482,10 +491,10 @@ run "m7_agent_runtime_apply_ready_contract" {
 
   assert {
     condition = (
-      contains([for item in google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].env : "${item.name}=${item.value}"], "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=false") &&
+      contains([for item in google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].env : "${item.name}=${item.value}"], "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=true") &&
       contains([for item in google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].env : "${item.name}=${item.value}"], "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false")
     )
-    error_message = "Provider telemetry must remain disabled while message-content capture stays off."
+    error_message = "Provider telemetry must remain enabled without model message-content capture."
   }
 
   assert {

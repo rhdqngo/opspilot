@@ -314,6 +314,25 @@ resource "google_project_iam_member" "investigator_reader" {
   member  = "serviceAccount:${google_service_account.investigator.email}"
 }
 
+resource "google_project_iam_custom_role" "runtime_project_metadata" {
+  count = var.deploy_agent_runtime ? 1 : 0
+
+  project     = var.project_id
+  role_id     = "opspilotRuntimeProjectMetadata"
+  title       = "OpsPilot Runtime Project Metadata"
+  description = "Single-permission project lookup required by the managed Agent Runtime."
+  stage       = "GA"
+  permissions = ["resourcemanager.projects.get"]
+}
+
+resource "google_project_iam_member" "runtime_project_metadata" {
+  count = var.deploy_agent_runtime ? 1 : 0
+
+  project = var.project_id
+  role    = google_project_iam_custom_role.runtime_project_metadata[0].name
+  member  = "serviceAccount:${google_service_account.investigator.email}"
+}
+
 resource "google_service_account_iam_member" "investigator_operator_token_creator" {
   count = var.enable_live_evidence ? 1 : 0
 
@@ -356,7 +375,7 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
 
       env {
         name  = "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"
-        value = "false"
+        value = "true"
       }
 
       env {
@@ -367,11 +386,6 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
       env {
         name  = "OPSPILOT_LIVE_MODEL_ENABLED"
         value = "true"
-      }
-
-      env {
-        name  = "OPSPILOT_RUNTIME_PROJECT_ID"
-        value = var.project_id
       }
 
       dynamic "env" {
@@ -424,6 +438,7 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
   depends_on = [
     google_project_service.m1,
     google_project_iam_member.investigator_reader,
+    google_project_iam_member.runtime_project_metadata,
     google_cloud_run_v2_service_iam_member.runtime_invokes_investigation_api,
     google_service_account_iam_member.runtime_service_agent_token_creator,
   ]

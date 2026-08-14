@@ -4,7 +4,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import tarfile
 from pathlib import Path
 from typing import Any
@@ -30,7 +29,6 @@ from opspilot.agent.runtime import (
 )
 from opspilot.agent.runtime_agent import (
     OpsPilotRuntimeApp,
-    _normalize_agent_engine_project,
     create_ephemeral_session_service,
     create_runtime_app,
     root_agent,
@@ -62,46 +60,6 @@ def _request_json(
             "sessionId": session,
         }
     )
-
-
-def test_agent_engine_normalizes_numeric_project_without_project_iam(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class MetadataResponse:
-        def __enter__(self) -> MetadataResponse:
-            return self
-
-        def __exit__(self, *_: object) -> None:
-            return None
-
-        def read(self) -> bytes:
-            return b"safe-project-id"
-
-    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "123456789012")
-    monkeypatch.setattr(
-        "opspilot.agent.runtime_agent.urlopen",
-        lambda *_args, **_kwargs: MetadataResponse(),
-    )
-
-    _normalize_agent_engine_project()
-
-    assert os.environ["GOOGLE_CLOUD_PROJECT"] == "safe-project-id"
-
-
-def test_agent_engine_prefers_explicit_runtime_project_without_metadata(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "123456789012")
-    monkeypatch.setenv("OPSPILOT_RUNTIME_PROJECT_ID", "safe-runtime-project")
-
-    def unexpected_metadata(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("explicit runtime project must avoid metadata lookup")
-
-    monkeypatch.setattr("opspilot.agent.runtime_agent.urlopen", unexpected_metadata)
-
-    _normalize_agent_engine_project()
-
-    assert os.environ["GOOGLE_CLOUD_PROJECT"] == "safe-runtime-project"
 
 
 def test_enterprise_adapter_defers_scope_and_intent_to_the_api() -> None:
@@ -719,7 +677,7 @@ def test_packaged_entrypoint_is_narrow_adk_app() -> None:
     assert isinstance(root_agent, OpsPilotRuntimeApp)
     assert isinstance(create_ephemeral_session_service(), InMemorySessionService)
     assert root_agent.register_operations() == {"async_stream": ["streaming_agent_run_with_events"]}
-    assert root_agent._telemetry_enabled() is False
+    assert "_telemetry_enabled" not in OpsPilotRuntimeApp.__dict__
     assert callable(root_agent.streaming_agent_run_with_events)
 
 
