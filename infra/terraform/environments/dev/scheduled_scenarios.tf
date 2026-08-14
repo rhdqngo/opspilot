@@ -109,9 +109,9 @@ resource "google_cloud_scheduler_job" "scheduled_scn001" {
   time_zone   = "Asia/Seoul"
   paused      = false
 
-  retry_config {
-    retry_count = 0
-  }
+  # Cloud Scheduler's API default is retry_count=0. Leaving RetryConfig
+  # unset preserves the no-retry contract and avoids perpetual drift because
+  # the API omits an explicitly supplied zero from the returned resource.
 
   http_target {
     http_method = "POST"

@@ -95,7 +95,8 @@ def test_scheduled_scenario_source_keeps_identity_and_target_scope_bounded() -> 
     )
     assert 'schedule    = "5,35 * * * *"' in source
     assert 'time_zone   = "Asia/Seoul"' in source
-    assert "retry_count = 0" in source
+    assert "Cloud Scheduler's API default is retry_count=0" in source
+    assert "retry_config {" not in source
     assert "max_retries     = 0" in source
     assert 'timeout         = "300s"' in source
     assert 'memory = "512Mi"' in source

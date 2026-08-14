@@ -756,7 +756,7 @@ run "scheduled_scenarios_bounded_contract" {
       google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].containers[0].resources[0].limits["memory"] == "512Mi" &&
       google_cloud_scheduler_job.scheduled_scn001[0].schedule == "5,35 * * * *" &&
       google_cloud_scheduler_job.scheduled_scn001[0].time_zone == "Asia/Seoul" &&
-      google_cloud_scheduler_job.scheduled_scn001[0].retry_config[0].retry_count == 0
+      length(google_cloud_scheduler_job.scheduled_scn001[0].retry_config) == 0
     )
     error_message = "The Job and Scheduler cadence, concurrency, timeout, and retry bounds must remain fixed."
   }

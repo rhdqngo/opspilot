@@ -192,6 +192,9 @@ def test_runtime_v2_supports_investigate_follow_up_refine_and_compare() -> None:
         assert first.status_code == 200
         assert first.json()["intent"] == "INVESTIGATE"
         assert first.json()["started_investigation"] is True
+        assert first.json()["progress_markdown"] == (
+            "Collecting bounded evidence for payment-service in dev over 15 minutes…\n\n"
+        )
         incident_id = first.json()["incident_id"]
 
         summary_query = "결론과 사용자 영향을 세 줄로 요약해줘"
@@ -226,6 +229,20 @@ def test_runtime_v2_supports_investigate_follow_up_refine_and_compare() -> None:
         assert compared.status_code == 200
         assert compared.json()["intent"] == "COMPARE_REPORT_VERSIONS"
         assert "1 → 2" in compared.json()["markdown"]
+
+
+def test_runtime_v2_korean_investigation_progress_is_natural_and_bounded() -> None:
+    query = "개발 payment-service 최근 15분 오류를 분석해줘"
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(query, "A9"),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["progress_markdown"] == (
+        "dev 환경에서 payment-service의 최근 15분 증거를 수집하고 있습니다…\n\n"
+    )
 
 
 def test_runtime_v2_treats_depth_as_new_scope_and_recognizes_capability_wording() -> None:
