@@ -50,7 +50,7 @@ package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap
 pass. Two 11-file Runtime packages are byte-identical. The four-phase Terraform plan guard rejects
 cross-phase addresses, unreviewed replacements, public invokers, and image/Runtime hash drift.
 The current local Runtime archive SHA-256 is
-`fc02f8a8acf7b60dd9eef14d2a621a5ea079ae597e7340dff1b5b57b769aa1ad`.
+`33e5c1f5f8ff04eac9e5a9c545bda2ad0f00c55b61a1401a909349ef3d511e38`.
 Managed deployment, three-environment smoke, conversational Preview QA, and final Terraform
 `No changes` remain required before `formal_agent_verified`.
 
@@ -86,7 +86,11 @@ that atomic batching removed progress-only delivery, but also exposed two remain
 entire last data chunk can be dropped, and a cold metadata identity-token fetch can consume the
 Runtime deadline before the API call starts. The next candidate appends a non-visible empty trailer
 after the atomic data chunk and caps each credential transport attempt at three seconds with bounded
-retry. Local Runtime and full repository gates pass; a source-bound Runtime-only cycle is pending.
+retry. Six managed retries then delivered the full event contract every time, while one safe-failure
+run showed the Google helper's nested five-attempt metadata refresh could still consume the Runtime
+deadline before the API call. The next candidate removes that nested retry by calling the fixed
+Agent Engine metadata identity endpoint once per shared RetryPolicy attempt. Local Runtime and full
+repository gates pass; a source-bound Runtime-only cycle is pending.
 
 ## Long-spec defect remediation
 

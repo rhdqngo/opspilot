@@ -14,9 +14,7 @@ import pytest
 from google.adk.agents import InvocationContext
 from google.adk.runners import InMemoryRunner
 from google.adk.sessions import InMemorySessionService
-from google.auth.transport.requests import Request as AuthRequest
 from google.genai import types
-from google.oauth2 import id_token
 from vertexai import agent_engines
 
 import opspilot.agent.runtime as runtime_module
@@ -167,7 +165,7 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
     calls: list[tuple[str, dict[str, object] | None, float, str | None, str | None]] = []
     monkeypatch.setenv("OPSPILOT_INVESTIGATION_API_URL", "https://investigation.example")
     monkeypatch.setenv("OPSPILOT_INVESTIGATION_API_AUDIENCE", "https://audience.example")
-    monkeypatch.setattr(id_token, "fetch_id_token", lambda *_: "token")
+    monkeypatch.setattr(runtime_module, "_fetch_cached_id_token", lambda *_: "token")
 
     def fake_request(
         url: str,
@@ -234,7 +232,7 @@ def test_runtime_reuses_identity_token_within_its_safe_lifetime(
         return "synthetic-token"
 
     runtime_module._ID_TOKEN_CACHE.clear()
-    monkeypatch.setattr(id_token, "fetch_id_token", fetch)
+    monkeypatch.setattr(runtime_module, "_fetch_metadata_id_token", fetch)
 
     first = runtime_module._fetch_cached_id_token("https://cache-audience.invalid")
     second = runtime_module._fetch_cached_id_token("https://cache-audience.invalid")
@@ -249,25 +247,25 @@ def test_runtime_identity_token_transport_caps_each_request_timeout(
 ) -> None:
     timeouts: list[float] = []
 
-    def send(
-        _self: object,
-        _url: str,
-        *,
-        method: str = "GET",
-        body: bytes | None = None,
-        headers: dict[str, str] | None = None,
-        timeout: float = 120,
-        **_kwargs: object,
-    ) -> object:
-        del method, body, headers
+    class Response:
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"header.payload.signature"
+
+    def send(_request: object, *, timeout: float) -> Response:
         timeouts.append(timeout)
-        return object()
+        return Response()
 
-    monkeypatch.setattr(AuthRequest, "__call__", send)
-    request = runtime_module._BoundedAuthRequest()
+    monkeypatch.setattr(runtime_module, "urlopen", send)
 
-    request("https://metadata.invalid", timeout=120)
+    token = runtime_module._fetch_metadata_id_token("https://audience.invalid")
 
+    assert token == "header.payload.signature"
     assert timeouts == [runtime_module.ID_TOKEN_REQUEST_TIMEOUT_SECONDS]
 
 

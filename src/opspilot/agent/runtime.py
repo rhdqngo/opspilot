@@ -21,6 +21,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Literal, NamedTuple
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 from uuid import uuid4
@@ -28,9 +29,7 @@ from uuid import uuid4
 from google.adk.agents import BaseAgent, InvocationContext
 from google.adk.events import Event
 from google.auth.exceptions import GoogleAuthError
-from google.auth.transport.requests import Request as AuthRequest
 from google.genai import types
-from google.oauth2 import id_token
 from pydantic import BaseModel, Field
 
 from opspilot.audit import audit_hash, new_correlation_id, new_trace_id
@@ -107,6 +106,9 @@ _EXTERNAL_RUNTIME_SESSION_ID: ContextVar[str | None] = ContextVar(
 _ID_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
 _ID_TOKEN_CACHE_LOCK = threading.Lock()
 ID_TOKEN_REQUEST_TIMEOUT_SECONDS = 3.0
+METADATA_IDENTITY_ENDPOINT = (
+    "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity"
+)
 
 
 @contextmanager
@@ -136,26 +138,19 @@ def _token_expiry(token: str, *, now: float) -> float:
         return now + 300
 
 
-class _BoundedAuthRequest(AuthRequest):
-    """Cap metadata and credential HTTP calls below the Runtime deadline."""
+def _fetch_metadata_id_token(audience: str) -> str:
+    """Fetch one Agent Engine service identity token without nested SDK retries."""
 
-    def __call__(
-        self,
-        url: str,
-        method: str = "GET",
-        body: bytes | None = None,
-        headers: dict[str, str] | None = None,
-        timeout: float = 120,
-        **kwargs: object,
-    ) -> object:
-        return super().__call__(  # type: ignore[no-untyped-call]
-            url,
-            method=method,
-            body=body,
-            headers=headers,
-            timeout=min(float(timeout), ID_TOKEN_REQUEST_TIMEOUT_SECONDS),
-            **kwargs,
-        )
+    query = urlencode({"audience": audience, "format": "full"})
+    request = UrlRequest(
+        f"{METADATA_IDENTITY_ENDPOINT}?{query}",
+        headers={"Metadata-Flavor": "Google"},
+    )
+    with urlopen(request, timeout=ID_TOKEN_REQUEST_TIMEOUT_SECONDS) as response:
+        token = str(response.read().decode("utf-8")).strip()
+    if token.count(".") != 2:
+        raise ValueError("metadata identity endpoint returned an invalid token")
+    return token
 
 
 def _fetch_cached_id_token(audience: str) -> str:
@@ -172,15 +167,11 @@ def _fetch_cached_id_token(audience: str) -> str:
             return cached[0]
 
         def fetch_token() -> str:
-            return str(
-                id_token.fetch_id_token(  # type: ignore[no-untyped-call]
-                    _BoundedAuthRequest(), audience
-                )
-            )
+            return _fetch_metadata_id_token(audience)
 
         token = run_with_retry(
             fetch_token,
-            should_retry=lambda error: isinstance(error, (GoogleAuthError, OSError, TimeoutError)),
+            should_retry=lambda error: isinstance(error, (URLError, OSError, TimeoutError)),
             policy=RetryPolicy(
                 max_attempts=3,
                 base_delay_seconds=0.1,
