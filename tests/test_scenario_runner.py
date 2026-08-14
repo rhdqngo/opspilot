@@ -55,6 +55,7 @@ async def test_M3_scenario_runner_matches_baseline_incident_recovery_contract(
 @pytest.mark.asyncio
 async def test_M3_scenario_runner_waits_for_scale_to_zero_service_without_counting_probe() -> None:
     attempts = 0
+    order_attempts = 0
     sleeps: list[float] = []
 
     async def probe(target: str, token: str | None) -> bool:
@@ -67,15 +68,53 @@ async def test_M3_scenario_runner_waits_for_scale_to_zero_service_without_counti
     async def sleeper(seconds: float) -> None:
         sleeps.append(seconds)
 
+    async def order_probe(target: str, token: str | None) -> bool:
+        nonlocal order_attempts
+        assert target == "https://order.example.invalid"
+        assert token == "synthetic-token"
+        order_attempts += 1
+        return True
+
     await _wait_for_healthy_baseline(
         "https://order.example.invalid",
         "synthetic-token",
         probe=probe,
+        order_probe=order_probe,
         sleeper=sleeper,
     )
 
     assert attempts == 3
-    assert sleeps == [2.0, 2.0]
+    assert order_attempts == 2
+    assert sleeps == [2.0, 2.0, 1.0]
+
+
+@pytest.mark.asyncio
+async def test_M3_scenario_runner_requires_two_consecutive_healthy_orders() -> None:
+    outcomes = iter((False, True, False, True, True))
+    order_attempts = 0
+    sleeps: list[float] = []
+
+    async def ready(_target: str, _token: str | None) -> bool:
+        return True
+
+    async def order_probe(_target: str, _token: str | None) -> bool:
+        nonlocal order_attempts
+        order_attempts += 1
+        return next(outcomes)
+
+    async def sleeper(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    await _wait_for_healthy_baseline(
+        "https://order.example.invalid",
+        "synthetic-token",
+        probe=ready,
+        order_probe=order_probe,
+        sleeper=sleeper,
+    )
+
+    assert order_attempts == 5
+    assert sleeps == [1.0, 1.0, 1.0, 1.0]
 
 
 @pytest.mark.asyncio

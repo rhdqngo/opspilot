@@ -22,6 +22,7 @@ ScenarioSender = Callable[
     Awaitable[tuple[int, int, bool]],
 ]
 ReadyProbe = Callable[[str, str | None], Awaitable[bool]]
+HealthyOrderProbe = Callable[[str, str | None], Awaitable[bool]]
 ScenarioWarmer = Callable[[str, str | None], Awaitable[None]]
 
 
@@ -40,22 +41,6 @@ def _probe_ready_sync(target: str, token: str | None) -> bool:
 
 async def _probe_ready(target: str, token: str | None) -> bool:
     return await asyncio.to_thread(_probe_ready_sync, target, token)
-
-
-async def _wait_for_healthy_baseline(
-    target: str,
-    token: str | None,
-    *,
-    probe: ReadyProbe = _probe_ready,
-    sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
-) -> None:
-    """Warm a scale-to-zero order service before counting the fixed baseline."""
-
-    for _ in range(15):
-        if await probe(target, token):
-            return
-        await sleeper(2.0)
-    raise RuntimeError("SCN-001 healthy baseline did not become observable")
 
 
 def _percentile(values: list[int], percentile: float) -> int:
@@ -115,6 +100,40 @@ def _send_scenario_order_sync(
         request_id_ok = False
     latency_ms = max(0, round((perf_counter() - started) * 1_000))
     return status_code, latency_ms, request_id_ok
+
+
+async def _probe_healthy_order(target: str, token: str | None) -> bool:
+    status, _, request_id_ok = await _send_scenario_order(target, "warmup", 0, token, None)
+    return status == 201 and request_id_ok
+
+
+async def _wait_for_healthy_baseline(
+    target: str,
+    token: str | None,
+    *,
+    probe: ReadyProbe = _probe_ready,
+    order_probe: HealthyOrderProbe = _probe_healthy_order,
+    sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> None:
+    """Warm the readiness and authenticated order paths before counting baseline."""
+
+    for _ in range(15):
+        if await probe(target, token):
+            break
+        await sleeper(2.0)
+    else:
+        raise RuntimeError("SCN-001 order service did not become ready")
+
+    consecutive_successes = 0
+    for _ in range(8):
+        if await order_probe(target, token):
+            consecutive_successes += 1
+            if consecutive_successes == 2:
+                return
+        else:
+            consecutive_successes = 0
+        await sleeper(1.0)
+    raise RuntimeError("SCN-001 healthy order path did not become observable")
 
 
 async def _run_phase(
