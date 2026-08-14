@@ -66,8 +66,28 @@ class OpsPilotRuntimeApp(agent_engines.AdkApp):
             user_id=str(user_id) if user_id else None,
             session_id=str(session_id) if session_id else None,
         ):
-            async for event in super().streaming_agent_run_with_events(request_json):
-                yield event
+            events: list[dict[str, Any]] = []
+            artifacts: list[dict[str, Any]] = []
+            response_session_id: str | None = None
+            async for chunk in super().streaming_agent_run_with_events(request_json):
+                chunk_events = chunk.get("events")
+                if isinstance(chunk_events, list):
+                    events.extend(item for item in chunk_events if isinstance(item, dict))
+                chunk_artifacts = chunk.get("artifacts")
+                if isinstance(chunk_artifacts, list):
+                    artifacts.extend(item for item in chunk_artifacts if isinstance(item, dict))
+                chunk_session_id = chunk.get("session_id")
+                if isinstance(chunk_session_id, str):
+                    response_session_id = chunk_session_id
+            response: dict[str, Any] = {}
+            if events:
+                response["events"] = events
+            if artifacts:
+                response["artifacts"] = artifacts
+            if response_session_id is not None:
+                response["session_id"] = response_session_id
+            if response:
+                yield response
 
 
 def create_ephemeral_session_service() -> InMemorySessionService:

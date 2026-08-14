@@ -50,7 +50,7 @@ package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap
 pass. Two 11-file Runtime packages are byte-identical. The four-phase Terraform plan guard rejects
 cross-phase addresses, unreviewed replacements, public invokers, and image/Runtime hash drift.
 The current local Runtime archive SHA-256 is
-`cfcbe4615d643e5a2fb308f000406317a36493f6332b954d51d1a45e7985c28b`.
+`6c04a53376fde11fd7c37d9a59d6d3acbb1f2120780f61421266b3520e4e2d5d`.
 Managed deployment, three-environment smoke, conversational Preview QA, and final Terraform
 `No changes` remain required before `formal_agent_verified`.
 
@@ -76,7 +76,13 @@ the gateway to drop a final event. The next candidate binds the external user/se
 only within the invocation before hashing, keeps durable context in Firestore, disables the blocking
 ADK flush while retaining privacy-safe stdout audit events, and caches short-lived Runtime bridge ID
 tokens in memory. Its full local gate and two-package reproducibility check pass; managed deployment
-and the complete conversation matrix rerun remain pending.
+and deployment pass. The same-session investigation, explanation, 60-minute refinement, H-02
+deepening, and version comparison now retain context and return the expected event contracts.
+Independent dev retries both passed, but one multi-service retry still lost the second transport
+chunk even though Runtime logged `final_emitted` after 8.2 seconds. The next candidate preserves the
+ordered progress/final events while batching them into one atomic Agent Engine response chunk, so
+the provider cannot deliver progress while dropping a later final chunk. Local Runtime and full
+repository gates pass; a new source-bound Runtime-only cycle is pending.
 
 ## Long-spec defect remediation
 

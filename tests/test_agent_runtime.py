@@ -40,12 +40,10 @@ from opspilot.audit import audit_hash
 from opspilot.domain import OutputLanguage
 
 
-def _single_converted_event(chunk: dict[str, Any]) -> dict[str, Any]:
-    events = chunk["events"]
-    assert isinstance(events, list) and len(events) == 1
-    event = events[0]
-    assert isinstance(event, dict)
-    return event
+def _converted_events(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        event for chunk in chunks for event in chunk.get("events", []) if isinstance(event, dict)
+    ]
 
 
 def _local_runtime_app(handler: Any) -> OpsPilotRuntimeApp:
@@ -415,9 +413,11 @@ async def test_enterprise_session_uses_ephemeral_state_and_hides_identifiers() -
     ]
     serialized = json.dumps(events)
 
-    assert len(events) == 2
-    assert _single_converted_event(events[0])["partial"] is True
-    assert _single_converted_event(events[1])["turn_complete"] is True
+    converted = _converted_events(events)
+    assert len(events) == 1
+    assert len(converted) == 2
+    assert converted[0]["partial"] is True
+    assert converted[1]["turn_complete"] is True
     assert "private-enterprise-user" not in serialized
     assert request_text not in serialized
     decision = decisions[0]
@@ -473,8 +473,10 @@ async def test_runtime_exception_emits_fixed_safe_final_event(
     ]
     serialized = json.dumps(chunks)
 
-    assert len(chunks) == 2
-    assert _single_converted_event(chunks[1])["content"]["parts"][0]["text"] == RUNTIME_FAILURE_TEXT
+    converted = _converted_events(chunks)
+    assert len(chunks) == 1
+    assert len(converted) == 2
+    assert converted[1]["content"]["parts"][0]["text"] == RUNTIME_FAILURE_TEXT
     assert "private-user" not in serialized
     assert "secret prompt" not in serialized
     assert '"stage":"final_emitted"' in caplog.text
@@ -615,7 +617,8 @@ async def test_concurrent_enterprise_requests_keep_events_and_logs_private(
     serialized = json.dumps(results)
 
     assert calls == 20
-    assert all(len(events) == 2 for events in results)
+    assert all(len(chunks) == 1 for chunks in results)
+    assert all(len(_converted_events(chunks)) == 2 for chunks in results)
     assert len(accepted_logs) == 20 and len(summary_logs) == 20
     assert len({item["run_id"] for item in accepted_logs}) == 20
     assert all(
