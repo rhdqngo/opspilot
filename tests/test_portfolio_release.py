@@ -6,6 +6,7 @@ import json
 import tarfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 
@@ -261,6 +262,23 @@ def test_readme_points_to_current_formal_agent_evidence() -> None:
     assert "docs/guides/app-overview.ko.md" in korean_readme
     assert "docs/guides/first-time-user.md" in readme
     assert "docs/guides/first-time-user.ko.md" in korean_readme
+    assert "opspilot-guides.zip" in readme
+    assert "opspilot-guides.zip" in korean_readme
+    archive_sources = {
+        "app-overview.md": Path("docs/guides/app-overview.md"),
+        "app-overview.ko.md": Path("docs/guides/app-overview.ko.md"),
+        "first-time-user.md": Path("docs/guides/first-time-user.md"),
+        "first-time-user.ko.md": Path("docs/guides/first-time-user.ko.md"),
+        "opspilot_ai_implementation_spec.md": Path("docs/plans/opspilot_ai_implementation_spec.md"),
+        "opspilot_ai_implementation_spec.pdf": Path(
+            "docs/plans/opspilot_ai_implementation_spec.pdf"
+        ),
+        "opspilot_project_guide.html": Path("docs/plans/opspilot_project_guide.html"),
+    }
+    with ZipFile(root / "opspilot-guides.zip") as archive:
+        assert set(archive.namelist()) == set(archive_sources)
+        for archived_name, source_path in archive_sources.items():
+            assert archive.read(archived_name) == (root / source_path).read_bytes()
     assert "BEGIN GENERATED:PORTFOLIO_METRICS" not in readme
     assert "BEGIN GENERATED:PORTFOLIO_METRICS" not in korean_readme
 
