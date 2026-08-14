@@ -257,11 +257,17 @@ def test_readme_points_to_current_formal_agent_evidence() -> None:
     assert evidence_path in korean_readme
     assert "docs/portfolio/results/README.md" in readme
     assert "docs/portfolio/results/README.ko.md" in korean_readme
+    assert "docs/guides/app-overview.md" in readme
+    assert "docs/guides/app-overview.ko.md" in korean_readme
+    assert "docs/guides/first-time-user.md" in readme
+    assert "docs/guides/first-time-user.ko.md" in korean_readme
     assert "BEGIN GENERATED:PORTFOLIO_METRICS" not in readme
     assert "BEGIN GENERATED:PORTFOLIO_METRICS" not in korean_readme
 
     bilingual_pairs = (
         (Path("README.md"), Path("README.ko.md")),
+        (Path("docs/guides/app-overview.md"), Path("docs/guides/app-overview.ko.md")),
+        (Path("docs/guides/first-time-user.md"), Path("docs/guides/first-time-user.ko.md")),
         (Path("docs/portfolio/architecture.md"), Path("docs/portfolio/architecture.ko.md")),
         (Path("docs/portfolio/evaluation.md"), Path("docs/portfolio/evaluation.ko.md")),
         (Path("docs/portfolio/demo.md"), Path("docs/portfolio/demo.ko.md")),

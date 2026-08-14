@@ -124,6 +124,8 @@ authoritative release evidence. No misleading CI badge is displayed.
 
 | Topic | Document |
 | --- | --- |
+| App information | [Administrator overview](docs/guides/app-overview.md) |
+| First-time use | [Participant guide](docs/guides/first-time-user.md) |
 | System design | [Architecture](docs/portfolio/architecture.md) |
 | Quality gates | [Evaluation](docs/portfolio/evaluation.md) |
 | Reproducible demo | [Demo](docs/portfolio/demo.md) |

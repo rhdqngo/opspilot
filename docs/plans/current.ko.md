@@ -84,6 +84,9 @@ updated: 2026-08-15
   게시합니다.
 - README와 documentation table의 모든 portfolio 문서에 한국어 mirror를 제공하고,
   English를 canonical technical contract로 유지하면서 두 진입점을 명시적으로 연결합니다.
+- 관리자용 앱 정보와 처음 이용하는 체험자 가이드가 접근 권한, 10분 체험 동선, 보고서
+  해석, 의도적 거절, 개인정보 보호와 일반적인 Preview 상태의 대응 방법을 한국어·영어로
+  안내합니다.
 - 예약 체험은 수동·자동 `5/5 -> 4/6 -> 5/5` 실행, Preview 60분 양성 조사, 1분 정상 상태
   회귀, pytest 289/289, Terraform dev 10/10과 최종 bootstrap/dev `No changes`를 통과했습니다.
 - 정제된 증빙: [formal-agent v3](../portfolio/results/long-spec-formal-agent-v3.md),
@@ -100,6 +103,8 @@ updated: 2026-08-15
 
 - 배포된 formal agent를 release baseline으로 취급합니다.
 - Root README와 verification evidence index를 portfolio documentation 진입점으로 사용합니다.
+- 검토자에게 계정 credential이나 구두 설명 대신 앱 정보와 처음 이용하기 문서를
+  전달합니다.
 - 교육용 체험이 필요할 때만 예약 시나리오를 활성 상태로 유지하고, 필요하지 않을 때는
   운영 runbook 절차로 일시중지합니다.
 - 새 요구사항, 재현 가능한 product defect 또는 documented transient policy를 위반한

@@ -82,6 +82,9 @@ updated: 2026-08-15
   exposing raw cloud or browser identifiers.
 - Korean mirrors cover the README and every portfolio document linked from its documentation table;
   English remains the canonical technical contract and both entrypoints cross-link explicitly.
+- Administrator-facing app information and a first-time participant guide now document access,
+  the 10-minute experience path, report interpretation, expected rejections, privacy, and recovery
+  from common Preview conditions in both English and Korean.
 - The scheduled experience passed manual and automatic `5/5 -> 4/6 -> 5/5` execution, a positive
   60-minute Preview investigation, a healthy one-minute regression, 289/289 pytest, Terraform dev
   10/10, and final bootstrap/dev `No changes` plans.
@@ -99,6 +102,8 @@ updated: 2026-08-15
 
 - Treat the deployed formal agent as the release baseline.
 - Use the root README and verification evidence index as the portfolio documentation entrypoints.
+- Give reviewers the app-information and first-time-user guides instead of sharing account
+  credentials or relying on verbal setup instructions.
 - Keep the scheduled scenario enabled for the bounded educational demo; pause it through the
   documented runbook when the experience is not required.
 - Resume only for a new requirement, a reproducible product defect, or a provider incident that
