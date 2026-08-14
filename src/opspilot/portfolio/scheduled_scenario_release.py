@@ -34,13 +34,15 @@ DEV_ADDRESSES = frozenset(
 )
 
 
-def _read(path: Path) -> dict[str, object]:
+def _read(path: Path, terraform_directory: Path | None = None) -> dict[str, object]:
     if path.suffix == ".tfplan":
         completed = subprocess.run(
             ["terraform", "show", "-json", str(path)],
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            cwd=terraform_directory,
             timeout=120,
         )
         if completed.returncode != 0:
@@ -66,17 +68,19 @@ def _walk_key(value: object, key: str) -> list[object]:
     return found
 
 
-def _changes(path: Path) -> list[dict[str, object]]:
-    raw = _read(path).get("resource_changes", [])
+def _changes(path: Path, terraform_directory: Path | None = None) -> list[dict[str, object]]:
+    raw = _read(path, terraform_directory).get("resource_changes", [])
     if not isinstance(raw, list):
         raise ValueError("Terraform resource_changes must be a list")
     return [cast(dict[str, object], item) for item in raw if isinstance(item, dict)]
 
 
-def bootstrap_plan_summary(path: Path) -> dict[str, object]:
+def bootstrap_plan_summary(
+    path: Path, *, terraform_directory: Path | None = None
+) -> dict[str, object]:
     changes = []
     permissions_valid = False
-    for item in _changes(path):
+    for item in _changes(path, terraform_directory):
         change = item.get("change")
         if not isinstance(change, dict) or change.get("actions") == ["no-op"]:
             continue
@@ -109,14 +113,19 @@ def bootstrap_plan_summary(path: Path) -> dict[str, object]:
     }
 
 
-def dev_plan_summary(path: Path, *, expected_image_digest: str) -> dict[str, object]:
+def dev_plan_summary(
+    path: Path,
+    *,
+    expected_image_digest: str,
+    terraform_directory: Path | None = None,
+) -> dict[str, object]:
     if DIGEST_PATTERN.fullmatch(expected_image_digest) is None:
         raise ValueError("scheduled scenario image digest is invalid")
     changed: list[str] = []
     actions_valid = True
     public_iam_absent = True
     image_bound = False
-    for item in _changes(path):
+    for item in _changes(path, terraform_directory):
         change = item.get("change")
         if not isinstance(change, dict) or change.get("actions") == ["no-op"]:
             continue
@@ -152,13 +161,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("plan_json", type=Path)
     parser.add_argument("--phase", choices=("bootstrap", "dev"), required=True)
     parser.add_argument("--image-digest")
+    parser.add_argument("--terraform-directory", type=Path)
     args = parser.parse_args(argv)
     if args.phase == "bootstrap":
-        summary = bootstrap_plan_summary(args.plan_json)
+        summary = bootstrap_plan_summary(
+            args.plan_json.resolve(), terraform_directory=args.terraform_directory
+        )
     else:
         if args.image_digest is None:
             parser.error("--image-digest is required for the dev phase")
-        summary = dev_plan_summary(args.plan_json, expected_image_digest=args.image_digest)
+        summary = dev_plan_summary(
+            args.plan_json.resolve(),
+            expected_image_digest=args.image_digest,
+            terraform_directory=args.terraform_directory,
+        )
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if summary["allowed"] is True else 2
 
