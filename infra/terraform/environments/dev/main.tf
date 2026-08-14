@@ -356,7 +356,7 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
 
       env {
         name  = "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"
-        value = "true"
+        value = "false"
       }
 
       env {
@@ -371,11 +371,6 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
 
       env {
         name  = "OPSPILOT_RUNTIME_PROJECT_ID"
-        value = var.project_id
-      }
-
-      env {
-        name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
       }
 

@@ -482,10 +482,10 @@ run "m7_agent_runtime_apply_ready_contract" {
 
   assert {
     condition = (
-      contains([for item in google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].env : "${item.name}=${item.value}"], "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=true") &&
+      contains([for item in google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].env : "${item.name}=${item.value}"], "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=false") &&
       contains([for item in google_vertex_ai_reasoning_engine.opspilot[0].spec[0].deployment_spec[0].env : "${item.name}=${item.value}"], "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false")
     )
-    error_message = "Telemetry must remain enabled without model message-content capture."
+    error_message = "Provider telemetry must remain disabled while message-content capture stays off."
   }
 
   assert {
