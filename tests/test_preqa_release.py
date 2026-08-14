@@ -10,6 +10,8 @@ import pytest
 from opspilot.portfolio.preqa_release import (
     IMAGE_ADDRESS,
     RUNTIME_ADDRESS,
+    RUNTIME_METADATA_BINDING_ADDRESS,
+    RUNTIME_METADATA_ROLE_ADDRESS,
     PreQaReleaseRunner,
     _context_matches_source,
     terraform_no_changes,
@@ -81,8 +83,101 @@ def test_preqa_plan_accepts_only_two_expected_in_place_updates(tmp_path: Path) -
         "image_bound": True,
         "runtime_bound": True,
         "runtime_name_stable": True,
+        "runtime_metadata_bounded": True,
         "public_iam_absent": True,
     }
+
+
+def test_preqa_plan_accepts_only_bounded_runtime_metadata_bootstrap(
+    tmp_path: Path,
+) -> None:
+    payload = _allowed_plan()
+    changes = payload["resource_changes"]
+    assert isinstance(changes, list)
+    changes.extend(
+        [
+            _change(
+                RUNTIME_METADATA_ROLE_ADDRESS,
+                ["create"],
+                None,
+                {"permissions": ["resourcemanager.projects.get"]},
+            ),
+            _change(
+                RUNTIME_METADATA_BINDING_ADDRESS,
+                ["create"],
+                None,
+                {
+                    "member": "serviceAccount:runtime@example.invalid",
+                    "role": "projects/redacted/roles/opspilotRuntimeProjectMetadata",
+                },
+            ),
+        ]
+    )
+    path = tmp_path / "plan.json"
+    _write(path, payload)
+
+    summary = terraform_plan_summary(
+        path,
+        expected_image_digest=IMAGE_DIGEST,
+        expected_runtime_sha256=RUNTIME_SHA256,
+        expected_addresses=frozenset(
+            {
+                IMAGE_ADDRESS,
+                RUNTIME_ADDRESS,
+                RUNTIME_METADATA_ROLE_ADDRESS,
+                RUNTIME_METADATA_BINDING_ADDRESS,
+            }
+        ),
+    )
+
+    assert summary["allowed"] is True
+    assert (summary["add"], summary["update"], summary["destroy"]) == (2, 2, 0)
+    assert summary["runtime_metadata_bounded"] is True
+
+
+@pytest.mark.parametrize("mutation", ("permission", "member", "role"))
+def test_preqa_plan_rejects_broadened_runtime_metadata_bootstrap(
+    tmp_path: Path, mutation: str
+) -> None:
+    payload = _allowed_plan()
+    changes = payload["resource_changes"]
+    assert isinstance(changes, list)
+    role = {"permissions": ["resourcemanager.projects.get"]}
+    binding = {
+        "member": "serviceAccount:runtime@example.invalid",
+        "role": "projects/redacted/roles/opspilotRuntimeProjectMetadata",
+    }
+    if mutation == "permission":
+        role["permissions"].append("resourcemanager.projects.list")
+    elif mutation == "member":
+        binding["member"] = "user:operator@example.invalid"
+    else:
+        binding["role"] = "roles/viewer"
+    changes.extend(
+        [
+            _change(RUNTIME_METADATA_ROLE_ADDRESS, ["create"], None, role),
+            _change(RUNTIME_METADATA_BINDING_ADDRESS, ["create"], None, binding),
+        ]
+    )
+    path = tmp_path / "plan.json"
+    _write(path, payload)
+
+    summary = terraform_plan_summary(
+        path,
+        expected_image_digest=IMAGE_DIGEST,
+        expected_runtime_sha256=RUNTIME_SHA256,
+        expected_addresses=frozenset(
+            {
+                IMAGE_ADDRESS,
+                RUNTIME_ADDRESS,
+                RUNTIME_METADATA_ROLE_ADDRESS,
+                RUNTIME_METADATA_BINDING_ADDRESS,
+            }
+        ),
+    )
+
+    assert summary["allowed"] is False
+    assert summary["runtime_metadata_bounded"] is False
 
 
 @pytest.mark.parametrize(

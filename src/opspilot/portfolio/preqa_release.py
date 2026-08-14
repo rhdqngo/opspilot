@@ -28,6 +28,12 @@ PUBLISHED_DIRECTORY = Path("docs/portfolio/results")
 IMAGE_ADDRESS = "google_cloud_run_v2_service.investigation_api[0]"
 RUNTIME_ADDRESS = "google_vertex_ai_reasoning_engine.opspilot[0]"
 ALLOWED_ADDRESSES = frozenset({IMAGE_ADDRESS, RUNTIME_ADDRESS})
+RUNTIME_METADATA_ROLE_ADDRESS = "google_project_iam_custom_role.runtime_project_metadata[0]"
+RUNTIME_METADATA_BINDING_ADDRESS = "google_project_iam_member.runtime_project_metadata[0]"
+PERMITTED_ADDRESSES = ALLOWED_ADDRESSES | frozenset(
+    {RUNTIME_METADATA_ROLE_ADDRESS, RUNTIME_METADATA_BINDING_ADDRESS}
+)
+CREATABLE_ADDRESSES = frozenset({RUNTIME_METADATA_ROLE_ADDRESS, RUNTIME_METADATA_BINDING_ADDRESS})
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}$")
 
@@ -142,6 +148,7 @@ def terraform_plan_summary(
     runtime_bound = False
     public_iam = False
     runtime_name_stable = True
+    runtime_metadata_bounded = True
     for raw in changes:
         if not isinstance(raw, dict):
             actions_valid = False
@@ -159,7 +166,10 @@ def terraform_plan_summary(
             add_count += int("create" in actions)
             update_count += int(actions == ["update"])
             destroy_count += int("delete" in actions)
-        if actions != ["update"]:
+        action_allowed = actions == ["update"] or (
+            address in CREATABLE_ADDRESSES and actions == ["create"]
+        )
+        if not action_allowed:
             actions_valid = False
         before = change.get("before")
         after = change.get("after")
@@ -189,7 +199,23 @@ def terraform_plan_summary(
                 except (binascii.Error, ValueError):
                     continue
             runtime_bound = expected_runtime_sha256 in decoded_hashes
-    if not expected_addresses or not expected_addresses.issubset(ALLOWED_ADDRESSES):
+        if address == RUNTIME_METADATA_ROLE_ADDRESS:
+            permissions = [
+                item for item in _walk_key(after, "permissions") if isinstance(item, list)
+            ]
+            runtime_metadata_bounded = runtime_metadata_bounded and permissions == [
+                ["resourcemanager.projects.get"]
+            ]
+        if address == RUNTIME_METADATA_BINDING_ADDRESS:
+            members = [str(item) for item in _walk_key(after, "member") if isinstance(item, str)]
+            roles = [str(item) for item in _walk_key(after, "role") if isinstance(item, str)]
+            runtime_metadata_bounded = runtime_metadata_bounded and (
+                len(members) == 1
+                and members[0].startswith("serviceAccount:")
+                and len(roles) == 1
+                and roles[0].endswith("/roles/opspilotRuntimeProjectMetadata")
+            )
+    if not expected_addresses or not expected_addresses.issubset(PERMITTED_ADDRESSES):
         raise ValueError("expected Terraform addresses must be a non-empty allowed subset")
     exact_scope = set(changed) == expected_addresses and len(changed) == len(expected_addresses)
     image_required = IMAGE_ADDRESS in expected_addresses
@@ -201,6 +227,7 @@ def terraform_plan_summary(
             image_bound if image_required else True,
             runtime_bound if runtime_required else True,
             runtime_name_stable,
+            runtime_metadata_bounded,
             not public_iam,
         )
     )
@@ -214,6 +241,7 @@ def terraform_plan_summary(
         "image_bound": image_bound,
         "runtime_bound": runtime_bound,
         "runtime_name_stable": runtime_name_stable,
+        "runtime_metadata_bounded": runtime_metadata_bounded,
         "public_iam_absent": not public_iam,
     }
 
