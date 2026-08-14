@@ -209,23 +209,29 @@ async def run_scn008_command(
             abort_used=True,
         )
     if operation == "reset":
-        await cloud.reset_known_good_template()
+        recovery_store = store or _firestore_store_from_environment()
+        target_record = await recovery_store.get_latest_scenario_target("SCN-008")
+        local_recovery = _read_recovery_record(recovery_path)
+        if target_record is None or local_recovery is None:
+            raise RuntimeError("trusted SCN-008 recovery target is unavailable")
+        incident_id, target = target_record
+        if local_recovery.incident_id != incident_id or local_recovery.target != target:
+            raise RuntimeError("SCN-008 recovery targets do not match")
+        await cloud.abort_faulty_revision(target)
         successes = await _run_ten_orders(
             os.environ["OPSPILOT_ORDER_URL"], await asyncio.to_thread(_gcloud_identity_token)
         )
         if successes != 10:
             raise RuntimeError("SCN-008 reset verification must recover ten orders")
-        local_recovery = _read_recovery_record(recovery_path)
-        if local_recovery is not None:
-            _write_recovery_record(
-                recovery_path,
-                local_recovery.model_copy(
-                    update={
-                        "reset_order_successes": successes,
-                        "reset_completed_at": datetime.now(UTC),
-                    }
-                ),
-            )
+        _write_recovery_record(
+            recovery_path,
+            local_recovery.model_copy(
+                update={
+                    "reset_order_successes": successes,
+                    "reset_completed_at": datetime.now(UTC),
+                }
+            ),
+        )
         return ScenarioCommandResult(
             operation=operation,
             mode=mode,

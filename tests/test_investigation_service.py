@@ -11,13 +11,16 @@ from opspilot.audit import InvestigationAudit, audit_hash
 from opspilot.catalog import load_service_catalog
 from opspilot.domain import Environment, InvestigationRequest, RequestedDepth
 from opspilot.evidence import FixtureEvidenceClient
+from opspilot.investigation_firestore import _incident_merge_fields
 from opspilot.parser import parse_investigation_request
 from opspilot.service import (
     ConversationContext,
     FixtureInvestigationExecutor,
+    IncidentRecord,
     InMemoryInvestigationStore,
     InvestigationCoordinator,
     InvestigationExecution,
+    InvestigationRecord,
     LiveInvestigationExecutor,
 )
 
@@ -56,6 +59,39 @@ class RecordingPublisher:
     async def publish(self, investigation_id: str) -> None:
         if investigation_id not in self.ids:
             self.ids.append(investigation_id)
+
+
+def test_remediation_incident_is_additively_upgraded_for_investigation() -> None:
+    created_at = datetime.now(UTC)
+    record = InvestigationRecord(
+        investigation_id="INV-RUN-0123456789ABCDEF",
+        correlation_id="COR-0123456789ABCDEF",
+        trace_id="0123456789abcdef0123456789abcdef",
+        incident_id="INC-2026-0008",
+        status="QUEUED",
+        current_stage="QUEUED",
+        execution_mode="live",
+        scenario_id="SCN-001",
+        created_at=created_at,
+    )
+    request = parse_investigation_request(
+        "prod-sim payment-service last 30 minutes errors INC-2026-0008 DEEP",
+        catalog=load_service_catalog(),
+    )
+    existing = {
+        "incident_id": "INC-2026-0008",
+        "scenario_id": "SCN-008",
+        "remediation_target": {"trusted": True},
+        "updated_at": created_at,
+    }
+
+    merged = {**existing, **_incident_merge_fields(existing, record=record, request=request)}
+
+    incident = IncidentRecord.model_validate(merged)
+    assert incident.latest_investigation_id == record.investigation_id
+    assert incident.latest_report_version == 0
+    assert merged["scenario_id"] == "SCN-008"
+    assert merged["remediation_target"] == {"trusted": True}
 
 
 class CountingExecutor(FixtureInvestigationExecutor):

@@ -25,6 +25,28 @@ def _key(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+def _incident_merge_fields(
+    existing: dict[str, Any],
+    *,
+    record: InvestigationRecord,
+    request: InvestigationRequest,
+) -> dict[str, Any]:
+    """Add the investigation contract without discarding remediation metadata."""
+
+    seed = IncidentRecord(
+        incident_id=record.incident_id,
+        services=request.services,
+        opened_at=record.created_at,
+        latest_investigation_id=record.investigation_id,
+        assumptions=request.assumptions,
+    ).model_dump(mode="python")
+    return {
+        key: value
+        for key, value in seed.items()
+        if key == "latest_investigation_id" or key not in existing
+    }
+
+
 class FirestoreInvestigationStore:
     """Transactions bind incident counters, immutable reports, and task leases."""
 
@@ -58,9 +80,14 @@ class FirestoreInvestigationStore:
                 },
             )
             if incident_snapshot.exists:
-                transaction.update(
+                transaction.set(
                     incident_ref,
-                    {"latest_investigation_id": record.investigation_id},
+                    _incident_merge_fields(
+                        cast(dict[str, Any], incident_snapshot.to_dict()),
+                        record=record,
+                        request=request,
+                    ),
+                    merge=True,
                 )
             else:
                 transaction.create(

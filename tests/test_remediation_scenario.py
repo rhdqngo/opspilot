@@ -160,6 +160,45 @@ async def test_M8_abort_uses_only_matching_trusted_target_and_marks_local_recove
     assert saved.baseline_successes == 10
 
 
+async def test_M8_reset_routes_to_the_matching_trusted_revision_before_verification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recovery_path = tmp_path / "recovery.json"
+    recovery_path.write_text(
+        ScenarioRecoveryRecord(
+            incident_id="INC-2026-0008",
+            target=TARGET,
+            created_at=datetime(2026, 8, 12, tzinfo=UTC),
+            baseline_successes=10,
+            faulty_order_successes=0,
+        ).model_dump_json(),
+        encoding="utf-8",
+    )
+    admin = FakeScenarioAdmin()
+
+    async def ten_orders(*_: object) -> int:
+        return 10
+
+    monkeypatch.setenv("OPSPILOT_ORDER_URL", "https://order.example.invalid")
+    monkeypatch.setattr("opspilot.remediation.scenario._gcloud_identity_token", lambda: "token")
+    monkeypatch.setattr("opspilot.remediation.scenario._run_ten_orders", ten_orders)
+
+    result = await run_scn008_command(
+        operation="reset",
+        mode="execute",
+        auth="gcloud",
+        admin=admin,
+        store=FakeRecoveryStore(),
+        recovery_path=recovery_path,
+    )
+
+    assert admin.aborts == [TARGET]
+    assert result.order_successes == 10
+    saved = ScenarioRecoveryRecord.model_validate_json(recovery_path.read_text(encoding="utf-8"))
+    assert saved.reset_order_successes == 10
+    assert saved.reset_completed_at is not None
+
+
 async def test_M8_abort_rejects_mismatched_local_and_firestore_targets(tmp_path: Path) -> None:
     local = TARGET.model_copy(update={"service_etag": "different"})
     recovery_path = tmp_path / "recovery.json"
