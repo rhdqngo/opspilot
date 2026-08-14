@@ -155,3 +155,55 @@ async def test_M3_scenario_runner_requires_two_consecutive_healthy_orders() -> N
 async def test_M3_scenario_runner_rejects_non_live_scenario() -> None:
     with pytest.raises(ValueError, match="only SCN-001"):
         await run_scenario(scenario_id="SCN-002", auth="local")
+
+
+@pytest.mark.asyncio
+async def test_scheduled_scenario_uses_adc_token_for_exact_dev_order_audience(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audiences: list[str] = []
+    tokens: list[str | None] = []
+
+    def workload_token(audience: str) -> str:
+        audiences.append(audience)
+        return "workload-token"
+
+    async def warmer(target: str, token: str | None) -> None:
+        assert target == "https://dev-order.example.invalid"
+        tokens.append(token)
+
+    async def sender(
+        _target: str,
+        _phase: str,
+        _index: int,
+        token: str | None,
+        scenario: ScenarioContext | None,
+    ) -> tuple[int, int, bool]:
+        tokens.append(token)
+        return (502 if scenario is not None and scenario.inject_payment_failure else 201, 1, True)
+
+    monkeypatch.setenv("OPSPILOT_DEV_ORDER_URL", "https://dev-order.example.invalid")
+    monkeypatch.setattr("opspilot.demo.scenario_runner._workload_identity_token", workload_token)
+    monkeypatch.setattr(
+        "opspilot.demo.scenario_runner._gcloud_identity_token",
+        lambda: pytest.fail("workload auth must not call gcloud"),
+    )
+
+    result = await run_scenario(
+        scenario_id="SCN-001",
+        environment="dev",
+        auth="workload",
+        sender=sender,
+        warmer=warmer,
+    )
+
+    assert audiences == ["https://dev-order.example.invalid"]
+    assert set(tokens) == {"workload-token"}
+    assert result.ground_truth_matched is True
+    assert result.recovered is True
+
+
+@pytest.mark.asyncio
+async def test_scenario_runner_rejects_unknown_auth() -> None:
+    with pytest.raises(ValueError, match="local, gcloud, or workload"):
+        await run_scenario(scenario_id="SCN-001", auth="token")

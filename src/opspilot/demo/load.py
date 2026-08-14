@@ -14,6 +14,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2 import id_token
+
 from opspilot.demo.models import LoadSummary
 
 OrderSender = Callable[[str, int, str | None], Awaitable[tuple[bool, int, bool]]]
@@ -31,6 +34,16 @@ def _gcloud_identity_token() -> str:
     token = completed.stdout.strip()
     if completed.returncode != 0 or not token:
         raise RuntimeError("gcloud identity token is unavailable")
+    return token
+
+
+def _workload_identity_token(audience: str) -> str:
+    """Mint an identity token from Application Default Credentials for one audience."""
+    token: str = id_token.fetch_id_token(  # type: ignore[no-untyped-call]
+        GoogleAuthRequest(), audience
+    )
+    if not token:
+        raise RuntimeError("workload identity token is unavailable")
     return token
 
 
@@ -81,11 +94,16 @@ async def run_load(
         raise ValueError("orders must be between 1 and 100")
     if not 1 <= concurrency <= 10:
         raise ValueError("concurrency must be between 1 and 10")
-    if auth not in {"local", "gcloud"}:
-        raise ValueError("auth must be local or gcloud")
+    if auth not in {"local", "gcloud", "workload"}:
+        raise ValueError("auth must be local, gcloud, or workload")
 
     target = os.environ.get("OPSPILOT_ORDER_URL", "http://127.0.0.1:8100")
-    token = await asyncio.to_thread(_gcloud_identity_token) if auth == "gcloud" else None
+    if auth == "gcloud":
+        token = await asyncio.to_thread(_gcloud_identity_token)
+    elif auth == "workload":
+        token = await asyncio.to_thread(_workload_identity_token, target)
+    else:
+        token = None
     semaphore = asyncio.Semaphore(concurrency)
 
     async def bounded(index: int) -> tuple[bool, int, bool]:

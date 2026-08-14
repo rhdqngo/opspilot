@@ -112,6 +112,16 @@ def test_scenario_run_prints_redacted_aggregate(
     assert "http" not in output
 
 
+def test_workload_auth_is_additive_to_bounded_cli_commands() -> None:
+    parser = build_parser()
+
+    assert parser.parse_args(["demo", "load", "--auth", "workload"]).auth == "workload"
+    parsed = parser.parse_args(
+        ["scenario", "run", "--scenario", "SCN-001", "--env", "dev", "--auth", "workload"]
+    )
+    assert parsed.auth == "workload"
+
+
 def test_knowledge_and_evidence_cli_are_local_only(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["knowledge", "validate", "--format", "json"]) == 0
     assert '"document_count": 13' in capsys.readouterr().out

@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     demo_load = demo_commands.add_parser("load", help="Generate bounded synthetic order load")
     demo_load.add_argument("--orders", type=int, default=10)
     demo_load.add_argument("--concurrency", type=int, default=2)
-    demo_load.add_argument("--auth", choices=("local", "gcloud"), default="local")
+    demo_load.add_argument("--auth", choices=("local", "gcloud", "workload"), default="local")
     scenario = subcommands.add_parser("scenario", help="Run bounded synthetic incidents")
     scenario_commands = scenario.add_subparsers(dest="scenario_command", required=True)
     scenario_run = scenario_commands.add_parser(
@@ -63,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scenario_run.add_argument("--scenario", default="SCN-001")
     scenario_run.add_argument("--env", choices=("dev", "staging", "prod-sim"), default="dev")
-    scenario_run.add_argument("--auth", choices=("local", "gcloud"), default="local")
+    scenario_run.add_argument("--auth", choices=("local", "gcloud", "workload"), default="local")
     scenario_run.add_argument("--format", choices=("json", "summary"), default="summary")
     for command_name in ("prepare", "reset", "abort"):
         scenario_change = scenario_commands.add_parser(

@@ -32,6 +32,9 @@ test windows, and explicit approvals are the actual cost controls.
 - One scale-to-zero Agent Runtime registered with the existing Gemini Enterprise app.
 - Private scale-to-zero investigation and M8 control services, one Workflow path, Cloud Tasks, and
   bounded Firestore investigation/conversation documents.
+- When the portfolio experience is enabled, one scale-to-zero SCN-001 Cloud Run Job and one Cloud
+  Scheduler job. The dedicated runner image is immutable and does not update the nine workload
+  revisions.
 
 IAM, service accounts, API enablement, and WIF configuration do not independently allocate
 always-on compute. The Runtime update in this lean cut changes only its source archive/hash and
@@ -39,10 +42,14 @@ adds no resource, minimum instance, query, import, or model request by itself.
 
 ## Bounded test usage
 
-- SCN-001: 20 requests per run.
+- SCN-001: 20 requests per run. The optional `5,35 * * * *` schedule runs at most 48 times per day,
+  producing 960 order requests plus bounded downstream synthetic calls.
 - Local fixture evaluation: no paid model or cloud request.
 - Runtime supported request: evidence collection is bounded and model calls are capped at two.
-- No scheduled load, custom metric, generalized alert intake, or unapproved remediation.
+- Scheduled traffic is limited to request-scoped SCN-001 against dev order. It does not call a
+  model; the existing maximum of two model calls applies only when a user starts an investigation.
+- No staging/prod-sim scheduled load, custom metric, generalized alert intake, or unapproved
+  remediation.
 - An approved M8 execution uses one Workflow path, bounded Firestore documents, and exactly ten
   post-action verification orders. Preview QA creates approval requests only and does not execute
   them.

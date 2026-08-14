@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
-from opspilot.demo.load import _gcloud_identity_token
+from opspilot.demo.load import _gcloud_identity_token, _workload_identity_token
 from opspilot.demo.models import ScenarioPhaseSummary, ScenarioRunSummary
 from opspilot.demo.scenario_context import ScenarioContext
 
@@ -182,8 +182,8 @@ async def run_scenario(
 ) -> ScenarioRunSummary:
     if scenario_id != "SCN-001":
         raise ValueError("only SCN-001 supports live execution in M3 MVP")
-    if auth not in {"local", "gcloud"}:
-        raise ValueError("auth must be local or gcloud")
+    if auth not in {"local", "gcloud", "workload"}:
+        raise ValueError("auth must be local, gcloud, or workload")
     if environment not in {"dev", "staging", "prod-sim"}:
         raise ValueError("environment must be dev, staging, or prod-sim")
     environment_variable = f"OPSPILOT_{environment.upper().replace('-', '_')}_ORDER_URL"
@@ -191,7 +191,12 @@ async def run_scenario(
         environment_variable,
         os.environ.get("OPSPILOT_ORDER_URL", "http://127.0.0.1:8100"),
     )
-    token = await asyncio.to_thread(_gcloud_identity_token) if auth == "gcloud" else None
+    if auth == "gcloud":
+        token = await asyncio.to_thread(_gcloud_identity_token)
+    elif auth == "workload":
+        token = await asyncio.to_thread(_workload_identity_token, target)
+    else:
+        token = None
     run_id = f"RUN-SCN-001-{secrets.token_hex(6).upper()}"
     await warmer(target, token)
 

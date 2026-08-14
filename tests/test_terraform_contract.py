@@ -70,6 +70,43 @@ def test_M1_ci_custom_role_is_least_privilege() -> None:
         "iam.serviceAccounts.getIamPolicy",
         "resourcemanager.projects.getIamPolicy",
     }.issubset(permissions)
+    assert {
+        "cloudscheduler.jobs.get",
+        "cloudscheduler.jobs.list",
+        "run.jobs.get",
+        "run.jobs.getIamPolicy",
+        "run.jobs.list",
+    }.issubset(permissions)
+
+
+def test_scheduled_scenario_source_keeps_identity_and_target_scope_bounded() -> None:
+    source = (TERRAFORM_ROOT / "environments" / "dev" / "scheduled_scenarios.tf").read_text(
+        encoding="utf-8"
+    )
+    variables = (TERRAFORM_ROOT / "environments" / "dev" / "variables.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'variable "enable_scheduled_scenarios"' in variables
+    assert re.search(
+        r'variable "enable_scheduled_scenarios"\s*\{.*?default\s*=\s*false',
+        variables,
+        flags=re.DOTALL,
+    )
+    assert 'schedule    = "5,35 * * * *"' in source
+    assert 'time_zone   = "Asia/Seoul"' in source
+    assert "retry_count = 0" in source
+    assert "max_retries     = 0" in source
+    assert 'timeout         = "300s"' in source
+    assert '"--auth",\n          "workload"' in source
+    assert "name     = google_cloud_run_v2_service.demo_order[0].name" in source
+    assert 'resource "google_cloud_run_v2_job_iam_member" "scheduler_invokes_scn001"' in source
+    assert source.count('role     = "roles/run.invoker"') == 2
+    assert "roles/iam.serviceAccountTokenCreator" not in source
+    assert "allUsers" not in source
+    assert "allAuthenticatedUsers" not in source
+    assert "staging" not in source
+    assert "prod-sim" not in source
 
 
 def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:

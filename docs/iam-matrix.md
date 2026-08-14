@@ -8,6 +8,8 @@ Status: formal agent and prod-sim M8 boundary deployed and verified
 | --- | --- | --- |
 | Local operator | Reviewed Terraform apply, bounded manual validation | Automatic remediation, broad runtime role |
 | Terraform plan identity | Remote-state read and resource get/list needed for manual plans | Apply, API enable/disable, IAM write, import, model query |
+| Scheduled scenario runner SA | Invoke only the dev order service while running the fixed request-scoped SCN-001 Job | Project role, Token Creator, Firestore, Logging reads, M8, staging/prod-sim invocation |
+| Scheduler trigger SA | Invoke only the fixed SCN-001 Cloud Run Job with OAuth | Other Cloud Run services or Jobs, project role, Token Creator |
 | Runtime SA | Invoke only the private investigation API; resolve the numeric SDK project hint through one exact custom permission | Broad project role, evidence reads, Firestore, Tasks, remediation, keys, IAM write |
 | Investigation API SA | Read bounded Logging/Monitoring/Run/Search evidence; create bounded tasks and investigation records | IAM write, Cloud Run update, remediation, delete permissions |
 | Order runtime SA | Invoke payment and inventory Cloud Run services | Project-wide role, key, other service invocation |
@@ -37,6 +39,13 @@ Logging/Monitoring filter, or serving config.
 
 - Nine synthetic workload services remain private; in each environment only the order identity has
   the two leaf invoker grants.
+- The optional scheduled experience adds two identities. The runner receives one resource-level
+  `roles/run.invoker` grant on dev order; the Scheduler trigger receives one resource-level
+  `roles/run.invoker` grant on the SCN-001 Job. Neither identity receives a project role or
+  `roles/iam.serviceAccountTokenCreator`.
+- The Google-managed Cloud Scheduler service agent keeps its automatically provisioned
+  `roles/cloudscheduler.serviceAgent`. Operators restore that grant only if a read-only check shows
+  it was removed; the role is never assigned to a human or ordinary service account.
 - The managed Runtime publishes one async-stream operation. Its dedicated custom role contains
   exactly `resourcemanager.projects.get` for SDK project-hint resolution; it receives no broad
   viewer, evidence, datastore, task, Workflow, executor, or update permission.

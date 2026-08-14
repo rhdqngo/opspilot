@@ -32,6 +32,9 @@ manual test window와 explicit approval이 실제 비용 통제입니다.
 - 기존 Gemini Enterprise app에 등록된 scale-to-zero Agent Runtime 1개
 - Private scale-to-zero investigation/M8 control service, Workflow path 1개, Cloud Tasks,
   bounded Firestore investigation/conversation document
+- Portfolio 체험 기능을 활성화하면 scale-to-zero SCN-001 Cloud Run Job 1개와 Cloud Scheduler
+  job 1개가 추가됩니다. 전용 runner image는 immutable이며 기존 workload revision 9개를
+  갱신하지 않습니다.
 
 IAM, service account, API enablement와 WIF configuration 자체는 always-on compute를 할당하지
 않습니다. 이 lean Runtime update는 source archive/hash만 바꾸며 resource, minimum instance,
@@ -39,10 +42,15 @@ query, import 또는 model request를 추가하지 않습니다.
 
 ## 제한된 시험 사용량
 
-- SCN-001: 실행당 request 20건
+- SCN-001: 실행당 request 20건. 선택적 `5,35 * * * *` schedule은 하루 최대 48회 실행되어
+  order request 960건과 bounded downstream synthetic call을 만듭니다.
 - Local fixture evaluation: paid model 또는 cloud request 없음
 - 지원되는 Runtime request: evidence collection bounded, model call 최대 2회
-- Scheduled load, custom metric, generalized alert intake 또는 unapproved remediation 없음
+- Scheduled traffic은 dev order에 대한 request-scoped SCN-001로만 제한합니다. 장애 생성은
+  model을 호출하지 않으며, 기존 최대 2회 model call은 사용자가 investigation을 시작할 때만
+  적용됩니다.
+- staging/prod-sim scheduled load, custom metric, generalized alert intake 또는 unapproved
+  remediation 없음
 - 승인된 M8 실행: Workflow path 1개, bounded Firestore document, post-action verification order
   정확히 10건. Preview QA는 approval request만 만들고 실행하지 않음
 

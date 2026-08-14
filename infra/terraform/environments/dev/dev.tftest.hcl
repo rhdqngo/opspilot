@@ -691,3 +691,92 @@ run "persistent_investigation_boundary_contract" {
     error_message = "The investigation API must verify the separate Runtime, task, and alert caller identities."
   }
 }
+
+run "scheduled_scenarios_default_off" {
+  command = plan
+
+  variables {
+    project_id                = "example-project"
+    billing_account_id        = "000000-000000-000000"
+    budget_notification_email = "operator@example.invalid"
+  }
+
+  assert {
+    condition = (
+      length(google_service_account.scheduled_scenario_runner) == 0 &&
+      length(google_service_account.scheduled_scenario_trigger) == 0 &&
+      length(google_cloud_run_v2_job.scheduled_scn001) == 0 &&
+      length(google_cloud_scheduler_job.scheduled_scn001) == 0 &&
+      length(google_cloud_run_v2_service_iam_member.scheduled_runner_invokes_dev_order) == 0 &&
+      length(google_cloud_run_v2_job_iam_member.scheduler_invokes_scn001) == 0
+    )
+    error_message = "Scheduled scenario resources must remain disabled by default."
+  }
+
+  assert {
+    condition     = !contains(keys(google_project_service.m1), "cloudscheduler.googleapis.com")
+    error_message = "Cloud Scheduler API must not be enabled while scheduled scenarios are off."
+  }
+}
+
+run "scheduled_scenarios_bounded_contract" {
+  command = plan
+
+  variables {
+    project_id                   = "example-project"
+    billing_account_id           = "000000-000000-000000"
+    budget_notification_email    = "operator@example.invalid"
+    deploy_demo                  = true
+    enable_scenarios             = true
+    enable_scheduled_scenarios   = true
+    demo_image_uri               = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-demo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    scheduled_scenario_image_uri = "asia-northeast3-docker.pkg.dev/example-project/opspilot-dev-apps-an3/opspilot-scheduled-scenario@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+
+  assert {
+    condition = (
+      length(google_project_service.m1) == 13 &&
+      contains(keys(google_project_service.m1), "cloudscheduler.googleapis.com") &&
+      length(google_service_account.scheduled_scenario_runner) == 1 &&
+      length(google_service_account.scheduled_scenario_trigger) == 1 &&
+      length(google_cloud_run_v2_job.scheduled_scn001) == 1 &&
+      length(google_cloud_scheduler_job.scheduled_scn001) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.scheduled_runner_invokes_dev_order) == 1 &&
+      length(google_cloud_run_v2_job_iam_member.scheduler_invokes_scn001) == 1
+    )
+    error_message = "Enabling scheduled scenarios must add exactly the bounded scheduler resource set."
+  }
+
+  assert {
+    condition = (
+      google_cloud_run_v2_job.scheduled_scn001[0].template[0].task_count == 1 &&
+      google_cloud_run_v2_job.scheduled_scn001[0].template[0].parallelism == 1 &&
+      google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].timeout == "300s" &&
+      google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].max_retries == 0 &&
+      google_cloud_scheduler_job.scheduled_scn001[0].schedule == "5,35 * * * *" &&
+      google_cloud_scheduler_job.scheduled_scn001[0].time_zone == "Asia/Seoul" &&
+      google_cloud_scheduler_job.scheduled_scn001[0].retry_config[0].retry_count == 0
+    )
+    error_message = "The Job and Scheduler cadence, concurrency, timeout, and retry bounds must remain fixed."
+  }
+
+  assert {
+    condition = (
+      google_cloud_run_v2_service_iam_member.scheduled_runner_invokes_dev_order[0].name == "opspilot-dev-order" &&
+      google_cloud_run_v2_service_iam_member.scheduled_runner_invokes_dev_order[0].role == "roles/run.invoker" &&
+      google_cloud_run_v2_job_iam_member.scheduler_invokes_scn001[0].role == "roles/run.invoker" &&
+      google_service_account.scheduled_scenario_runner[0].account_id == "opspilot-dev-scenario" &&
+      google_service_account.scheduled_scenario_trigger[0].account_id == "opspilot-dev-scenario-trigger"
+    )
+    error_message = "Each identity must receive only its exact resource-level Run invoker grant."
+  }
+
+  assert {
+    condition = (
+      nonsensitive(google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].containers[0].image) == nonsensitive(var.scheduled_scenario_image_uri) &&
+      join("|", google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].containers[0].args) == "scenario|run|--scenario|SCN-001|--env|dev|--auth|workload|--format|json" &&
+      contains([for item in google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].containers[0].env : item.name], "OPSPILOT_DEV_ORDER_URL")
+    )
+    error_message = "The dedicated image may run only SCN-001 in dev with workload authentication."
+  }
+}

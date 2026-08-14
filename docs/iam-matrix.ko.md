@@ -8,6 +8,8 @@
 | --- | --- | --- |
 | Local operator | 검토된 Terraform apply, bounded manual validation | Automatic remediation, broad runtime role |
 | Terraform plan identity | Manual plan에 필요한 remote-state read와 resource get/list | Apply, API enable/disable, IAM write, import, model query |
+| Scheduled scenario runner SA | 고정 request-scoped SCN-001 Job 실행 중 dev order service만 invoke | Project role, Token Creator, Firestore, Logging read, M8, staging/prod-sim invocation |
+| Scheduler trigger SA | OAuth로 고정 SCN-001 Cloud Run Job만 invoke | 다른 Cloud Run service/Job, project role, Token Creator |
 | Runtime SA | Private investigation API만 invoke; 정확히 하나의 custom permission으로 numeric SDK project hint 해석 | Broad project role, evidence read, Firestore, Tasks, remediation, key, IAM write |
 | Investigation API SA | Bounded Logging/Monitoring/Run/Search evidence read; bounded task·investigation record 생성 | IAM write, Cloud Run update, remediation, delete permission |
 | Order runtime SA | Payment·inventory Cloud Run service invoke | Project-wide role, key, 다른 service invocation |
@@ -37,6 +39,13 @@ serving config를 전달할 수 없습니다.
 
 - Synthetic workload service 9개는 private이며 각 environment에서 order identity만 두 leaf
   invoker grant를 갖습니다.
+- 선택적 자동 체험 경로는 identity 두 개를 추가합니다. Runner는 dev order에 대한
+  resource-level `roles/run.invoker` 하나만 받고, Scheduler trigger는 SCN-001 Job에 대한
+  resource-level `roles/run.invoker` 하나만 받습니다. 두 identity 모두 project role과
+  `roles/iam.serviceAccountTokenCreator`를 받지 않습니다.
+- Google-managed Cloud Scheduler service agent의 자동 생성
+  `roles/cloudscheduler.serviceAgent`는 유지합니다. Read-only 확인에서 제거된 경우에만
+  operator가 복구하며, 사람이나 일반 service account에는 이 역할을 부여하지 않습니다.
 - Managed Runtime은 async-stream operation 하나만 게시합니다. 전용 custom role은 SDK
   project-hint 해석을 위한 `resourcemanager.projects.get` 하나만 포함하며 broad viewer,
   evidence, datastore, task, Workflow, executor 또는 update permission을 받지 않습니다.

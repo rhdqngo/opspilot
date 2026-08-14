@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_korean_quick_start_prompt_chip_contract() -> None:
+    source = ROOT / "config" / "gemini-enterprise-prompt-chips.yaml"
+    payload = yaml.safe_load(source.read_text(encoding="utf-8"))
+    chips = payload["prompt_chips"]
+
+    assert len(chips) == 1
+    chip = chips[0]
+    assert re.fullmatch(r"[a-z0-9-]{1,63}", chip["name"])
+    assert chip == {
+        "name": "opspilot-quick-start",
+        "display_name": "OpsPilot 빠른 시작",
+        "title": "장애 조사 시작하기",
+        "prefix": (
+            "OpsPilot Incident Commander를 선택한 뒤 아래 예시를 그대로 보내거나 "
+            "환경·서비스·시간·증상을 바꿔 입력하세요."
+        ),
+        "enabled": True,
+        "suggested_prompts": [
+            "@OpsPilot Incident Commander 기능과 입력 방법을 한국어로 알려줘",
+            "@OpsPilot Incident Commander dev payment-service 최근 60분 오류를 STANDARD로 분석해줘",
+            "@OpsPilot Incident Commander dev 전체 서비스 최근 60분 오류와 지연을 분석해줘",
+            "@OpsPilot Incident Commander 현재 dev payment-service 최근 1분 상태를 확인해줘",
+        ],
+    }

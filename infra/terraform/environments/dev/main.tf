@@ -44,12 +44,17 @@ locals {
     "pubsub.googleapis.com",
   ]) : toset([])
 
+  scheduled_scenario_project_services = var.enable_scheduled_scenarios ? toset([
+    "cloudscheduler.googleapis.com",
+  ]) : toset([])
+
   project_services = setunion(
     local.m1_project_services,
     local.m2_project_services,
     local.m7_project_services,
     local.m8_project_services,
     local.investigation_project_services,
+    local.scheduled_scenario_project_services,
   )
 
   demo_service_names = var.deploy_demo ? toset([

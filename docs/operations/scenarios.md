@@ -1,11 +1,13 @@
-# M3 Synthetic Incident Scenarios
+# Synthetic Incident Scenarios
 
-Status: M3 complete; offline corpus and bounded live SCN-001 validated
+**English** | [한국어](scenarios.ko.md)
+
+Status: request-scoped SCN-001 validated; optional 30-minute dev experience supported
 
 ## Safety model
 
 - Scenario behavior is disabled by default and has no persistent state.
-- No fault-injector service, Cloud Run Job, management endpoint, secret, custom metric, alert, or
+- No persistent fault-injector state, management endpoint, secret, custom metric, alert, or
   remediation identity is created.
 - Only `SCN-001` can execute against the demo workload in the M3 MVP.
 - A strict scenario ID, synthetic run ID, and step are propagated only for the incident phase.
@@ -69,5 +71,34 @@ run can be correlated with its fixed-shape logs.
 - Cloud Monitoring exposed request-count and latency points for all three services and expected
   5xx points for order and payment. Operator and hosted plans returned zero drift.
 
-The live gate is now configured for the manual read-only workflow. M3 adds no resource, IAM
-binding, rollback automation, public access, or remediation path.
+## Scheduled portfolio experience
+
+When `enable_scheduled_scenarios=true`, Terraform creates one dedicated Cloud Run Job and a Cloud
+Scheduler trigger at `5,35 * * * *` in `Asia/Seoul`. The Job runs only:
+
+```powershell
+opspilot scenario run --scenario SCN-001 --env dev --auth workload --format json
+```
+
+Application Default Credentials mint an ID token whose audience is the fixed dev order URL. The
+runner has only resource-level invocation permission on dev order; the Scheduler identity has only
+resource-level invocation permission on the Job. Every execution must report baseline `5/5`,
+incident `4/6`, recovery `5/5`, `recovered=true`, and matching ground truth or exit with code 2.
+
+Operator commands:
+
+```powershell
+gcloud run jobs execute <job> --region <region> --wait
+gcloud scheduler jobs pause <scheduler-job> --location <region>
+gcloud scheduler jobs resume <scheduler-job> --location <region>
+gcloud run jobs executions list --job <job> --region <region> --limit 5
+```
+
+Use resource names from Terraform outputs or a read-only cloud inventory; do not put them in
+versioned evidence. A stopped Job leaves no fault behind because injection is carried only by the
+six incident request headers. The schedule never targets staging, prod-sim, M8, or actual
+production and never initiates an investigation or model call.
+
+For a first failure, inspect the Job execution status and sanitized aggregate output. Pause the
+Scheduler only if repeated executions fail recovery or violate the fixed request counts. Resume it
+after a manual Job run passes the complete contract.

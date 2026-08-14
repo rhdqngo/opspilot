@@ -87,6 +87,35 @@ variable "enable_scenarios" {
   default     = false
 }
 
+variable "enable_scheduled_scenarios" {
+  description = "Approval gate for the bounded dev SCN-001 Cloud Run Job and 30-minute Scheduler trigger."
+  type        = bool
+  default     = false
+
+  validation {
+    condition = (
+      !var.enable_scheduled_scenarios ||
+      (var.deploy_demo && var.enable_scenarios && can(regex("@sha256:[0-9a-f]{64}$", var.scheduled_scenario_image_uri)))
+    )
+    error_message = "Scheduled scenarios require the dev demo, request-scoped scenarios, and an immutable runner image digest."
+  }
+}
+
+variable "scheduled_scenario_image_uri" {
+  description = "Immutable image used only by the scheduled SCN-001 Cloud Run Job."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      var.scheduled_scenario_image_uri == "" ||
+      can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/[^/]+/[^/]+/[^@]+@sha256:[0-9a-f]{64}$", var.scheduled_scenario_image_uri))
+    )
+    error_message = "scheduled_scenario_image_uri must be empty or an immutable Artifact Registry digest URI."
+  }
+}
+
 variable "deploy_knowledge" {
   description = "Approval gate for the M4 Agent Search knowledge resources."
   type        = bool
