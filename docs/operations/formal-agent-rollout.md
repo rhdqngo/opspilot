@@ -10,25 +10,27 @@ reviewed binary plan; a newly generated plan is never substituted at apply time.
 
 1. `workloads`: create the staging and prod-sim order, payment, and inventory Cloud Run services,
    their workload identities, and only the order-to-payment/inventory invoker bindings.
-2. `investigation`: update the investigation API image and model permission and create the
-   `conversation_contexts.expires_at` TTL field.
-3. `runtime`: update only the existing Agent Runtime source archive without replacing or renaming
+2. `investigation`: add the model permission and create the
+   `conversation_contexts.expires_at` TTL field before either caller is cut over.
+3. `remediation`: atomically update the investigation API image and control bridge while moving
+   the fixed rollback target and invocation bindings to prod-sim payment. Cloud Run makes the
+   control URL a dependency of the investigation service, so splitting these changes would create
+   a temporary cross-phase drift. The three named IAM-member target replacements are the only
+   reviewed delete/create actions.
+4. `runtime`: update only the existing Agent Runtime source archive without replacing or renaming
    the Runtime resource.
-4. `remediation`: move the fixed rollback target and invocation bindings to prod-sim payment and
-   connect the investigation identity to the M8 control API. The three named IAM-member target
-   replacements are the only reviewed delete/create actions.
 
 The verifier accepts no empty phase, cross-phase address, unreviewed replacement, or public
-invoker. The investigation and Runtime phases additionally bind the exact image digest and archive
-SHA-256:
+invoker. The remediation cutover and Runtime phases additionally bind the exact image digest and
+archive SHA-256:
 
 ```powershell
 uv run python scripts/formal_agent_release.py .tmp/formal/workloads.json --phase workloads
-uv run python scripts/formal_agent_release.py .tmp/formal/investigation.json `
-  --phase investigation --image-digest sha256:<reviewed-digest>
+uv run python scripts/formal_agent_release.py .tmp/formal/investigation.json --phase investigation
+uv run python scripts/formal_agent_release.py .tmp/formal/remediation.json `
+  --phase remediation --image-digest sha256:<reviewed-digest>
 uv run python scripts/formal_agent_release.py .tmp/formal/runtime.json `
   --phase runtime --runtime-sha256 <reviewed-sha256>
-uv run python scripts/formal_agent_release.py .tmp/formal/remediation.json --phase remediation
 ```
 
 Before each apply, record the binary plan SHA-256 and re-run the matching verifier against

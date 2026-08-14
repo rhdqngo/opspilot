@@ -1,7 +1,7 @@
 # Current Project State
 
 status: formal_agent_candidate
-phase: formal Incident Commander implementation and local release gates complete; managed rollout pending
+phase: formal Incident Commander implementation complete; managed rollout phase 1 applied
 updated: 2026-08-14
 
 ## Completed product scope
@@ -53,6 +53,14 @@ The current local Runtime archive SHA-256 is
 `01aeb775fe76385edae28ee439a0e981a1fcade35ee9da66c43a92b6b3e3e9b0`.
 Managed deployment, three-environment smoke, conversational Preview QA, and final Terraform
 `No changes` remain required before `formal_agent_verified`.
+
+Rollout progress: the source-bound investigation image is present in Artifact Registry and phase 1
+created the six staging/prod-sim workloads plus their ten scoped identity/invoker resources with
+`16 add / 0 change / 0 destroy`. The first live phase-2 plan exposed a real Terraform dependency:
+the investigation service consumes the remediation control URL, so targeting the service also
+planned the control cutover. The verifier stopped that mixed plan. The remaining phases now apply
+model/TTL prerequisites first, then atomically cut over the investigation image and M8 control
+boundary, and finally update the unchanged Runtime resource name.
 
 ## Long-spec defect remediation
 

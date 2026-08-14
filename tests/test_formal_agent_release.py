@@ -40,7 +40,27 @@ def test_formal_release_accepts_only_phase_owned_workloads(tmp_path: Path) -> No
     assert formal_plan_summary(plan, phase=FormalPlanPhase.WORKLOADS)["allowed"] is False
 
 
-def test_formal_release_binds_image_and_runtime_bytes(tmp_path: Path) -> None:
+def test_formal_release_accepts_investigation_prerequisites(tmp_path: Path) -> None:
+    plan = tmp_path / "plan.json"
+    _write(
+        plan,
+        [
+            _change(
+                "google_project_iam_custom_role.investigation_store[0]",
+                ["update"],
+                {"permissions": ["aiplatform.endpoints.predict"]},
+            ),
+            _change(
+                "google_firestore_field.conversation_context_ttl[0]",
+                ["create"],
+                {"collection": "conversation_contexts", "field": "expires_at"},
+            ),
+        ],
+    )
+    assert formal_plan_summary(plan, phase=FormalPlanPhase.INVESTIGATION)["allowed"] is True
+
+
+def test_formal_release_binds_cutover_image_and_runtime_bytes(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     digest = "sha256:" + "a" * 64
     _write(
@@ -56,7 +76,7 @@ def test_formal_release_binds_image_and_runtime_bytes(tmp_path: Path) -> None:
     assert (
         formal_plan_summary(
             plan,
-            phase=FormalPlanPhase.INVESTIGATION,
+            phase=FormalPlanPhase.REMEDIATION,
             expected_image_digest=digest,
         )["allowed"]
         is True
@@ -89,8 +109,23 @@ def test_formal_release_allows_only_named_m8_replacements_and_never_public_invok
 ) -> None:
     plan = tmp_path / "plan.json"
     expected = "google_cloud_run_v2_service_iam_member.remediation_executor_payment[0]"
-    _write(plan, [_change(expected, ["delete", "create"], {"member": "serviceAccount:safe"})])
-    summary = formal_plan_summary(plan, phase=FormalPlanPhase.REMEDIATION)
+    digest = "sha256:" + "a" * 64
+    _write(
+        plan,
+        [
+            _change(expected, ["delete", "create"], {"member": "serviceAccount:safe"}),
+            _change(
+                "google_cloud_run_v2_service.investigation_api[0]",
+                ["update"],
+                {"template": {"containers": [{"image": f"registry/image@{digest}"}]}},
+            ),
+        ],
+    )
+    summary = formal_plan_summary(
+        plan,
+        phase=FormalPlanPhase.REMEDIATION,
+        expected_image_digest=digest,
+    )
     assert summary["allowed"] is True
     assert summary["replacements"] == [expected]
 
@@ -104,4 +139,11 @@ def test_formal_release_allows_only_named_m8_replacements_and_never_public_invok
             )
         ],
     )
-    assert formal_plan_summary(plan, phase=FormalPlanPhase.REMEDIATION)["allowed"] is False
+    assert (
+        formal_plan_summary(
+            plan,
+            phase=FormalPlanPhase.REMEDIATION,
+            expected_image_digest=digest,
+        )["allowed"]
+        is False
+    )

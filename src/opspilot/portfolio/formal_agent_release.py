@@ -37,7 +37,6 @@ PHASE_ADDRESS_PATTERNS: dict[FormalPlanPhase, tuple[re.Pattern[str], ...]] = {
         ),
     ),
     FormalPlanPhase.INVESTIGATION: (
-        re.compile(r"^google_cloud_run_v2_service\.investigation_api\[0\]$"),
         re.compile(r"^google_project_iam_custom_role\.investigation_store\[0\]$"),
         re.compile(r"^google_firestore_field\.conversation_context_ttl\[0\]$"),
     ),
@@ -120,8 +119,8 @@ def formal_plan_summary(
         and SHA256_PATTERN.fullmatch(expected_runtime_sha256) is None
     ):
         raise ValueError("expected Runtime SHA-256 is invalid")
-    if phase is FormalPlanPhase.INVESTIGATION and expected_image_digest is None:
-        raise ValueError("investigation phase requires the reviewed image digest")
+    if phase is FormalPlanPhase.REMEDIATION and expected_image_digest is None:
+        raise ValueError("remediation cutover phase requires the reviewed image digest")
     if phase is FormalPlanPhase.RUNTIME and expected_runtime_sha256 is None:
         raise ValueError("runtime phase requires the reviewed archive SHA-256")
 
@@ -131,7 +130,7 @@ def formal_plan_summary(
     changed: list[str] = []
     action_scope_valid = True
     public_invoker_absent = True
-    image_bound = phase is not FormalPlanPhase.INVESTIGATION
+    image_bound = phase is not FormalPlanPhase.REMEDIATION
     runtime_bound = phase is not FormalPlanPhase.RUNTIME
     replacements: list[str] = []
     for raw in raw_changes:
