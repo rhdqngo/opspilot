@@ -50,7 +50,7 @@ package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap
 pass. Two 11-file Runtime packages are byte-identical. The four-phase Terraform plan guard rejects
 cross-phase addresses, unreviewed replacements, public invokers, and image/Runtime hash drift.
 The current local Runtime archive SHA-256 is
-`33e5c1f5f8ff04eac9e5a9c545bda2ad0f00c55b61a1401a909349ef3d511e38`.
+`58c140758f8a6e4cc69c9ebd005751689af06e6d0337027450fb62b2a0bba67f`.
 Managed deployment, three-environment smoke, conversational Preview QA, and final Terraform
 `No changes` remain required before `formal_agent_verified`.
 
@@ -90,7 +90,12 @@ retry. Six managed retries then delivered the full event contract every time, wh
 run showed the Google helper's nested five-attempt metadata refresh could still consume the Runtime
 deadline before the API call. The next candidate removes that nested retry by calling the fixed
 Agent Engine metadata identity endpoint once per shared RetryPolicy attempt. Local Runtime and full
-repository gates pass; a source-bound Runtime-only cycle is pending.
+repository gates pass. Managed conversation QA then passed every follow-up, capability, rejection,
+and privacy turn while the initial investigation alone returned an empty SDK stream despite its
+persisted context. The next candidate keeps the same ADK `BaseAgent` and event contract but invokes
+it directly from the registered Runtime operation, bypassing only `AdkApp`'s unstable session,
+telemetry, and generator-finalization wrapper. Local Runtime and full repository gates pass; a
+source-bound Runtime-only cycle is pending.
 
 ## Long-spec defect remediation
 

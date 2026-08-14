@@ -9,6 +9,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 
 def _normalize_agent_engine_project() -> None:
@@ -32,8 +33,11 @@ def _normalize_agent_engine_project() -> None:
 
 _normalize_agent_engine_project()
 
+from google.adk.agents import InvocationContext  # noqa: E402
 from google.adk.sessions import InMemorySessionService  # noqa: E402
+from google.genai import types  # noqa: E402
 from vertexai import agent_engines  # noqa: E402
+from vertexai.agent_engines import _utils  # noqa: E402
 
 from opspilot.agent.runtime import (  # noqa: E402
     RuntimeHandler,
@@ -57,38 +61,44 @@ class OpsPilotRuntimeApp(agent_engines.AdkApp):
     async def streaming_agent_run_with_events(
         self, request_json: str
     ) -> AsyncGenerator[dict[str, Any], None]:
-        """Preserve the stable external session key across ADK session creation."""
+        """Execute the bounded ADK agent without the provider's lossy stream wrapper."""
 
         request = json.loads(request_json)
         user_id = request.get("user_id") or request.get("userId")
         session_id = request.get("session_id") or request.get("sessionId")
-        with bind_external_runtime_identity(
-            user_id=str(user_id) if user_id else None,
-            session_id=str(session_id) if session_id else None,
-        ):
+        effective_user_id = str(user_id) if user_id else "default-user-id"
+        content = types.Content.model_validate(request["message"])
+        session_service = create_ephemeral_session_service()
+        session = await session_service.create_session(
+            app_name=self._app_name(), user_id=effective_user_id
+        )
+        agent = self._tmpl_attrs["agent"]
+        context = InvocationContext(
+            session_service=session_service,
+            invocation_id=f"e-{uuid4()}",
+            agent=agent,
+            user_content=content,
+            session=session,
+        )
+        try:
             events: list[dict[str, Any]] = []
-            artifacts: list[dict[str, Any]] = []
-            response_session_id: str | None = None
-            async for chunk in super().streaming_agent_run_with_events(request_json):
-                chunk_events = chunk.get("events")
-                if isinstance(chunk_events, list):
-                    events.extend(item for item in chunk_events if isinstance(item, dict))
-                chunk_artifacts = chunk.get("artifacts")
-                if isinstance(chunk_artifacts, list):
-                    artifacts.extend(item for item in chunk_artifacts if isinstance(item, dict))
-                chunk_session_id = chunk.get("session_id")
-                if isinstance(chunk_session_id, str):
-                    response_session_id = chunk_session_id
-            response: dict[str, Any] = {}
+            with bind_external_runtime_identity(
+                user_id=str(user_id) if user_id else None,
+                session_id=str(session_id) if session_id else None,
+            ):
+                async for event in agent._run_async_impl(context):
+                    converted = _utils.dump_event_for_json(event)
+                    converted["invocation_id"] = converted.get("invocation_id", "")
+                    events.append(converted)
             if events:
-                response["events"] = events
-            if artifacts:
-                response["artifacts"] = artifacts
-            if response_session_id is not None:
-                response["session_id"] = response_session_id
-            if response:
-                yield response
+                yield {"events": events, "session_id": session.id}
                 yield {"events": []}
+        finally:
+            await session_service.delete_session(
+                app_name=self._app_name(),
+                user_id=effective_user_id,
+                session_id=session.id,
+            )
 
 
 def create_ephemeral_session_service() -> InMemorySessionService:
@@ -101,11 +111,12 @@ def create_runtime_app(
     handler: RuntimeHandler = run_live_runtime_investigation,
 ) -> OpsPilotRuntimeApp:
     """Create the bounded conversational Enterprise Runtime application."""
-    return OpsPilotRuntimeApp(
+    app = OpsPilotRuntimeApp(
         agent=create_runtime_root_agent(handler=handler),
         app_name="opspilot_runtime",
         session_service_builder=create_ephemeral_session_service,
     )
+    return app
 
 
 root_agent = create_runtime_app()
