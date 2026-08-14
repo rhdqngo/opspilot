@@ -9,8 +9,15 @@ import pytest
 
 from opspilot.audit import InvestigationAudit, audit_hash
 from opspilot.catalog import load_service_catalog
-from opspilot.domain import Environment, InvestigationRequest, RequestedDepth
-from opspilot.evidence import FixtureEvidenceClient
+from opspilot.domain import (
+    Environment,
+    EvidenceItem,
+    InvestigationRequest,
+    RequestedDepth,
+    SourceType,
+    ToolResult,
+)
+from opspilot.evidence import EvidenceCollectionRequest, FixtureEvidenceClient
 from opspilot.investigation_firestore import _incident_merge_fields
 from opspilot.parser import parse_investigation_request
 from opspilot.service import (
@@ -117,6 +124,16 @@ class CountingExecutor(FixtureInvestigationExecutor):
             investigation_id=investigation_id,
             run_id=run_id,
         )
+
+
+class MetricOnlyFixtureClient(FixtureEvidenceClient):
+    async def collect_source(
+        self, source: SourceType, request: EvidenceCollectionRequest
+    ) -> ToolResult[list[EvidenceItem]]:
+        result = await super().collect_source(source, request)
+        if source is SourceType.METRIC:
+            return result
+        return result.model_copy(update={"data": []})
 
 
 class FailFirstCompleteStore(InMemoryInvestigationStore):
@@ -242,6 +259,36 @@ async def test_live_executor_skips_model_for_server_verified_canonical_signal() 
     assert execution.report.audit["root_cause_code"] == "PAYMENT_DB_POOL_EXHAUSTION"
     assert execution.report.audit["model_calls"] == 0
     assert [item.hypothesis_id for item in execution.report.hypotheses] == ["H-01", "H-02"]
+
+
+@pytest.mark.asyncio
+async def test_live_executor_bounds_model_latency_and_returns_inconclusive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def slow_model(*args: object, **kwargs: object) -> object:
+        del args, kwargs
+        await asyncio.sleep(1)
+        raise AssertionError("bounded model call should be cancelled")
+
+    monkeypatch.setattr("opspilot.agent.runner.run_agent_context", slow_model)
+    catalog = load_service_catalog()
+    executor = LiveInvestigationExecutor(
+        project_id="server-owned-project",
+        catalog=catalog,
+        model_timeout_seconds=0.01,
+    )
+    executor.client = MetricOnlyFixtureClient("SCN-001")  # type: ignore[assignment]
+    request = parse_investigation_request(
+        "dev payment-service last 30 minutes errors STANDARD",
+        now=datetime(2026, 8, 10, 4, 25, tzinfo=UTC),
+        catalog=catalog,
+    ).model_copy(update={"incident_id": "INC-2026-EEEEEEEEEEEEEEEE"})
+
+    execution = await executor.execute(request, correlation_id="COR-MODEL-TIMEOUT")
+
+    assert execution.report.status.value == "INCONCLUSIVE"
+    assert execution.report.audit["model_calls"] == 0
+    assert execution.report.audit["model_outcome"] == "timeout"
 
 
 @pytest.mark.asyncio
