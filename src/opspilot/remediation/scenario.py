@@ -218,9 +218,9 @@ async def run_scn008_command(
         if local_recovery.incident_id != incident_id or local_recovery.target != target:
             raise RuntimeError("SCN-008 recovery targets do not match")
         await cloud.abort_faulty_revision(target)
-        successes = await _run_ten_orders(
-            os.environ["OPSPILOT_ORDER_URL"], await asyncio.to_thread(_gcloud_identity_token)
-        )
+        token = await asyncio.to_thread(_gcloud_identity_token)
+        await _wait_for_healthy_baseline(os.environ["OPSPILOT_ORDER_URL"], token)
+        successes = await _run_ten_orders(os.environ["OPSPILOT_ORDER_URL"], token)
         if successes != 10:
             raise RuntimeError("SCN-008 reset verification must recover ten orders")
         _write_recovery_record(

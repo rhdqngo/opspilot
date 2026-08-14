@@ -428,6 +428,13 @@ class LiveInvestigationExecutor:
             )
             for item in operational_evidence
         )
+        deterministic_report = apply_live_report_policy(report)
+        if deterministic_report.hypotheses:
+            deterministic_report = add_prod_sim_rollback_request(deterministic_report)
+            return InvestigationExecution(
+                report=deterministic_report,
+                completed_collectors=completed_collectors,
+            )
         if direct_signal:
             from opspilot.agent.contracts import AgentEvidenceContext, ModelBackend
             from opspilot.agent.runner import run_agent_context

@@ -225,6 +225,26 @@ async def test_live_executor_collects_each_service_and_keeps_evidence_ids_unique
 
 
 @pytest.mark.asyncio
+async def test_live_executor_skips_model_for_server_verified_canonical_signal() -> None:
+    catalog = load_service_catalog()
+    executor = LiveInvestigationExecutor(project_id="server-owned-project", catalog=catalog)
+    executor.client = FixtureEvidenceClient("SCN-001")  # type: ignore[assignment]
+    now = datetime(2026, 8, 10, 4, 25, tzinfo=UTC)
+    request = parse_investigation_request(
+        "dev payment-service last 30 minutes errors STANDARD",
+        now=now,
+        catalog=catalog,
+    ).model_copy(update={"incident_id": "INC-2026-DDDDDDDDDDDDDDDD"})
+
+    execution = await executor.execute(request, correlation_id="COR-CANONICAL-LIVE")
+
+    assert execution.report.status.value == "IDENTIFIED"
+    assert execution.report.audit["root_cause_code"] == "PAYMENT_DB_POOL_EXHAUSTION"
+    assert execution.report.audit["model_calls"] == 0
+    assert [item.hypothesis_id for item in execution.report.hypotheses] == ["H-01", "H-02"]
+
+
+@pytest.mark.asyncio
 async def test_enterprise_run_id_reaches_every_live_tool_event(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

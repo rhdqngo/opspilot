@@ -179,8 +179,12 @@ async def test_M8_reset_routes_to_the_matching_trusted_revision_before_verificat
     async def ten_orders(*_: object) -> int:
         return 10
 
+    async def healthy(*_: object) -> None:
+        return None
+
     monkeypatch.setenv("OPSPILOT_ORDER_URL", "https://order.example.invalid")
     monkeypatch.setattr("opspilot.remediation.scenario._gcloud_identity_token", lambda: "token")
+    monkeypatch.setattr("opspilot.remediation.scenario._wait_for_healthy_baseline", healthy)
     monkeypatch.setattr("opspilot.remediation.scenario._run_ten_orders", ten_orders)
 
     result = await run_scn008_command(
