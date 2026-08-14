@@ -24,8 +24,8 @@ from time import perf_counter
 from typing import Literal, NamedTuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
+from urllib.request import ProxyHandler, build_opener, urlopen
 from urllib.request import Request as UrlRequest
-from urllib.request import urlopen
 from uuid import uuid4
 
 from google.adk.agents import BaseAgent, InvocationContext
@@ -145,14 +145,18 @@ def _token_expiry(token: str, *, now: float) -> float:
 
 
 def _fetch_metadata_id_token(audience: str) -> str:
-    """Fetch one Agent Engine service identity token without nested SDK retries."""
+    """Fetch one Agent Engine identity token without proxying link-local metadata."""
 
     query = urlencode({"audience": audience, "format": "full"})
     request = UrlRequest(
         f"{METADATA_IDENTITY_ENDPOINT}?{query}",
         headers={"Metadata-Flavor": "Google"},
     )
-    with urlopen(request, timeout=ID_TOKEN_REQUEST_TIMEOUT_SECONDS) as response:
+    metadata_opener = build_opener(ProxyHandler({}))
+    with metadata_opener.open(
+        request,
+        timeout=ID_TOKEN_REQUEST_TIMEOUT_SECONDS,
+    ) as response:
         token = str(response.read().decode("utf-8")).strip()
     if token.count(".") != 2:
         raise ValueError("metadata identity endpoint returned an invalid token")

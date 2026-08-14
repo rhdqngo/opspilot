@@ -9,6 +9,7 @@ import threading
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
+from urllib.request import ProxyHandler
 
 import pytest
 from google.adk.agents import InvocationContext
@@ -236,16 +237,26 @@ def test_runtime_identity_token_transport_caps_each_request_timeout(
         def read(self) -> bytes:
             return b"header.payload.signature"
 
-    def send(_request: object, *, timeout: float) -> Response:
-        timeouts.append(timeout)
-        return Response()
+    class Opener:
+        def open(self, _request: object, *, timeout: float) -> Response:
+            timeouts.append(timeout)
+            return Response()
 
-    monkeypatch.setattr(runtime_module, "urlopen", send)
+    handlers: list[object] = []
+
+    def opener(*items: object) -> Opener:
+        handlers.extend(items)
+        return Opener()
+
+    monkeypatch.setattr(runtime_module, "build_opener", opener)
 
     token = runtime_module._fetch_metadata_id_token("https://audience.invalid")
 
     assert token == "header.payload.signature"
     assert timeouts == [runtime_module.ID_TOKEN_REQUEST_TIMEOUT_SECONDS]
+    assert len(handlers) == 1
+    assert isinstance(handlers[0], ProxyHandler)
+    assert getattr(handlers[0], "proxies", None) == {}
 
 
 def test_runtime_write_retries_only_with_an_idempotency_key(
