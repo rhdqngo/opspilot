@@ -1,7 +1,7 @@
 # Current Project State
 
-status: enterprise_qa_verified
-phase: Gemini Enterprise Preview and managed backend QA passed on the final source-bound candidate
+status: formal_agent_candidate
+phase: formal Incident Commander implementation and local release gates complete; managed rollout pending
 updated: 2026-08-14
 
 ## Completed product scope
@@ -14,6 +14,45 @@ updated: 2026-08-14
   Search, reporting, scoring, or Firestore fallback.
 - Fixture/evaluation graph, core 7/7, portfolio 40/40, and isolated approval-gated SCN-008 rollback
   with remediation 12/12.
+
+## Formal agent transition candidate
+
+- Intake now supports the three catalog services individually or together, `dev`, `staging`, and
+  synthetic `prod-sim`, relative or explicit 1-120 minute windows, six symptom classes, and
+  QUICK/STANDARD/DEEP depth. Real production remains explicitly rejected.
+- `/internal/v2/runtime/turns` owns intent and scope. Runtime performs transport validation only;
+  investigation, refinement, report explanation, status, version comparison, capability guidance,
+  and bounded remediation-request intent are resolved by the API.
+- Firestore conversation context contains only a domain-separated session hash and structured
+  scope/report references, expires after 24 hours, and never stores prompts, user identifiers, or
+  evidence bodies.
+- Live revision evidence is restricted to the requested interval. The prior revision may inform a
+  server-side configuration comparison but cannot appear in Evidence, Timeline, or Sources when it
+  is outside the interval.
+- QUICK uses logs and core metrics; STANDARD/DEEP use logs, metrics, changes, and knowledge. All
+  search terms come from the service/symptom taxonomy and a three-service investigation remains
+  within 20 logical tool calls and 20 provider calls.
+- Direct live signals enter the existing two-model-call ADK RCA/verification/report graph. No-signal
+  requests skip the model and return an explicit healthy/inconclusive report with no hypothesis or
+  changing recommendation. Invalid model output safely falls back to evidence-backed output.
+- Markdown now shows environment, requested interval, status, impact, and top hypothesis first;
+  Korean time is rendered in KST, timeline events are bounded and capped at 20, and uncited sources
+  are summarized by type instead of dumping the full evidence inventory.
+- Terraform adds isolated scale-to-zero staging and prod-sim order/payment/inventory workloads
+  without changing existing DEV addresses. M8 traffic update authority moves from DEV to only
+  `opspilot-prod-sim-payment`.
+- Runtime may create one M8 `WAITING_APPROVAL` request from an eligible latest prod-sim payment
+  report while preserving the original actor hash and idempotency key. Approval and execution stay
+  exclusively in the existing M8 control plane and Workflow.
+
+Current candidate validation: 258/258 pytest, Ruff format/check, strict mypy over 92 source files,
+package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap 1/1 and dev 8/8
+pass. Two 11-file Runtime packages are byte-identical. The four-phase Terraform plan guard rejects
+cross-phase addresses, unreviewed replacements, public invokers, and image/Runtime hash drift.
+The current local Runtime archive SHA-256 is
+`01aeb775fe76385edae28ee439a0e981a1fcade35ee9da66c43a92b6b3e3e9b0`.
+Managed deployment, three-environment smoke, conversational Preview QA, and final Terraform
+`No changes` remain required before `formal_agent_verified`.
 
 ## Long-spec defect remediation
 
@@ -28,7 +67,7 @@ updated: 2026-08-14
 - NFR-011/NFR-012 retain only source-domain actor/session/query hashes and redacted query text;
   additive optional fields preserve legacy Firestore reads.
 
-## Validation state
+## Deployed rollback baseline validation
 
 - Final source-bound preflight passes 237/237 pytest, Ruff format/check, strict mypy over 88 files,
   package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap 1/1, and dev 8/8.
@@ -123,10 +162,13 @@ updated: 2026-08-14
 
 ## Next checkpoint
 
-- Preserve the verified deployment inputs and use the v4 record as the release baseline. No product,
-  Runtime, IAM, registration, M8, or Terraform change is pending for Enterprise QA.
-- Re-run the three hosted workflows when the external runner billing or spending-limit condition is
-  cleared; their zero-step result remains non-blocking because all local and managed gates passed.
+- Finish the full local release matrix and publish a source-bound candidate only after a separate
+  commit/push approval.
+- Execute the four reviewed Terraform stages only after separate image-push and apply approvals,
+  following the [formal rollout runbook](../operations/formal-agent-rollout.md), then run
+  three-environment managed smoke and Gemini Enterprise conversational QA.
+- Keep the existing v4 deployment as the rollback baseline until the formal candidate passes the
+  complete managed matrix and final Terraform reports `No changes`.
 
 ## Deferred beyond this milestone
 

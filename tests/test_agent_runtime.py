@@ -90,35 +90,30 @@ def test_agent_engine_normalizes_numeric_project_without_project_iam(
     assert os.environ["GOOGLE_CLOUD_PROJECT"] == "safe-project-id"
 
 
-def test_enterprise_adapter_accepts_catalog_scope_windows_and_defaults() -> None:
+def test_enterprise_adapter_defers_scope_and_intent_to_the_api() -> None:
     explicit = validate_runtime_api_input(
         "order-service inventory-service 최근 120분 오류를 분석해줘"
     )
     defaulted = validate_runtime_api_input("상태를 근거와 함께 분석해줘")
 
     assert explicit.accepted is True
-    assert explicit.services == ["inventory-service", "order-service"]
-    assert explicit.window_minutes == 120
+    assert explicit.services == []
+    assert explicit.window_minutes is None
     assert defaulted.accepted is True
-    assert defaulted.services == ["inventory-service", "order-service", "payment-service"]
-    assert defaulted.window_minutes == 30
-    assert defaulted.assumptions
+    assert defaulted.services == []
+    assert defaulted.window_minutes is None
 
 
-@pytest.mark.parametrize(
-    ("text", "code"),
-    [
-        ("shipping-service 최근 30분 상태를 분석해줘", "unsupported_service"),
-        ("payment-service 최근 121분 상태를 분석해줘", "unsupported_window"),
-        ("payment-service를 재시작해", "action_request_rejected"),
-        ("x", "invalid_length"),
-    ],
-)
-def test_enterprise_adapter_rejects_out_of_scope_input(text: str, code: str) -> None:
+def test_enterprise_adapter_only_rejects_transport_invalid_input() -> None:
+    text = "x"
     decision = validate_runtime_api_input(text)
 
     assert decision.accepted is False
-    assert decision.rejection_code == code
+    assert decision.rejection_code == "invalid_length"
+
+    assert validate_runtime_api_input("shipping-service 최근 30분 상태를 분석해줘").accepted
+    assert validate_runtime_api_input("payment-service 최근 121분 상태를 분석해줘").accepted
+    assert validate_runtime_api_input("payment-service를 재시작해").accepted
 
 
 def test_runtime_language_detection_prefers_korean_when_hangul_is_present() -> None:
@@ -144,12 +139,10 @@ async def test_rejection_stops_before_handler() -> None:
         calls += 1
         raise AssertionError("rejected input reached the handler")
 
-    result = await process_runtime_input(
-        "shipping-service 상태를 분석해줘", handler=forbidden_handler
-    )
+    result = await process_runtime_input("x", handler=forbidden_handler)
 
     assert result.accepted is False
-    assert result.rejection_code == "unsupported_service"
+    assert result.rejection_code == "invalid_length"
     assert calls == 0
 
 
@@ -189,7 +182,16 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
     ) -> tuple[int, bytes]:
         del token, method, accept
         calls.append((url, payload, timeout_seconds, trace_id, idempotency_key))
-        return 200, b"# Persisted report\n"
+        return 200, json.dumps(
+            {
+                "intent": "INVESTIGATE",
+                "outcome": "complete",
+                "accepted": True,
+                "started_investigation": True,
+                "markdown": "# Persisted report\n",
+                "progress_markdown": "Collecting evidence…\n\n",
+            }
+        ).encode()
 
     monkeypatch.setattr(runtime_module, "_api_request", fake_request)
     decision = validate_runtime_api_input(
@@ -202,7 +204,7 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
     assert result.output_markdown == "# Persisted report\n"
     assert calls == [
         (
-            "https://investigation.example/internal/v1/runtime/investigations",
+            "https://investigation.example/internal/v2/runtime/turns",
             {
                 "query": "order-service inventory-service recent 15 minutes status analyze",
                 "mode": "STANDARD",
@@ -287,6 +289,8 @@ async def test_runtime_agent_streams_dynamic_progress_then_report() -> None:
             accepted=True,
             succeeded=True,
             output_markdown="# Safe report\n",
+            started_investigation=True,
+            progress_markdown="최근 15분 동안 order-service의 증거를 수집하고 있습니다…\n\n",
         )
 
     runner = InMemoryRunner(node=create_runtime_root_agent(handler=handler), app_name="test")
@@ -329,6 +333,8 @@ async def test_runtime_buffers_progress_until_handler_completes() -> None:
             accepted=True,
             succeeded=True,
             output_markdown="# Delayed safe report\n",
+            started_investigation=True,
+            progress_markdown="Collecting bounded evidence…\n\n",
         )
 
     agent = create_runtime_root_agent(handler=delayed_handler)
@@ -370,6 +376,8 @@ async def test_enterprise_session_uses_ephemeral_state_and_hides_identifiers() -
             accepted=True,
             succeeded=True,
             output_markdown="# Safe report\n",
+            started_investigation=True,
+            progress_markdown="Collecting bounded evidence…\n\n",
         )
 
     app = _local_runtime_app(handler)
@@ -513,6 +521,8 @@ async def test_concurrent_enterprise_requests_keep_events_and_logs_private(
             accepted=True,
             succeeded=True,
             output_markdown="# Safe report\n",
+            started_investigation=True,
+            progress_markdown="Collecting bounded evidence…\n\n",
         )
 
     caplog.set_level(logging.INFO, logger="opspilot.agent.runtime")

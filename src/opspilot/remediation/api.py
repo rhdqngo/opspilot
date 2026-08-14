@@ -51,6 +51,10 @@ class CallbackRegistrationRequest(BaseModel):
     expires_at: str
 
 
+class InternalRemediationRequest(RemediationCreateRequest):
+    requester_actor_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
 def _principal(
     request: Request,
     authorization: str | None,
@@ -111,6 +115,41 @@ def create_app(
             payload=payload,
             idempotency_key=idempotency_key,
             principal=principal,
+        )
+
+    @app.post(
+        "/internal/v1/incidents/{incident_id}/remediation-requests",
+        response_model=RemediationRecord,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def request_remediation_from_investigation(
+        payload: InternalRemediationRequest,
+        incident_id: str,
+        request: Request,
+        idempotency_key: IdempotencyHeader,
+        authorization: str | None = Header(default=None),
+    ) -> RemediationRecord:
+        runtime_settings = cast(RemediationSettings, request.app.state.settings)
+        principal = _principal(
+            request,
+            authorization,
+            audience=_control_audience(request),
+        )
+        require_service_account(
+            principal,
+            allowed_email=runtime_settings.investigation_service_account,
+        )
+        service = _control_coordinator(request)
+        return await service.request(
+            incident_id=incident_id,
+            payload=RemediationCreateRequest(
+                report_id=payload.report_id,
+                report_version=payload.report_version,
+                action_id=payload.action_id,
+                verification_window_minutes=payload.verification_window_minutes,
+            ),
+            idempotency_key=idempotency_key,
+            requester_actor_hash=payload.requester_actor_hash,
         )
 
     @app.get("/api/v1/remediations/{remediation_id}", response_model=RemediationRecord)

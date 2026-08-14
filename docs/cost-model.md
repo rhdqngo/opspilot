@@ -60,3 +60,13 @@ Preview request with at most two model calls remains the final bounded MVP accep
 VPC, Model Armor, alert intake, generalized remediation, sessions/memory, dashboards, and
 multi-project support remain post-MVP options and may not add cost without a separate plan. The M8
 payment-only control plane remains disabled until its own reviewed plan and apply approval.
+
+## Formal-agent bounded delta
+
+The candidate adds six scale-to-zero Cloud Run services: order, payment, and inventory in staging
+and prod-sim, each capped at two instances. A three-service STANDARD or DEEP investigation remains
+bounded to 12 logical tool calls and at most 18 provider calls; QUICK remains at six logical calls
+and at most nine provider calls. RCA/report generation remains capped at two model calls and is
+skipped when no direct incident signal exists. Conversation context is one small Firestore document
+per active session with a 24-hour TTL. These are architectural bounds, not a new monetary estimate;
+the reviewed Terraform plan is required before any deployment cost claim.

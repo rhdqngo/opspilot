@@ -408,11 +408,12 @@ async def run_agent_context(
     *,
     model_backend: ModelBackend,
     complete: bool,
+    run_id: str | None = None,
 ) -> AgentRunResult:
     """Run the production graph over pre-collected bounded evidence."""
 
     tracker = _RequestBudgetTracker()
-    run_id = f"RUN-{uuid4().hex[:16].upper()}"
+    effective_run_id = run_id or f"RUN-{uuid4().hex[:16].upper()}"
     trace_id = context.trace_id
     started_clock = perf_counter()
     input_bytes = len(context.model_dump_json().encode("utf-8"))
@@ -421,7 +422,7 @@ async def run_agent_context(
             context, model_backend=model_backend, tracker=tracker
         )
         report = report.model_copy(
-            update={"audit": {**report.audit, "run_id": run_id, "trace_id": trace_id}}
+            update={"audit": {**report.audit, "run_id": effective_run_id, "trace_id": trace_id}}
         )
         return AgentRunResult(
             status=AgentRunStatus.COMPLETE if complete else AgentRunStatus.PARTIAL,
@@ -431,7 +432,7 @@ async def run_agent_context(
             report=report,
             trajectory=trajectory,
             budget=budget,
-            run_id=run_id,
+            run_id=effective_run_id,
             trace_id=trace_id,
             duration_ms=max(0, round((perf_counter() - started_clock) * 1_000)),
             reasoning_outcome="complete" if complete else "partial",
@@ -444,7 +445,7 @@ async def run_agent_context(
             model_backend=model_backend,
             budget=tracker.budget(input_bytes),
             errors=[_safe_error(error)],
-            run_id=run_id,
+            run_id=effective_run_id,
             trace_id=trace_id,
             duration_ms=max(0, round((perf_counter() - started_clock) * 1_000)),
             reasoning_outcome="failed",

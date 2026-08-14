@@ -23,6 +23,7 @@ from opspilot.agent.runner import run_agent_context
 from opspilot.catalog import load_service_catalog
 from opspilot.demo.load import _gcloud_identity_token
 from opspilot.domain import (
+    Environment,
     EvidenceDirection,
     EvidenceItem,
     IncidentReport,
@@ -371,7 +372,9 @@ async def run_scn008_command(
 
 
 def _bind_scn008_rollback_action(report: IncidentReport) -> IncidentReport:
-    validated = IncidentReport.model_validate(report)
+    validated = IncidentReport.model_validate(report).model_copy(
+        update={"environment": Environment.PROD_SIM}
+    )
     change_ids = [
         item.evidence_id
         for item in validated.evidence
@@ -395,6 +398,7 @@ def _bind_scn008_rollback_action(report: IncidentReport) -> IncidentReport:
             "Confirm ten of ten bounded orders succeed.",
         ],
         supporting_evidence_ids=change_ids,
+        remediation_action_type="ROLLBACK_CLOUD_RUN",
     )
     return validated.model_copy(update={"recommended_actions": [action]})
 
@@ -471,7 +475,7 @@ class GoogleScenarioCloudAdmin:
         self.image_uri = image_uri
         self.session = session or _authorized_session()
         self.service_name = (
-            f"projects/{project_id}/locations/{region}/services/opspilot-dev-payment"
+            f"projects/{project_id}/locations/{region}/services/opspilot-prod-sim-payment"
         )
 
     @classmethod
@@ -489,7 +493,7 @@ class GoogleScenarioCloudAdmin:
         if not self.image_uri.endswith(f"@{target_digest}"):
             raise RuntimeError("SCN-008 image must match the known-good revision digest")
         # Cloud Run revision names must begin with the owning service name.
-        faulty_revision = f"opspilot-dev-payment-m8-{secrets.token_hex(4)}"
+        faulty_revision = f"opspilot-prod-sim-payment-m8-{secrets.token_hex(4)}"
         body: dict[str, Any] = {
             "name": self.service_name,
             "etag": before["etag"],
@@ -510,7 +514,7 @@ class GoogleScenarioCloudAdmin:
         return RemediationTarget(
             project_id=self.project_id,
             region=self.region,
-            service="opspilot-dev-payment",
+            service="opspilot-prod-sim-payment",
             source_revision=faulty_revision,
             target_revision=source_revision,
             target_image_digest=target_digest,
@@ -647,7 +651,7 @@ class GoogleScenarioCloudAdmin:
                     "run",
                     "services",
                     "update-traffic",
-                    "opspilot-dev-payment",
+                    "opspilot-prod-sim-payment",
                     "--project",
                     self.project_id,
                     "--region",
@@ -669,7 +673,7 @@ class GoogleScenarioCloudAdmin:
     def _serving_url(self) -> str:
         return (
             f"https://{self.region}-run.googleapis.com/apis/serving.knative.dev/v1/"
-            f"namespaces/{self.project_id}/services/opspilot-dev-payment"
+            f"namespaces/{self.project_id}/services/opspilot-prod-sim-payment"
         )
 
     @staticmethod

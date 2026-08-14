@@ -29,7 +29,9 @@ class IdempotencyEntry:
 
 
 class RemediationStore(Protocol):
-    async def get_report(self, incident_id: str, report_id: str) -> IncidentReport | None: ...
+    async def get_report(
+        self, incident_id: str, report_id: str, report_version: int | None = None
+    ) -> IncidentReport | None: ...
 
     async def get_target(self, incident_id: str) -> RemediationTarget | None: ...
 
@@ -113,9 +115,21 @@ class InMemoryRemediationStore:
             self._reports[(report.incident_id, report.report_id)] = report.model_copy(deep=True)
             self._targets[report.incident_id] = target.model_copy(deep=True)
 
-    async def get_report(self, incident_id: str, report_id: str) -> IncidentReport | None:
+    async def get_report(
+        self, incident_id: str, report_id: str, report_version: int | None = None
+    ) -> IncidentReport | None:
         async with self._lock:
             value = self._reports.get((incident_id, report_id))
+            if value is None and report_version is not None:
+                value = next(
+                    (
+                        report
+                        for (stored_incident, _), report in self._reports.items()
+                        if stored_incident == incident_id
+                        and report.report_version == report_version
+                    ),
+                    None,
+                )
             return value.model_copy(deep=True) if value is not None else None
 
     async def get_target(self, incident_id: str) -> RemediationTarget | None:

@@ -176,6 +176,7 @@ async def run_scenario(
     *,
     scenario_id: str,
     auth: str,
+    environment: str = "dev",
     sender: ScenarioSender = _send_scenario_order,
     warmer: ScenarioWarmer = _wait_for_healthy_baseline,
 ) -> ScenarioRunSummary:
@@ -183,7 +184,13 @@ async def run_scenario(
         raise ValueError("only SCN-001 supports live execution in M3 MVP")
     if auth not in {"local", "gcloud"}:
         raise ValueError("auth must be local or gcloud")
-    target = os.environ.get("OPSPILOT_ORDER_URL", "http://127.0.0.1:8100")
+    if environment not in {"dev", "staging", "prod-sim"}:
+        raise ValueError("environment must be dev, staging, or prod-sim")
+    environment_variable = f"OPSPILOT_{environment.upper().replace('-', '_')}_ORDER_URL"
+    target = os.environ.get(
+        environment_variable,
+        os.environ.get("OPSPILOT_ORDER_URL", "http://127.0.0.1:8100"),
+    )
     token = await asyncio.to_thread(_gcloud_identity_token) if auth == "gcloud" else None
     run_id = f"RUN-SCN-001-{secrets.token_hex(6).upper()}"
     await warmer(target, token)
@@ -220,6 +227,7 @@ async def run_scenario(
     )
     return ScenarioRunSummary(
         scenario_id="SCN-001",
+        environment=environment,
         run_id=run_id,
         baseline=baseline,
         incident=incident,
@@ -234,6 +242,7 @@ def render_scenario_summary(result: ScenarioRunSummary) -> str:
     return "\n".join(
         [
             f"scenario_id: {result.scenario_id}",
+            f"environment: {result.environment}",
             f"run_id: {result.run_id}",
             f"baseline: {result.baseline.fulfilled}/{result.baseline.attempted} fulfilled",
             f"incident: {result.incident.fulfilled} fulfilled, {result.incident.failed} failed",

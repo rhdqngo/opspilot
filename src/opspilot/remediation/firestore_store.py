@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any, cast
 
 from google.cloud import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from opspilot.domain import IncidentReport
 from opspilot.remediation.contracts import (
@@ -96,14 +97,27 @@ class FirestoreRemediationStore:
             return None
         return incident_id, RemediationTarget.model_validate(target)
 
-    async def get_report(self, incident_id: str, report_id: str) -> IncidentReport | None:
+    async def get_report(
+        self, incident_id: str, report_id: str, report_version: int | None = None
+    ) -> IncidentReport | None:
+        document_id = f"{report_version:08d}" if report_version is not None else report_id
         snapshot = await asyncio.to_thread(
             self.client.collection("incidents")
             .document(incident_id)
             .collection("reports")
-            .document(report_id)
+            .document(document_id)
             .get
         )
+        if not snapshot.exists and report_version is None:
+            query = (
+                self.client.collection("incidents")
+                .document(incident_id)
+                .collection("reports")
+                .where(filter=FieldFilter("report_id", "==", report_id))
+                .limit(1)
+            )
+            matches = await asyncio.to_thread(lambda: list(query.stream()))
+            snapshot = matches[0] if matches else snapshot
         if not snapshot.exists:
             return None
         return IncidentReport.model_validate(snapshot.to_dict())

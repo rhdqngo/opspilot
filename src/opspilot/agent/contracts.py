@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from opspilot.audit import new_trace_id
 from opspilot.domain import (
+    INCIDENT_ID_PATTERN,
     EvidenceItem,
     IncidentReport,
     OutputLanguage,
@@ -52,10 +53,11 @@ class AgentRunError(BaseModel):
 
 class AgentEvidenceContext(BaseModel):
     scenario_id: str = Field(pattern=r"^SCN-\d{3}$")
-    incident_id: str = Field(pattern=r"^INC-\d{4}-\d{4}$")
+    incident_id: str = Field(pattern=INCIDENT_ID_PATTERN)
     generated_at: datetime
     correlation_id: str
     trace_id: str = Field(default_factory=new_trace_id, pattern=r"^[0-9a-f]{32}$")
+    output_language: OutputLanguage = OutputLanguage.EN
     evidence: list[EvidenceItem] = Field(default_factory=list)
     tool_errors: list[ToolError] = Field(default_factory=list)
     data_gaps: list[str] = Field(default_factory=list)

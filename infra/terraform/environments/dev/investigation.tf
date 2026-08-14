@@ -60,6 +60,7 @@ resource "google_project_iam_custom_role" "investigation_store" {
   description = "Minimum Firestore and task enqueue permissions for persistent investigations."
   stage       = "GA"
   permissions = [
+    "aiplatform.endpoints.predict",
     "cloudtasks.tasks.create",
     "datastore.databases.get",
     "datastore.entities.create",
@@ -182,6 +183,10 @@ resource "google_cloud_run_v2_service" "investigation_api" {
           OPSPILOT_INVESTIGATION_AUDIENCE                = local.investigation_api_audience
           OPSPILOT_INVESTIGATION_RUNTIME_SERVICE_ACCOUNT = google_service_account.investigator.email
           OPSPILOT_INVESTIGATION_ALERT_SERVICE_ACCOUNT   = google_service_account.investigation_alerts[0].email
+          OPSPILOT_LIVE_MODEL_ENABLED                    = "true"
+          GOOGLE_CLOUD_PROJECT                           = var.project_id
+          OPSPILOT_REMEDIATION_CONTROL_URL               = var.enable_remediation ? google_cloud_run_v2_service.remediation_control[0].uri : ""
+          OPSPILOT_REMEDIATION_CONTROL_AUDIENCE          = var.enable_remediation ? local.remediation_control_audience : ""
         }
         content {
           name  = env.key

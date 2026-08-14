@@ -79,6 +79,7 @@ class ScenarioPhaseSummary(BaseModel):
 
 class ScenarioRunSummary(BaseModel):
     scenario_id: Literal["SCN-001"]
+    environment: Literal["dev", "staging", "prod-sim"] = "dev"
     run_id: str = Field(pattern=r"^RUN-SCN-001-[A-Z0-9]{12}$")
     baseline: ScenarioPhaseSummary
     incident: ScenarioPhaseSummary

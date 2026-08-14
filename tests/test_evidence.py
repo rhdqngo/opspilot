@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 import opspilot.evidence as evidence_module
 from opspilot.catalog import load_service_catalog
-from opspilot.domain import SourceType, ToolErrorCategory
+from opspilot.domain import RequestedDepth, SourceType, ToolErrorCategory
 from opspilot.evidence import (
     EvidenceBackend,
     EvidenceCollectionRequest,
@@ -32,6 +32,36 @@ from opspilot.evidence import (
     render_evidence_summary,
     run_evidence_smoke,
 )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("depth", "expected_calls", "expected_sources"),
+    [
+        (RequestedDepth.QUICK, 2, {"LOG", "METRIC"}),
+        (RequestedDepth.STANDARD, 4, {"LOG", "METRIC", "CHANGE", "KNOWLEDGE"}),
+        (RequestedDepth.DEEP, 4, {"LOG", "METRIC", "CHANGE", "KNOWLEDGE"}),
+    ],
+)
+async def test_investigation_depth_owns_a_fixed_evidence_plan(
+    depth: RequestedDepth,
+    expected_calls: int,
+    expected_sources: set[str],
+) -> None:
+    end = datetime(2026, 8, 11, 6, 30, tzinfo=UTC)
+    result = await collect_evidence(
+        FixtureEvidenceClient("SCN-001"),
+        EvidenceCollectionRequest(
+            scenario_id="SCN-001",
+            start_time=end - timedelta(minutes=15),
+            end_time=end,
+            services=["payment-service"],
+            requested_depth=depth,
+        ),
+    )
+
+    assert result.budget.logical_tool_calls == expected_calls
+    assert set(result.source_status) == expected_sources
 
 
 def _window() -> tuple[datetime, datetime]:
@@ -536,7 +566,17 @@ async def test_M5_live_adapter_uses_fixed_bounded_requests_and_logical_citations
                                         "env": [{"name": "MODE", "value": "secret-value"}],
                                     }
                                 ],
-                            }
+                            },
+                            {
+                                "name": "projects/hidden/revisions/day-old-revision",
+                                "createTime": "2026-08-10T06:10:00Z",
+                                "containers": [
+                                    {
+                                        "image": "registry.invalid/demo@sha256:" + "c" * 64,
+                                        "env": [{"name": "MODE", "value": "older-value"}],
+                                    }
+                                ],
+                            },
                         ]
                     },
                     128,
@@ -595,6 +635,10 @@ async def test_M5_live_adapter_uses_fixed_bounded_requests_and_logical_citations
         SourceType.CHANGE,
         SourceType.KNOWLEDGE,
     }
+    change_evidence = [item for item in result.evidence if item.source_type == SourceType.CHANGE]
+    assert len(change_evidence) == 1
+    assert change_evidence[0].observed_at is not None
+    assert start <= change_evidence[0].observed_at <= end
     serialized = json.dumps(result.model_dump(mode="json"))
     assert "secret-project-id" not in serialized
     assert "secret-live-token" not in serialized

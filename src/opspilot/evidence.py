@@ -24,9 +24,12 @@ from pydantic import BaseModel, Field, model_validator
 from opspilot.audit import ToolAuditContext, ToolCallAuditEvent, log_tool_call
 from opspilot.catalog import ServiceCatalog
 from opspilot.domain import (
+    Environment,
     EvidenceDirection,
     EvidenceItem,
+    RequestedDepth,
     SourceType,
+    Symptom,
     ToolError,
     ToolErrorCategory,
     ToolMeta,
@@ -43,10 +46,10 @@ from opspilot.retry import RetryPolicy, run_with_retry
 
 MAX_ERROR_BODY_BYTES = 16 * 1024
 MAX_LOG_BYTES = 30 * 1024
-MAX_LOG_ENTRIES = 100
+MAX_LOG_ENTRIES = 200
 MAX_METRIC_POINTS = 600
-MAX_TOOL_CALLS = 8
-MAX_API_CALLS = 10
+MAX_TOOL_CALLS = 20
+MAX_API_CALLS = 20
 COLLECTION_DEADLINE_SECONDS = 45.0
 TOOL_TIMEOUT_SECONDS = 10.0
 LOGGER = logging.getLogger(__name__)
@@ -79,14 +82,14 @@ class MetricReducer(StrEnum):
 
 class QueryLogsInput(BaseModel):
     service: str
-    environment: Literal["dev"] = "dev"
+    environment: Environment = Environment.DEV
     start_time: datetime
     end_time: datetime
     severity_at_least: Literal["DEFAULT", "INFO", "WARNING", "ERROR", "CRITICAL"] = "ERROR"
     trace_id: str | None = None
     scenario_run_id: str | None = None
     query_terms: list[str] = Field(default_factory=list, max_length=5)
-    max_entries: int = Field(default=100, ge=1, le=100)
+    max_entries: int = Field(default=100, ge=1, le=200)
 
     @model_validator(mode="after")
     def validate_scope(self) -> Self:
@@ -131,6 +134,7 @@ class QueryLogsData(BaseModel):
 
 class QueryMetricSeriesInput(BaseModel):
     service: str
+    environment: Environment = Environment.DEV
     metric_key: str
     start_time: datetime
     end_time: datetime
@@ -163,9 +167,10 @@ class MetricSeries(BaseModel):
 
 class ListRevisionsInput(BaseModel):
     service: str
+    environment: Environment = Environment.DEV
     start_time: datetime
     end_time: datetime
-    max_revisions: int = Field(default=20, ge=1, le=20)
+    max_revisions: int = Field(default=20, ge=1, le=50)
 
     @model_validator(mode="after")
     def validate_scope(self) -> Self:
@@ -211,11 +216,14 @@ class EvidenceCollectionResult(BaseModel):
 
 class EvidenceCollectionRequest(BaseModel):
     scenario_id: str = Field(pattern=r"^SCN-\d{3}$")
-    environment: Literal["dev"] = "dev"
+    environment: Environment = Environment.DEV
     start_time: datetime
     end_time: datetime
     services: list[str] = Field(default_factory=lambda: ["payment-service"], min_length=1)
     scenario_run_id: str | None = None
+    symptoms: list[Symptom] = Field(default_factory=lambda: [Symptom.UNKNOWN])
+    requested_depth: RequestedDepth = RequestedDepth.STANDARD
+    focus_hypothesis_id: str | None = Field(default=None, pattern=r"^H-\d{2}$")
 
     @model_validator(mode="after")
     def validate_scope(self) -> Self:
@@ -320,11 +328,41 @@ def _validate_service_metric(
         raise ValueError("metric key is not allowlisted for the service")
 
 
+def _metric_keys(symptoms: Sequence[Symptom]) -> list[str]:
+    selected = set(symptoms)
+    keys: list[str] = ["error_ratio"]
+    if selected & {Symptom.LATENCY, Symptom.TIMEOUT, Symptom.UNKNOWN}:
+        keys.append("latency_p95")
+    elif selected & {Symptom.AVAILABILITY, Symptom.RESOURCE_EXHAUSTION}:
+        keys.append("instance_count")
+    else:
+        keys.append("latency_p95")
+    return keys
+
+
+def _knowledge_query(
+    service: str, symptoms: Sequence[Symptom], focus_hypothesis_id: str | None
+) -> str:
+    vocabulary = {
+        Symptom.ERROR_RATE: "error failure",
+        Symptom.LATENCY: "latency slow",
+        Symptom.TIMEOUT: "timeout dependency",
+        Symptom.AVAILABILITY: "availability outage",
+        Symptom.RESOURCE_EXHAUSTION: "capacity resource exhaustion",
+        Symptom.DATA_INCONSISTENCY: "data inconsistency",
+        Symptom.UNKNOWN: "incident troubleshooting",
+    }
+    terms = " ".join(dict.fromkeys(vocabulary[item] for item in symptoms))
+    focus = f" hypothesis {focus_hypothesis_id}" if focus_hypothesis_id else ""
+    return f"{service} {terms}{focus}"[:500]
+
+
 def build_logging_filter(request: QueryLogsInput, catalog: ServiceCatalog) -> str:
     _validate_service_metric(catalog, request.service)
+    service_name = catalog.cloud_run_service(request.service, request.environment)
     clauses = [
         'resource.type="cloud_run_revision"',
-        f'resource.labels.service_name="opspilot-dev-{request.service.removesuffix("-service")}"',
+        f'resource.labels.service_name="{service_name}"',
         f'timestamp>="{_iso(request.start_time)}"',
         f'timestamp<="{_iso(request.end_time)}"',
         f"severity>={request.severity_at_least}",
@@ -344,7 +382,7 @@ def build_monitoring_filter(request: QueryMetricSeriesInput, catalog: ServiceCat
         if request.metric_key in FIXTURE_ONLY_METRICS:
             raise ValueError("metric is fixture-only")
         raise ValueError("metric key has no live mapping")
-    service_name = f"opspilot-dev-{request.service.removesuffix('-service')}"
+    service_name = catalog.cloud_run_service(request.service, request.environment)
     return (
         f'metric.type="{metric_type}" AND '
         'resource.type="cloud_run_revision" AND '
@@ -646,28 +684,32 @@ class LiveEvidenceClient:
             log_result = await self.query_logs(
                 QueryLogsInput(
                     service=service,
+                    environment=request.environment,
                     start_time=request.start_time,
                     end_time=request.end_time,
                     scenario_run_id=request.scenario_run_id,
+                    max_entries=(200 if request.requested_depth is RequestedDepth.DEEP else 100),
                 )
             )
             return _normalize_log_result(log_result, request.environment)
         if source == SourceType.METRIC:
+            metric_keys = _metric_keys(request.symptoms)
             metric_requests = [
                 QueryMetricSeriesInput(
                     service=service,
-                    metric_key="error_ratio",
+                    environment=request.environment,
+                    metric_key=metric_key,
                     start_time=request.start_time,
                     end_time=request.end_time,
-                    reducer=MetricReducer.RATIO,
-                ),
-                QueryMetricSeriesInput(
-                    service=service,
-                    metric_key="latency_p95",
-                    start_time=request.start_time,
-                    end_time=request.end_time,
-                    reducer=MetricReducer.P95,
-                ),
+                    reducer=(
+                        MetricReducer.P95
+                        if metric_key == "latency_p95"
+                        else MetricReducer.RATIO
+                        if metric_key == "error_ratio"
+                        else MetricReducer.MAX
+                    ),
+                )
+                for metric_key in metric_keys
             ]
             metric_results = await asyncio.gather(
                 *(self.query_metric_series(item) for item in metric_requests)
@@ -677,18 +719,20 @@ class LiveEvidenceClient:
             revision_result = await self.list_revisions(
                 ListRevisionsInput(
                     service=service,
+                    environment=request.environment,
                     start_time=request.start_time,
                     end_time=request.end_time,
+                    max_revisions=(50 if request.requested_depth is RequestedDepth.DEEP else 20),
                 )
             )
             return _normalize_revision_result(revision_result, service, request.environment)
         if source == SourceType.KNOWLEDGE:
             knowledge_result = await self.search_knowledge(
                 SearchKnowledgeInput(
-                    query="payment database pool acquisition timeout",
+                    query=_knowledge_query(service, request.symptoms, request.focus_hypothesis_id),
                     service=service,
-                    document_types=["runbook", "prior_rca"],
-                    top_k=6,
+                    document_types=["runbook", "prior_rca", "architecture", "known_error"],
+                    top_k=8 if request.requested_depth is RequestedDepth.DEEP else 6,
                 )
             )
             return _normalize_knowledge_result(knowledge_result, request.environment)
@@ -818,7 +862,7 @@ class LiveEvidenceClient:
         try:
             _validate_service_metric(self._catalog, request.service)
             token = await self._token_provider.get_token()
-            service_id = f"opspilot-dev-{request.service.removesuffix('-service')}"
+            service_id = self._catalog.cloud_run_service(request.service, request.environment)
             parent = (
                 f"projects/{quote(self._project_id, safe='')}/locations/"
                 f"{quote(self._region, safe='')}"
@@ -1224,6 +1268,7 @@ def _normalize_revision_result(
 ) -> ToolResult[list[EvidenceItem]]:
     if not result.ok or result.data is None:
         return ToolResult[list[EvidenceItem]](ok=False, error=result.error, meta=result.meta)
+    within_window = [item for item in result.data if item.within_window]
     evidence = [
         EvidenceItem(
             evidence_id=f"EV-CHG-{index:04d}",
@@ -1233,10 +1278,19 @@ def _normalize_revision_result(
             environment=environment,
             observed_at=revision.created_at,
             summary=(
-                "A bounded Cloud Run revision snapshot was observed; no causal change is inferred."
+                "A bounded Cloud Run revision snapshot was observed"
+                + (
+                    f" with changed configuration keys: {', '.join(revision.env_keys_changed)}."
+                    if revision.env_keys_changed
+                    else "; no configuration-key difference was observed."
+                )
             ),
             value=revision.image_digest,
-            direction=EvidenceDirection.NEUTRAL,
+            direction=(
+                EvidenceDirection.SUPPORTS
+                if revision.env_keys_changed
+                else EvidenceDirection.NEUTRAL
+            ),
             source_uri=f"opspilot://evidence/change/{index:04d}",
             source_record_id=revision.revision_name,
             raw_excerpt_hash=f"sha256:{revision.config_hash}",
@@ -1245,9 +1299,10 @@ def _normalize_revision_result(
                 "env_values_withheld",
             ],
         )
-        for index, revision in enumerate(result.data, start=1)
+        for index, revision in enumerate(within_window, start=1)
     ]
-    return ToolResult[list[EvidenceItem]](ok=True, data=evidence, meta=result.meta)
+    meta = result.meta.model_copy(update={"result_count": len(evidence)})
+    return ToolResult[list[EvidenceItem]](ok=True, data=evidence, meta=meta)
 
 
 def _normalize_knowledge_result(
@@ -1300,7 +1355,11 @@ async def collect_evidence(
         if collection_deadline_seconds is None
         else collection_deadline_seconds
     )
-    sources = (SourceType.LOG, SourceType.METRIC, SourceType.CHANGE, SourceType.KNOWLEDGE)
+    sources = (
+        (SourceType.LOG, SourceType.METRIC)
+        if request.requested_depth is RequestedDepth.QUICK
+        else (SourceType.LOG, SourceType.METRIC, SourceType.CHANGE, SourceType.KNOWLEDGE)
+    )
     semaphore = asyncio.Semaphore(4)
 
     async def bounded(source: SourceType) -> ToolResult[list[EvidenceItem]]:

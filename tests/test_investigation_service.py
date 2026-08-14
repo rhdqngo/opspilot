@@ -3,21 +3,50 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from opspilot.audit import InvestigationAudit, audit_hash
 from opspilot.catalog import load_service_catalog
-from opspilot.domain import InvestigationRequest, RequestedDepth
+from opspilot.domain import Environment, InvestigationRequest, RequestedDepth
 from opspilot.evidence import FixtureEvidenceClient
 from opspilot.parser import parse_investigation_request
 from opspilot.service import (
+    ConversationContext,
     FixtureInvestigationExecutor,
     InMemoryInvestigationStore,
     InvestigationCoordinator,
     InvestigationExecution,
     LiveInvestigationExecutor,
 )
+
+
+@pytest.mark.asyncio
+async def test_conversation_context_is_session_isolated_and_expires_after_ttl() -> None:
+    store = InMemoryInvestigationStore()
+    active = ConversationContext(
+        session_hash="a" * 64,
+        incident_id="INC-2026-0001",
+        environment=Environment.STAGING,
+        services=["order-service"],
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
+    )
+    expired = ConversationContext(
+        session_hash="b" * 64,
+        incident_id="INC-2026-0002",
+        services=["payment-service"],
+        expires_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+
+    await store.put_context(active)
+    await store.put_context(expired)
+
+    assert await store.get_context("a" * 64) == active
+    assert await store.get_context("b" * 64) is None
+    assert await store.get_context("c" * 64) is None
+    assert "query" not in active.model_dump_json().lower()
+    assert "user" not in active.model_dump_json().lower()
 
 
 class RecordingPublisher:
@@ -138,15 +167,24 @@ async def test_live_executor_collects_each_service_and_keeps_evidence_ids_unique
     executor = LiveInvestigationExecutor(project_id="server-owned-project", catalog=catalog)
     executor.client = FixtureEvidenceClient("SCN-001")  # type: ignore[assignment]
     request = parse_investigation_request(
-        "order-service payment-service 최근 30분 오류 분석", catalog=catalog
+        "order-service payment-service inventory-service 최근 30분 오류 분석",
+        catalog=catalog,
     ).model_copy(update={"incident_id": "INC-2026-AAAAAAAAAAAAAAAA"})
 
     execution = await executor.execute(request, correlation_id="COR-LIVE-TEST")
 
-    assert execution.report.affected_services == ["order-service", "payment-service"]
+    assert execution.report.affected_services == [
+        "inventory-service",
+        "order-service",
+        "payment-service",
+    ]
     evidence_ids = [item.evidence_id for item in execution.report.evidence]
     assert len(evidence_ids) == len(set(evidence_ids))
     assert execution.report.audit["model_calls"] == 0
+    assert execution.report.audit["logical_tool_calls"] == 12
+    api_calls = execution.report.audit["api_calls"]
+    assert isinstance(api_calls, int)
+    assert api_calls <= 20
     assert set(execution.completed_collectors) == {"CHANGE", "KNOWLEDGE", "LOG", "METRIC"}
 
 

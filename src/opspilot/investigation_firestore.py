@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from google.cloud import firestore
 
 from opspilot.domain import IncidentReport, InvestigationRequest
 from opspilot.service import (
+    ConversationContext,
     IncidentRecord,
     IncidentSeed,
     IncidentState,
@@ -312,3 +313,20 @@ class FirestoreInvestigationStore:
             return incident, True
 
         return await asyncio.to_thread(ingest, self.client.transaction())
+
+    async def get_context(self, session_hash: str) -> ConversationContext | None:
+        snapshot = await asyncio.to_thread(
+            self.client.collection("conversation_contexts").document(session_hash).get
+        )
+        if not snapshot.exists:
+            return None
+        context = ConversationContext.model_validate(snapshot.to_dict())
+        if context.expires_at <= datetime.now(UTC):
+            return None
+        return context
+
+    async def put_context(self, context: ConversationContext) -> None:
+        await asyncio.to_thread(
+            self.client.collection("conversation_contexts").document(context.session_hash).set,
+            context.model_dump(mode="python"),
+        )

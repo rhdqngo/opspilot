@@ -14,6 +14,18 @@ from opspilot.domain import (
     SourceType,
 )
 
+CANONICAL_ROOT_CAUSE_CODES = frozenset(
+    {
+        "PAYMENT_DB_POOL_EXHAUSTION",
+        "PAYMENT_UPSTREAM_TIMEOUT",
+        "INVENTORY_ENDPOINT_MISCONFIGURATION",
+        "CLOUD_RUN_CAPACITY_LIMIT",
+        "UPSTREAM_RATE_LIMIT",
+        "RUNBOOK_PROMPT_INJECTION",
+        "INSUFFICIENT_EVIDENCE",
+    }
+)
+
 
 @dataclass(frozen=True)
 class AlternativePolicy:
@@ -243,4 +255,52 @@ def apply_live_report_policy(report: IncidentReport) -> IncidentReport:
             },
         },
         deep=True,
+    )
+
+
+def add_prod_sim_rollback_request(report: IncidentReport) -> IncidentReport:
+    """Expose one approval request only when a prod-sim payment report proves a change."""
+
+    if (
+        report.environment.value != "prod-sim"
+        or report.affected_services != ["payment-service"]
+        or report.status is not ReportStatus.IDENTIFIED
+        or not report.hypotheses
+    ):
+        return report
+    evidence = {item.evidence_id: item for item in report.evidence}
+    top = sorted(report.hypotheses, key=lambda item: (item.rank, item.hypothesis_id))[0]
+    revision_ids = [
+        evidence_id
+        for evidence_id in top.supporting_evidence_ids
+        if evidence_id in evidence
+        and evidence[evidence_id].source_type is SourceType.CHANGE
+        and evidence[evidence_id].direction.value == "SUPPORTS"
+        and evidence[evidence_id].service == "payment-service"
+    ]
+    if not revision_ids:
+        return report
+    action_number = len(report.recommended_actions) + 1
+    rollback = RecommendedAction(
+        action_id=f"ACT-{action_number:02d}",
+        category="ROLLBACK_CLOUD_RUN",
+        title="Request approval for a bounded prod-sim rollback",
+        description=(
+            "Create an immutable approval request for the trusted previous prod-sim payment "
+            "revision. This report does not approve or execute the rollback."
+        ),
+        target_service="payment-service",
+        risk_level="HIGH",
+        requires_approval=True,
+        prerequisites=[
+            "Confirm the latest identified report and trusted previous revision metadata."
+        ],
+        expected_effect="Restore the last trusted synthetic payment revision after approval.",
+        rollback_method="Use the separate M8 control plane to reject or stop before execution.",
+        verification_steps=["Verify 10/10 synthetic orders and compare bounded metrics."],
+        supporting_evidence_ids=revision_ids[:1],
+        remediation_action_type="ROLLBACK_CLOUD_RUN",
+    )
+    return report.model_copy(
+        update={"recommended_actions": [*report.recommended_actions, rollback]}, deep=True
     )

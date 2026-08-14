@@ -104,9 +104,13 @@ class RemediationCoordinator:
         incident_id: str,
         payload: RemediationCreateRequest,
         idempotency_key: str,
-        principal: Principal,
+        principal: Principal | None = None,
+        requester_actor_hash: str | None = None,
     ) -> RemediationRecord:
-        report = await self.store.get_report(incident_id, payload.report_id)
+        actor_hash = requester_actor_hash or (principal.actor_hash if principal else None)
+        if actor_hash is None or not actor_hash.startswith("sha256:"):
+            raise PolicyViolationError("a pseudonymous requester identity is required")
+        report = await self.store.get_report(incident_id, payload.report_id, payload.report_version)
         if report is None:
             raise NotFoundError("incident report not found")
         target = await self.store.get_target(incident_id)
@@ -150,7 +154,7 @@ class RemediationCoordinator:
             plan=plan,
             plan_hash=plan.plan_hash,
             status=RemediationStatus.WAITING_APPROVAL,
-            requester_actor_hash=principal.actor_hash,
+            requester_actor_hash=actor_hash,
             created_at=now,
             updated_at=now,
             expires_at=expires_at,
@@ -162,7 +166,7 @@ class RemediationCoordinator:
             event_type="POLICY_ACCEPTED",
             from_status=RemediationStatus.PROPOSED,
             to_status=RemediationStatus.WAITING_APPROVAL,
-            actor_hash=principal.actor_hash,
+            actor_hash=actor_hash,
             plan_hash=plan.plan_hash,
         )
         digest = canonical_request_digest(operation="request", path_id=incident_id, payload=payload)
@@ -337,8 +341,12 @@ class RemediationCoordinator:
             raise PolicyViolationError("report must be identified before remediation")
         if action.category != "ROLLBACK_CLOUD_RUN" or not action.requires_approval:
             raise PolicyViolationError("action is not an approval-gated Cloud Run rollback")
-        if action.target_service != "payment-service" or target.service != "opspilot-dev-payment":
-            raise PolicyViolationError("only the dev payment service can be remediated")
+        if (
+            report.environment.value != "prod-sim"
+            or action.target_service != "payment-service"
+            or target.service != "opspilot-prod-sim-payment"
+        ):
+            raise PolicyViolationError("only the prod-sim payment service can be remediated")
         evidence = {item.evidence_id: item for item in report.evidence}
         supporting_change = any(
             evidence_id in evidence

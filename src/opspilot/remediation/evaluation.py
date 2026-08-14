@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from opspilot.domain import Environment
 from opspilot.remediation.contracts import (
     ExecutionOutcomeRequest,
     ExecutionRequest,
@@ -163,7 +164,7 @@ def _eval_target(*, source_revision: str = "payment-faulty") -> RemediationTarge
     return RemediationTarget(
         project_id="portfolio-project",
         region="asia-northeast3",
-        service="opspilot-dev-payment",
+        service="opspilot-prod-sim-payment",
         source_revision=source_revision,
         target_revision="payment-good",
         target_image_digest=EVAL_DIGEST,
@@ -184,7 +185,9 @@ async def _evaluate_case(
 ) -> RemediationEvaluationCaseResult:
     clock = _EvalClock()
     store = InMemoryRemediationStore()
-    report = await run_fixture_investigation("SCN-008")
+    report = (await run_fixture_investigation("SCN-008")).model_copy(
+        update={"environment": Environment.PROD_SIM}
+    )
     await store.seed_incident(report=report, target=_eval_target())
     verifier_successes = 9 if case.condition is EvaluationCondition.VERIFICATION_FAILED else 10
     coordinator = RemediationCoordinator(

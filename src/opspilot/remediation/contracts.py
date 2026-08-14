@@ -10,6 +10,8 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from opspilot.domain import INCIDENT_ID_PATTERN
+
 APPROVAL_TTL = timedelta(minutes=15)
 IDEMPOTENCY_TTL = timedelta(hours=24)
 
@@ -83,7 +85,7 @@ class RemediationTarget(BaseModel):
 
     project_id: str = Field(min_length=1)
     region: str = Field(min_length=1)
-    service: str = Field(pattern=r"^opspilot-dev-payment$")
+    service: str = Field(pattern=r"^opspilot-prod-sim-payment$")
     source_revision: str = Field(min_length=1)
     target_revision: str = Field(min_length=1)
     target_image_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
@@ -109,7 +111,7 @@ class RemediationPlan(BaseModel):
 
     schema_version: str = "remediation-plan-v1"
     action_type: RemediationActionType = RemediationActionType.ROLLBACK_CLOUD_RUN
-    incident_id: str = Field(pattern=r"^INC-\d{4}-\d{4}$")
+    incident_id: str = Field(pattern=INCIDENT_ID_PATTERN)
     report_id: str = Field(min_length=1)
     action_id: str = Field(pattern=r"^ACT-\d{2}$")
     source_revision: str = Field(min_length=1)
@@ -154,6 +156,7 @@ class RemediationCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     report_id: str = Field(min_length=1)
+    report_version: int | None = Field(default=None, ge=1)
     action_id: str = Field(pattern=r"^ACT-\d{2}$")
     verification_window_minutes: int = Field(default=10, ge=1, le=10)
 
@@ -188,7 +191,7 @@ class RemediationRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     remediation_id: str = Field(pattern=r"^REM-[A-F0-9]{16}$")
-    incident_id: str = Field(pattern=r"^INC-\d{4}-\d{4}$")
+    incident_id: str = Field(pattern=INCIDENT_ID_PATTERN)
     report_id: str
     action_id: str = Field(pattern=r"^ACT-\d{2}$")
     plan: RemediationPlan

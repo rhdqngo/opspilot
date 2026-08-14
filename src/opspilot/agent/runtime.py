@@ -29,9 +29,7 @@ from google.oauth2 import id_token
 from pydantic import BaseModel, Field
 
 from opspilot.audit import audit_hash, new_correlation_id, new_trace_id
-from opspilot.catalog import load_service_catalog
 from opspilot.domain import OutputLanguage
-from opspilot.parser import parse_investigation_request
 from opspilot.retry import RetryPolicy, run_with_retry
 
 RUNTIME_API_TIMEOUT_SECONDS = 32.0
@@ -135,6 +133,8 @@ class RuntimeInvocationResult(BaseModel):
     succeeded: bool
     rejection_code: str = "none"
     output_markdown: str
+    started_investigation: bool = False
+    progress_markdown: str | None = None
     run_id: str = Field(
         default_factory=lambda: f"RUN-{uuid4().hex[:16].upper()}",
         pattern=r"^RUN-[A-F0-9]{16}$",
@@ -184,7 +184,7 @@ def _log_runtime_stage(
 
 
 def validate_runtime_api_input(value: str) -> RuntimeInputDecision:
-    """Validate the shared bounded scope used by the Enterprise API adapter."""
+    """Perform only transport-safe validation; the API owns intent and scope."""
 
     text = value.strip()
     output_language = OutputLanguage.KO if HANGUL_PATTERN.search(text) else OutputLanguage.EN
@@ -194,29 +194,10 @@ def validate_runtime_api_input(value: str) -> RuntimeInputDecision:
             rejection_code="invalid_length",
             output_language=output_language,
         )
-    try:
-        request = parse_investigation_request(text, catalog=load_service_catalog())
-    except ValueError as error:
-        code = "unsupported_window" if "time window" in str(error) else "unsupported_service"
-        return RuntimeInputDecision(
-            accepted=False,
-            rejection_code=code,
-            output_language=output_language,
-        )
-    if request.requested_actions:
-        return RuntimeInputDecision(
-            accepted=False,
-            rejection_code="action_request_rejected",
-            output_language=output_language,
-        )
     return RuntimeInputDecision(
         accepted=True,
-        service=request.services[0] if len(request.services) == 1 else None,
-        services=request.services,
-        window_minutes=round((request.end_time - request.start_time).total_seconds() / 60),
         user_query=text,
         output_language=output_language,
-        assumptions=request.assumptions,
         query_hash=audit_hash("enterprise_query", text),
     )
 
@@ -254,6 +235,7 @@ async def run_live_runtime_investigation(
             succeeded=False,
             rejection_code="runtime_configuration_unavailable",
             output_markdown=RUNTIME_COPY[decision.output_language].configuration_unavailable,
+            started_investigation=True,
             run_id=decision.run_id,
             summary=RuntimeRunSummary(run_id=decision.run_id, outcome="failed"),
         )
@@ -325,9 +307,9 @@ async def _run_api_runtime_investigation(
     audience = os.getenv("OPSPILOT_INVESTIGATION_API_AUDIENCE", api_url).strip()
     try:
         token = await asyncio.to_thread(id_token.fetch_id_token, AuthRequest(), audience)
-        status, markdown = await asyncio.to_thread(
+        status, body = await asyncio.to_thread(
             _api_request,
-            f"{api_url}/internal/v1/runtime/investigations",
+            f"{api_url}/internal/v2/runtime/turns",
             token=token,
             method="POST",
             payload={
@@ -341,21 +323,28 @@ async def _run_api_runtime_investigation(
                 "query_hash": decision.query_hash,
                 "output_language": decision.output_language.value,
             },
-            accept="text/markdown",
+            accept="application/json",
             timeout_seconds=RUNTIME_API_TIMEOUT_SECONDS,
             trace_id=decision.trace_id,
             idempotency_key=decision.run_id,
         )
         if status != 200:
-            raise RuntimeError("investigation API did not return a persisted report")
+            raise RuntimeError("investigation API did not return a completed turn")
+        payload = json.loads(body.decode("utf-8"))
         summary = RuntimeRunSummary(
             run_id=decision.run_id,
-            outcome="complete",
+            outcome="complete" if payload.get("outcome") == "complete" else "rejected",
         )
         return RuntimeInvocationResult(
-            accepted=True,
+            accepted=bool(payload.get("accepted", True)),
             succeeded=True,
-            output_markdown=markdown.decode("utf-8"),
+            output_markdown=str(payload["markdown"]),
+            started_investigation=bool(payload.get("started_investigation", False)),
+            progress_markdown=(
+                str(payload["progress_markdown"])
+                if payload.get("progress_markdown") is not None
+                else None
+            ),
             run_id=decision.run_id,
             summary=summary,
         )
@@ -376,6 +365,7 @@ async def _run_api_runtime_investigation(
             succeeded=False,
             rejection_code="runtime_failed",
             output_markdown=RUNTIME_COPY[decision.output_language].failure,
+            started_investigation=True,
             run_id=decision.run_id,
             summary=summary,
         )
@@ -472,10 +462,6 @@ class OpsPilotRuntimeAgent(BaseAgent):
         )
         decision.started_clock = started_clock
         copy = RUNTIME_COPY[decision.output_language]
-        progress = copy.progress.format(
-            services=", ".join(decision.services),
-            minutes=decision.window_minutes,
-        )
         handler_task: asyncio.Future[RuntimeInvocationResult] = asyncio.ensure_future(
             self.handler(decision)
         )
@@ -532,6 +518,7 @@ class OpsPilotRuntimeAgent(BaseAgent):
                     succeeded=False,
                     rejection_code="runtime_timeout",
                     output_markdown=copy.failure,
+                    started_investigation=True,
                     run_id=decision.run_id,
                     summary=summary,
                 )
@@ -592,6 +579,7 @@ class OpsPilotRuntimeAgent(BaseAgent):
                 succeeded=False,
                 rejection_code="runtime_failed",
                 output_markdown=copy.failure,
+                started_investigation=True,
                 run_id=decision.run_id,
                 summary=summary,
             )
@@ -614,13 +602,18 @@ class OpsPilotRuntimeAgent(BaseAgent):
         # Agent Engine has intermittently dropped the final event when a partial
         # event is followed by a long idle period. Buffer the bounded operation,
         # then emit the required progress/final pair back-to-back.
-        yield _runtime_event(
-            context,
-            author=self.name,
-            text=progress,
-            partial=True,
-            turn_complete=False,
-        )
+        if result.started_investigation:
+            progress = result.progress_markdown or copy.progress.format(
+                services="the requested services",
+                minutes="bounded",
+            )
+            yield _runtime_event(
+                context,
+                author=self.name,
+                text=progress,
+                partial=True,
+                turn_complete=False,
+            )
         yield _runtime_event(
             context,
             author=self.name,

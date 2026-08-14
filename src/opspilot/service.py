@@ -26,10 +26,12 @@ from opspilot.audit import (
 )
 from opspilot.catalog import ServiceCatalog
 from opspilot.domain import (
+    Environment,
     EvidenceItem,
     IncidentReport,
     IncidentTimelineEvent,
     InvestigationRequest,
+    OutputLanguage,
     ReportStatus,
     RequestedDepth,
     SourceType,
@@ -44,7 +46,7 @@ from opspilot.evidence import (
 from opspilot.parser import parse_investigation_request
 from opspilot.redaction import redact_text
 from opspilot.remediation.google import _authorized_session
-from opspilot.report_policy import apply_live_report_policy
+from opspilot.report_policy import add_prod_sim_rollback_request, apply_live_report_policy
 from opspilot.workflow import run_fixture_investigation
 
 
@@ -109,6 +111,30 @@ class InvestigationExecution(BaseModel):
     completed_collectors: list[str] = Field(default_factory=list)
 
 
+class AgentTurnIntent(StrEnum):
+    INVESTIGATE = "INVESTIGATE"
+    REFINE_INVESTIGATION = "REFINE_INVESTIGATION"
+    EXPLAIN_REPORT = "EXPLAIN_REPORT"
+    COMPARE_REPORT_VERSIONS = "COMPARE_REPORT_VERSIONS"
+    SHOW_STATUS = "SHOW_STATUS"
+    CREATE_REMEDIATION_REQUEST = "CREATE_REMEDIATION_REQUEST"
+    SHOW_CAPABILITIES = "SHOW_CAPABILITIES"
+    REJECTED = "REJECTED"
+
+
+class ConversationContext(BaseModel):
+    session_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    incident_id: str
+    environment: Environment = Environment.DEV
+    services: list[str] = Field(default_factory=list)
+    window_minutes: int = Field(default=30, ge=1, le=120)
+    requested_depth: RequestedDepth = RequestedDepth.STANDARD
+    report_version: int | None = Field(default=None, ge=1)
+    focus_hypothesis_id: str | None = Field(default=None, pattern=r"^H-\d{2}$")
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(hours=24))
+
+
 class InvestigationExecutor(Protocol):
     execution_mode: str
     scenario_id: str
@@ -165,6 +191,10 @@ class InvestigationStore(Protocol):
         self, seed: IncidentSeed, *, message_key: str
     ) -> tuple[IncidentRecord, bool]: ...
 
+    async def get_context(self, session_hash: str) -> ConversationContext | None: ...
+
+    async def put_context(self, context: ConversationContext) -> None: ...
+
 
 class FixtureInvestigationExecutor:
     """Deterministic executor used by local development and contract tests."""
@@ -202,6 +232,14 @@ class FixtureInvestigationExecutor:
         report = report.model_copy(
             update={
                 "incident_id": request.incident_id,
+                "environment": request.environment,
+                "requested_start_time": request.start_time,
+                "requested_end_time": request.end_time,
+                "title": (
+                    f"{request.services[0]} Incident Investigation"
+                    if len(request.services) == 1
+                    else "Multi-Service Incident Investigation"
+                ),
                 "affected_services": request.services,
                 "assumptions": request.assumptions,
                 "audit": {**report.audit, "trace_id": effective_trace},
@@ -261,10 +299,13 @@ class LiveInvestigationExecutor:
                     self.client,
                     EvidenceCollectionRequest(
                         scenario_id=self.scenario_id,
-                        environment="dev",
+                        environment=request.environment,
                         start_time=request.start_time,
                         end_time=request.end_time,
                         services=[service],
+                        symptoms=request.symptoms,
+                        requested_depth=request.requested_depth,
+                        focus_hypothesis_id=request.focus_hypothesis_id,
                     ),
                     tool_timeout_seconds=5.0,
                     collection_deadline_seconds=12.0,
@@ -301,7 +342,22 @@ class LiveInvestigationExecutor:
                         deep=True,
                     )
                 )
+        logical_tool_calls = sum(collection.budget.logical_tool_calls for collection in collections)
+        api_calls = sum(collection.budget.api_calls for collection in collections)
+        if logical_tool_calls > 20 or api_calls > 20:
+            raise RuntimeError("multi-service evidence collection exceeded its fixed call budget")
         now = datetime.now(UTC)
+        operational_evidence = [
+            item
+            for item in evidence
+            if item.source_type not in {SourceType.LOG, SourceType.METRIC, SourceType.CHANGE}
+            or (
+                (item.observed_at or item.period_start) is not None
+                and request.start_time
+                <= (item.observed_at or item.period_start or request.start_time)
+                <= request.end_time
+            )
+        ]
         timeline = [
             IncidentTimelineEvent(
                 timestamp=item.observed_at or item.period_start or now,
@@ -311,10 +367,11 @@ class LiveInvestigationExecutor:
                 service=item.service,
                 evidence_ids=[item.evidence_id],
             )
-            for item in evidence
+            for item in operational_evidence
             if item.source_type in {SourceType.LOG, SourceType.METRIC, SourceType.CHANGE}
             and (item.observed_at is not None or item.period_start is not None)
         ]
+        timeline.sort(key=lambda event: event.timestamp)
         tool_errors = [error for collection in collections for error in collection.tool_errors]
         data_gaps = sorted({gap for collection in collections for gap in collection.data_gaps})
         completed_collectors = sorted(
@@ -331,7 +388,14 @@ class LiveInvestigationExecutor:
             incident_id=request.incident_id or new_incident_id(now),
             generated_at=now,
             correlation_id=correlation_id,
-            title="Bounded Multi-Service Investigation",
+            environment=request.environment,
+            requested_start_time=request.start_time,
+            requested_end_time=request.end_time,
+            title=(
+                f"{request.services[0]} Incident Investigation"
+                if len(request.services) == 1
+                else "Multi-Service Incident Investigation"
+            ),
             severity="UNCLASSIFIED",
             severity_rationale="Severity is not inferred beyond collected bounded evidence.",
             status=ReportStatus.INCONCLUSIVE,
@@ -342,7 +406,7 @@ class LiveInvestigationExecutor:
             ),
             affected_services=request.services,
             timeline=timeline,
-            evidence=evidence,
+            evidence=operational_evidence,
             data_gaps=data_gaps,
             assumptions=request.assumptions,
             tool_errors=tool_errors,
@@ -351,9 +415,83 @@ class LiveInvestigationExecutor:
                 "model_calls": 0,
                 "unauthorized_action_count": 0,
                 "trace_id": effective_trace,
+                "logical_tool_calls": logical_tool_calls,
+                "api_calls": api_calls,
             },
         )
+        direct_signal = any(
+            item.source_type is SourceType.LOG
+            or (
+                item.source_type is SourceType.METRIC
+                and "missing_points" not in item.quality_flags
+                and item.value not in {None, 0, "0"}
+            )
+            for item in operational_evidence
+        )
+        if direct_signal:
+            from opspilot.agent.contracts import AgentEvidenceContext, ModelBackend
+            from opspilot.agent.runner import run_agent_context
+
+            agent_result = await run_agent_context(
+                AgentEvidenceContext(
+                    scenario_id=self.scenario_id,
+                    incident_id=request.incident_id or new_incident_id(now),
+                    generated_at=now,
+                    correlation_id=correlation_id,
+                    trace_id=effective_trace,
+                    output_language=request.output_language,
+                    evidence=operational_evidence,
+                    tool_errors=tool_errors,
+                    data_gaps=data_gaps,
+                    assumptions=request.assumptions,
+                ),
+                model_backend=ModelBackend.VERTEX,
+                complete=not tool_errors,
+                run_id=run_id,
+            )
+            if agent_result.succeeded and agent_result.report is not None:
+                graph_report = agent_result.report
+                report = graph_report.model_copy(
+                    update={
+                        "environment": request.environment,
+                        "requested_start_time": request.start_time,
+                        "requested_end_time": request.end_time,
+                        "title": (
+                            f"{request.services[0]} Incident Investigation"
+                            if len(request.services) == 1
+                            else "Multi-Service Incident Investigation"
+                        ),
+                        "affected_services": request.services,
+                        "timeline": timeline,
+                        "evidence": operational_evidence,
+                        "audit": {
+                            **graph_report.audit,
+                            "trace_id": effective_trace,
+                            "logical_tool_calls": logical_tool_calls,
+                            "api_calls": api_calls,
+                            "model_calls": agent_result.budget.model_calls,
+                        },
+                    },
+                    deep=True,
+                )
+                report = add_prod_sim_rollback_request(report)
+                return InvestigationExecution(
+                    report=report,
+                    completed_collectors=completed_collectors,
+                )
         report = apply_live_report_policy(report)
+        if not direct_signal and not report.hypotheses:
+            report = report.model_copy(
+                update={
+                    "impact_summary": "No meaningful incident impact was established.",
+                    "executive_summary": (
+                        "No meaningful incident evidence was found in the bounded window. "
+                        "Source delay and data gaps are listed below."
+                    ),
+                },
+                deep=True,
+            )
+        report = add_prod_sim_rollback_request(report)
         return InvestigationExecution(
             report=report,
             completed_collectors=completed_collectors,
@@ -368,6 +506,7 @@ class InMemoryInvestigationStore:
         self._reports: dict[str, dict[int, IncidentReport]] = {}
         self._alert_messages: set[str] = set()
         self._alert_incidents: dict[str, str] = {}
+        self._contexts: dict[str, ConversationContext] = {}
         self._lock = asyncio.Lock()
 
     async def create_investigation(
@@ -541,6 +680,18 @@ class InMemoryInvestigationStore:
             self._alert_incidents[seed.alert_key_hash] = incident_id
             return current.model_copy(deep=True), True
 
+    async def get_context(self, session_hash: str) -> ConversationContext | None:
+        async with self._lock:
+            context = self._contexts.get(session_hash)
+            if context is None or context.expires_at <= datetime.now(UTC):
+                self._contexts.pop(session_hash, None)
+                return None
+            return context.model_copy(deep=True)
+
+    async def put_context(self, context: ConversationContext) -> None:
+        async with self._lock:
+            self._contexts[context.session_hash] = context.model_copy(deep=True)
+
 
 class CloudTasksPublisher:
     """Dependency-free Cloud Tasks REST publisher with deterministic task names."""
@@ -623,9 +774,14 @@ class InvestigationCoordinator:
         correlation_id: str | None = None,
         trace_id: str | None = None,
         audit: InvestigationAudit | None = None,
+        output_language: OutputLanguage = OutputLanguage.EN,
     ) -> InvestigationRecord:
         request = parse_investigation_request(
-            query, catalog=self.catalog, incident_id=incident_id, mode=mode
+            query,
+            catalog=self.catalog,
+            incident_id=incident_id,
+            mode=mode,
+            output_language=output_language,
         )
         if request.requested_actions:
             raise ValueError("write actions are outside the read-only investigation API")
@@ -686,6 +842,7 @@ class InvestigationCoordinator:
             incident_id,
             request.requested_depth,
             trace_id=trace_id,
+            output_language=request.output_language,
             audit=InvestigationAudit(
                 source="replay",
                 query_hash=audit_hash("replay_query", request.user_query),

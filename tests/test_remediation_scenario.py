@@ -17,7 +17,7 @@ DIGEST = "sha256:" + "a" * 64
 TARGET = RemediationTarget(
     project_id="portfolio-project",
     region="asia-northeast3",
-    service="opspilot-dev-payment",
+    service="opspilot-prod-sim-payment",
     source_revision="payment-faulty",
     target_revision="payment-good",
     target_image_digest=DIGEST,
@@ -210,7 +210,7 @@ async def test_M8_faulty_revision_name_uses_the_cloud_run_service_prefix() -> No
 
     target = await admin.prepare_faulty_revision()
 
-    assert target.source_revision.startswith("opspilot-dev-payment-m8-")
+    assert target.source_revision.startswith("opspilot-prod-sim-payment-m8-")
     assert admin.patch_masks == ["template", "traffic"]
     assert admin.patches[0]["template"]["revision"] == target.source_revision
     assert admin.patches[1]["traffic"][0]["revision"] == target.source_revision

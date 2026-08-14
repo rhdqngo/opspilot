@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import pytest
 
 from opspilot.domain import (
+    Environment,
     EvidenceDirection,
     EvidenceItem,
     IncidentReport,
@@ -12,7 +13,7 @@ from opspilot.domain import (
     ReportStatus,
     SourceType,
 )
-from opspilot.report_policy import apply_live_report_policy
+from opspilot.report_policy import add_prod_sim_rollback_request, apply_live_report_policy
 from opspilot.reporting import render_markdown
 from opspilot.workflow import run_fixture_investigation
 
@@ -194,7 +195,8 @@ async def test_FR_010_insufficient_data_does_not_recommend_action() -> None:
     assert knowledge_ids.isdisjoint(
         evidence_id for event in report.timeline for evidence_id in event.evidence_ids
     )
-    assert all(f"`{evidence_id}`" in markdown for evidence_id in knowledge_ids)
+    assert "Additional evidence is summarized by type: KNOWLEDGE: 1" in markdown
+    assert "Ask a follow-up question to inspect omitted evidence." in markdown
 
 
 @pytest.mark.asyncio
@@ -223,8 +225,8 @@ async def test_korean_markdown_localizes_structure_and_preserves_evidence_titles
     assert "## 데이터 공백" in markdown
     assert "## 가정" in markdown
     assert "## 출처" in markdown
-    knowledge = next(item for item in report.evidence if item.source_type == SourceType.KNOWLEDGE)
-    assert f"`{knowledge.evidence_id}` - {knowledge.title}" in markdown
+    assert "추가 증거 유형별 요약: KNOWLEDGE: 1" in markdown
+    assert "생략된 증거는 후속 질문으로 확인할 수 있습니다." in markdown
 
 
 @pytest.mark.asyncio
@@ -242,3 +244,20 @@ async def test_korean_markdown_localizes_canonical_hypotheses_actions_and_assump
     assert "### 근본 개선" in markdown
     assert "환경이 지정되지 않아 DEV를 사용합니다." in markdown
     assert "No environment was specified" not in markdown
+
+
+@pytest.mark.asyncio
+async def test_only_prod_sim_payment_report_exposes_a_rollback_approval_request() -> None:
+    report = await run_fixture_investigation("SCN-001")
+    prod_sim = report.model_copy(update={"environment": Environment.PROD_SIM})
+    candidate = add_prod_sim_rollback_request(prod_sim)
+
+    rollback = [
+        action
+        for action in candidate.recommended_actions
+        if action.category == "ROLLBACK_CLOUD_RUN"
+    ]
+    assert len(rollback) == 1
+    assert rollback[0].requires_approval is True
+    assert rollback[0].remediation_action_type == "ROLLBACK_CLOUD_RUN"
+    assert add_prod_sim_rollback_request(report).recommended_actions == report.recommended_actions

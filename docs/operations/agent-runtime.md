@@ -2,6 +2,12 @@
 
 Status: deployed thin adapter
 
+Formal-agent candidate note: Runtime now performs only input-length and language checks and sends
+all valid turns to `POST /internal/v2/runtime/turns`. The API returns whether evidence collection
+actually started. Investigation/refinement turns emit one buffered progress event followed by one
+final event; capability, explanation, status, comparison, clarification, and rejection turns emit
+only one final event. The v1 bridge remains available for compatibility.
+
 ## Contract
 
 The canonical entrypoint is `opspilot.agent.runtime_agent:root_agent`. It exposes one ADK streaming

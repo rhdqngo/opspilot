@@ -11,7 +11,7 @@ import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, status
@@ -21,12 +21,29 @@ from pydantic import BaseModel, ConfigDict, Field
 from opspilot import __version__
 from opspilot.audit import InvestigationAudit, audit_hash, extract_trace_id, new_trace_id
 from opspilot.catalog import ServiceCatalog, load_service_catalog
+from opspilot.conversation import (
+    capabilities_markdown,
+    classify_turn,
+    classify_validation_error,
+    compare_reports_markdown,
+    contextualize_query,
+    explain_report_markdown,
+    incident_id_from_query,
+    incident_ids_from_query,
+    rejection_markdown,
+)
 from opspilot.domain import INCIDENT_ID_PATTERN, IncidentReport, OutputLanguage, RequestedDepth
 from opspilot.remediation.auth import GoogleIdTokenVerifier, TokenVerifier, bearer_token
+from opspilot.remediation.bridge import (
+    HttpRemediationRequestGateway,
+    RemediationRequestGateway,
+)
 from opspilot.remediation.errors import RemediationError
 from opspilot.reporting import render_markdown
 from opspilot.service import (
+    AgentTurnIntent,
     CloudTasksPublisher,
+    ConversationContext,
     IncidentRecord,
     IncidentSeed,
     IncidentState,
@@ -91,6 +108,19 @@ class RuntimeInvestigationRequest(StartInvestigationRequest):
     session_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     query_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     output_language: OutputLanguage = OutputLanguage.EN
+
+
+class RuntimeTurnResponse(BaseModel):
+    intent: AgentTurnIntent
+    outcome: str
+    accepted: bool
+    started_investigation: bool = False
+    markdown: str
+    progress_markdown: str | None = None
+    investigation_id: str | None = None
+    incident_id: str | None = None
+    report_version: int | None = None
+    remediation_id: str | None = None
 
 
 class PubSubMessage(BaseModel):
@@ -271,6 +301,7 @@ def create_app(
     store: InvestigationStore | None = None,
     task_publisher: InvestigationTaskPublisher | None = None,
     token_verifier: TokenVerifier | None = None,
+    remediation_gateway: RemediationRequestGateway | None = None,
 ) -> FastAPI:
     catalog = load_service_catalog()
     if store is None and task_publisher is None:
@@ -288,6 +319,13 @@ def create_app(
         store=store,
         task_publisher=task_publisher,
     )
+    remediation_url = os.getenv("OPSPILOT_REMEDIATION_CONTROL_URL", "").strip()
+    remediation_audience = os.getenv("OPSPILOT_REMEDIATION_CONTROL_AUDIENCE", "").strip()
+    if remediation_gateway is None and remediation_url and remediation_audience:
+        remediation_gateway = HttpRemediationRequestGateway(
+            base_url=remediation_url,
+            audience=remediation_audience,
+        )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -296,6 +334,8 @@ def create_app(
 
     app = FastAPI(title="OpsPilot MVP", version=__version__, lifespan=lifespan)
     app.state.coordinator = coordinator
+    app.state.catalog = catalog
+    app.state.remediation_gateway = remediation_gateway
     app.state.token_verifier = token_verifier or GoogleIdTokenVerifier()
 
     @app.exception_handler(RemediationError)
@@ -382,6 +422,257 @@ def create_app(
             raise HTTPException(status_code=404, detail="investigation not found")
         return record
 
+    @app.post("/internal/v2/runtime/turns", response_model=RuntimeTurnResponse)
+    async def runtime_turn(
+        payload: RuntimeInvestigationRequest,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> RuntimeTurnResponse:
+        """Resolve an Enterprise turn using bounded durable conversation context."""
+
+        coordinator_value = _coordinator(request)
+        if payload.query_hash != audit_hash("enterprise_query", payload.query):
+            raise HTTPException(status_code=422, detail="runtime query hash does not match")
+        audience = os.getenv("OPSPILOT_INVESTIGATION_AUDIENCE", "").strip()
+        if audience:
+            _verified_caller(
+                app,
+                authorization,
+                audience=audience,
+                allowed_email=os.getenv(
+                    "OPSPILOT_INVESTIGATION_RUNTIME_SERVICE_ACCOUNT", ""
+                ).strip(),
+                source="runtime",
+            )
+
+        query_incident_ids = incident_ids_from_query(payload.query)
+        if len(query_incident_ids) > 1 or (
+            payload.incident_id is not None
+            and query_incident_ids
+            and payload.incident_id.upper() != query_incident_ids[0]
+        ):
+            return RuntimeTurnResponse(
+                intent=AgentTurnIntent.REJECTED,
+                outcome="rejected",
+                accepted=False,
+                markdown=rejection_markdown("multiple_incidents", payload.output_language),
+            )
+
+        intent = classify_turn(payload.query)
+        context = (
+            await coordinator_value.store.get_context(payload.session_hash)
+            if payload.session_hash is not None
+            else None
+        )
+        if intent is AgentTurnIntent.SHOW_CAPABILITIES:
+            return RuntimeTurnResponse(
+                intent=intent,
+                outcome="complete",
+                accepted=True,
+                markdown=capabilities_markdown(payload.output_language),
+            )
+
+        context_incident_id = context.incident_id if context is not None else None
+        incident_id = incident_id_from_query(payload.query) or context_incident_id
+        if intent in {
+            AgentTurnIntent.EXPLAIN_REPORT,
+            AgentTurnIntent.COMPARE_REPORT_VERSIONS,
+            AgentTurnIntent.SHOW_STATUS,
+        }:
+            if incident_id is None:
+                return RuntimeTurnResponse(
+                    intent=AgentTurnIntent.REJECTED,
+                    outcome="rejected",
+                    accepted=False,
+                    markdown=rejection_markdown("missing_context", payload.output_language),
+                )
+            reports = await coordinator_value.store.list_reports(incident_id)
+            if not reports:
+                return RuntimeTurnResponse(
+                    intent=AgentTurnIntent.REJECTED,
+                    outcome="rejected",
+                    accepted=False,
+                    markdown=rejection_markdown("missing_context", payload.output_language),
+                    incident_id=incident_id,
+                )
+            latest = reports[-1]
+            if intent is AgentTurnIntent.COMPARE_REPORT_VERSIONS:
+                markdown = compare_reports_markdown(reports, language=payload.output_language)
+            elif intent is AgentTurnIntent.SHOW_STATUS:
+                markdown = (
+                    f"조사 상태: `{latest.status.value}`, 보고서 버전: `{latest.report_version}`\n"
+                    if payload.output_language is OutputLanguage.KO
+                    else (
+                        f"Investigation status: `{latest.status.value}`, "
+                        f"report version: `{latest.report_version}`\n"
+                    )
+                )
+            else:
+                markdown = explain_report_markdown(
+                    latest, query=payload.query, language=payload.output_language
+                )
+            return RuntimeTurnResponse(
+                intent=intent,
+                outcome="complete",
+                accepted=True,
+                markdown=markdown,
+                incident_id=incident_id,
+                report_version=latest.report_version,
+            )
+
+        if intent is AgentTurnIntent.CREATE_REMEDIATION_REQUEST:
+            eligible = (
+                context is not None
+                and context.environment.value == "prod-sim"
+                and context.services == ["payment-service"]
+                and payload.actor_hash is not None
+            )
+            if eligible and incident_id is not None:
+                report = await coordinator_value.store.get_report(incident_id)
+                gateway = cast(
+                    RemediationRequestGateway | None,
+                    request.app.state.remediation_gateway,
+                )
+                if report is not None and gateway is not None:
+                    try:
+                        reference = await gateway.request(
+                            incident_id=incident_id,
+                            report=report,
+                            actor_hash=cast(str, payload.actor_hash),
+                            idempotency_key=payload.run_id,
+                        )
+                    except ValueError:
+                        pass
+                    else:
+                        markdown = (
+                            "복구 승인 요청을 만들었습니다. 별도 M8 승인 경로에서 검토해야 하며 "
+                            "아직 실행되지 않았습니다.\n\n"
+                            f"- 상태: `{reference.status}`\n"
+                            f"- remediation ID: `{reference.remediation_id}`\n"
+                            f"- 만료 시각: `{reference.expires_at}`\n"
+                            if payload.output_language is OutputLanguage.KO
+                            else (
+                                "A remediation approval request was created. It must be reviewed "
+                                "in the separate M8 control path and has not been executed.\n\n"
+                                f"- Status: `{reference.status}`\n"
+                                f"- Remediation ID: `{reference.remediation_id}`\n"
+                                f"- Expires at: `{reference.expires_at}`\n"
+                            )
+                        )
+                        return RuntimeTurnResponse(
+                            intent=intent,
+                            outcome="complete",
+                            accepted=True,
+                            markdown=markdown,
+                            incident_id=incident_id,
+                            report_version=report.report_version,
+                            remediation_id=reference.remediation_id,
+                        )
+            return RuntimeTurnResponse(
+                intent=AgentTurnIntent.REJECTED,
+                outcome="rejected",
+                accepted=False,
+                markdown=rejection_markdown(
+                    "write_unsupported" if "restart" in payload.query.lower() else "m8_ineligible",
+                    payload.output_language,
+                ),
+                incident_id=incident_id if eligible else None,
+            )
+
+        if intent is AgentTurnIntent.REFINE_INVESTIGATION and context is None:
+            return RuntimeTurnResponse(
+                intent=AgentTurnIntent.REJECTED,
+                outcome="rejected",
+                accepted=False,
+                markdown=rejection_markdown("missing_context", payload.output_language),
+            )
+
+        effective_query = (
+            contextualize_query(payload.query, context=context, catalog=app.state.catalog)
+            if intent is AgentTurnIntent.REFINE_INVESTIGATION and context is not None
+            else payload.query
+        )
+        try:
+            submitted = await coordinator_value.submit(
+                effective_query,
+                payload.incident_id,
+                payload.mode,
+                correlation_id=payload.correlation_id,
+                trace_id=payload.trace_id,
+                audit=InvestigationAudit(
+                    source="enterprise",
+                    actor_hash=payload.actor_hash,
+                    session_hash=payload.session_hash,
+                    query_hash=payload.query_hash,
+                    run_id=payload.run_id,
+                    trace_id=payload.trace_id,
+                ),
+                output_language=payload.output_language,
+            )
+        except ValueError as error:
+            return RuntimeTurnResponse(
+                intent=AgentTurnIntent.REJECTED,
+                outcome="rejected",
+                accepted=False,
+                markdown=rejection_markdown(
+                    classify_validation_error(str(error)), payload.output_language
+                ),
+            )
+        stored_request = await coordinator_value.store.get_request(submitted.investigation_id)
+        if stored_request is None:
+            raise HTTPException(status_code=503, detail="investigation scope is unavailable")
+        minutes = round((stored_request.end_time - stored_request.start_time).total_seconds() / 60)
+        if payload.output_language is OutputLanguage.KO:
+            progress_markdown = (
+                f"{stored_request.environment.value} 환경에서 "
+                f"{', '.join(stored_request.services)}의 최근 {minutes}분 증거를 "
+                "수집하고 있습니다…\n\n"
+            )
+        else:
+            progress_markdown = (
+                f"Collecting bounded evidence for {', '.join(stored_request.services)} in "
+                f"{stored_request.environment.value} over {minutes} minutes…\n\n"
+            )
+        deadline = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < deadline:
+            record = await coordinator_value.store.get_record(submitted.investigation_id)
+            if record is None:
+                raise HTTPException(status_code=503, detail="investigation state is unavailable")
+            if record.status.value == "COMPLETE":
+                report = await coordinator_value.store.get_report(record.incident_id)
+                if report is None:
+                    raise HTTPException(status_code=503, detail="persisted report is unavailable")
+                if payload.session_hash is not None:
+                    await coordinator_value.store.put_context(
+                        ConversationContext(
+                            session_hash=payload.session_hash,
+                            incident_id=record.incident_id,
+                            environment=stored_request.environment,
+                            services=stored_request.services,
+                            window_minutes=minutes,
+                            requested_depth=stored_request.requested_depth,
+                            report_version=report.report_version,
+                            focus_hypothesis_id=stored_request.focus_hypothesis_id,
+                            updated_at=datetime.now(UTC),
+                            expires_at=datetime.now(UTC) + timedelta(hours=24),
+                        )
+                    )
+                return RuntimeTurnResponse(
+                    intent=intent,
+                    outcome="complete",
+                    accepted=True,
+                    started_investigation=True,
+                    markdown=render_markdown(report, language=payload.output_language),
+                    progress_markdown=progress_markdown,
+                    investigation_id=record.investigation_id,
+                    incident_id=record.incident_id,
+                    report_version=report.report_version,
+                )
+            if record.status.value == "FAILED":
+                raise HTTPException(status_code=503, detail="investigation failed safely")
+            await asyncio.sleep(0.25)
+        raise HTTPException(status_code=504, detail="investigation did not finish in time")
+
     @app.post("/internal/v1/runtime/investigations", response_class=PlainTextResponse)
     async def runtime_investigation(
         payload: RuntimeInvestigationRequest,
@@ -419,6 +710,7 @@ def create_app(
                     run_id=payload.run_id,
                     trace_id=payload.trace_id,
                 ),
+                output_language=payload.output_language,
             )
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error

@@ -62,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
         "run", help="Run baseline, incident, and recovery phases"
     )
     scenario_run.add_argument("--scenario", default="SCN-001")
+    scenario_run.add_argument("--env", choices=("dev", "staging", "prod-sim"), default="dev")
     scenario_run.add_argument("--auth", choices=("local", "gcloud"), default="local")
     scenario_run.add_argument("--format", choices=("json", "summary"), default="summary")
     for command_name in ("prepare", "reset", "abort"):
@@ -204,7 +205,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if summary.failed == 0 else 2
     if args.command == "scenario" and args.scenario_command == "run":
         scenario_result = asyncio.run(
-            run_scenario(scenario_id=str(args.scenario), auth=str(args.auth))
+            run_scenario(
+                scenario_id=str(args.scenario),
+                auth=str(args.auth),
+                environment=str(args.env),
+            )
         )
         if args.format == "json":
             print(json.dumps(scenario_result.model_dump(), separators=(",", ":")))

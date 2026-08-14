@@ -97,7 +97,7 @@ class FixedPaymentRollbackExecutor:
         try:
             if target.service_name != (
                 f"projects/{target.project_id}/locations/{target.region}/services/"
-                "opspilot-dev-payment"
+                "opspilot-prod-sim-payment"
             ):
                 raise ExecutionGuardError("TARGET_SERVICE_MISMATCH")
             if (
@@ -353,7 +353,7 @@ class GoogleControlRecoveryVerifier:
             "filter": (
                 'metric.type="run.googleapis.com/request_count" AND '
                 'resource.type="cloud_run_revision" AND '
-                'resource.label.service_name="opspilot-dev-payment"'
+                'resource.label.service_name="opspilot-prod-sim-payment"'
             ),
             "interval.startTime": start.isoformat(),
             "interval.endTime": end.isoformat(),

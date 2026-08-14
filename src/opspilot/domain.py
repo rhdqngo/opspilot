@@ -91,8 +91,10 @@ class InvestigationRequest(BaseModel):
     end_time: datetime
     symptoms: list[Symptom] = Field(default_factory=lambda: [Symptom.UNKNOWN])
     requested_depth: RequestedDepth = RequestedDepth.STANDARD
+    output_language: OutputLanguage = OutputLanguage.EN
     assumptions: list[str] = Field(default_factory=list)
     requested_actions: list[str] = Field(default_factory=list)
+    focus_hypothesis_id: str | None = Field(default=None, pattern=r"^H-\d{2}$")
 
     @model_validator(mode="after")
     def validate_time_window(self) -> Self:
@@ -207,6 +209,7 @@ class RecommendedAction(BaseModel):
     rollback_method: str | None = None
     verification_steps: list[str] = Field(default_factory=list)
     supporting_evidence_ids: list[str] = Field(default_factory=list)
+    remediation_action_type: str | None = None
 
 
 AuditValue = str | int | float | bool | list[str]
@@ -219,6 +222,9 @@ class IncidentReport(BaseModel):
     incident_id: str = Field(pattern=INCIDENT_ID_PATTERN)
     generated_at: datetime
     correlation_id: str
+    environment: Environment = Environment.DEV
+    requested_start_time: datetime | None = None
+    requested_end_time: datetime | None = None
     title: str
     severity: str
     severity_rationale: str

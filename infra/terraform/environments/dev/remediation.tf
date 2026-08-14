@@ -34,6 +34,18 @@ resource "google_firestore_field" "remediation_ttl" {
   index_config {}
 }
 
+resource "google_firestore_field" "conversation_context_ttl" {
+  count = var.enable_persistent_investigations ? 1 : 0
+
+  project    = var.project_id
+  database   = google_firestore_database.remediation[0].name
+  collection = "conversation_contexts"
+  field      = "expires_at"
+
+  ttl_config {}
+  index_config {}
+}
+
 resource "google_service_account" "remediation_control" {
   count = var.enable_remediation ? 1 : 0
 
@@ -113,7 +125,7 @@ resource "google_cloud_run_v2_service_iam_member" "remediation_executor_payment"
 
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.demo_payment[0].name
+  name     = google_cloud_run_v2_service.formal_payment["prod-sim"].name
   role     = google_project_iam_custom_role.remediation_executor_cloud_run[0].name
   member   = "serviceAccount:${google_service_account.remediation_executor[0].email}"
 }
@@ -139,7 +151,7 @@ resource "google_project_iam_member" "remediation_executor_image_reader" {
 resource "google_service_account_iam_member" "remediation_executor_acts_as_payment" {
   count = var.enable_remediation ? 1 : 0
 
-  service_account_id = google_service_account.demo["payment"].name
+  service_account_id = google_service_account.formal_demo["prod-sim-payment"].name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.remediation_executor[0].email}"
 }
@@ -188,13 +200,14 @@ resource "google_cloud_run_v2_service" "remediation_control" {
 
       dynamic "env" {
         for_each = {
-          OPSPILOT_REMEDIATION_PROJECT_ID               = var.project_id
-          OPSPILOT_REMEDIATION_DATABASE_ID              = "opspilot-dev"
-          OPSPILOT_REMEDIATION_CONTROL_AUDIENCE         = local.remediation_control_audience
-          OPSPILOT_REMEDIATION_EXECUTOR_AUDIENCE        = local.remediation_executor_audience
-          OPSPILOT_REMEDIATION_WORKFLOW_NAME            = local.remediation_workflow_name
-          OPSPILOT_REMEDIATION_WORKFLOW_SERVICE_ACCOUNT = google_service_account.remediation_workflow[0].email
-          OPSPILOT_REMEDIATION_ORDER_URL                = google_cloud_run_v2_service.demo_order[0].uri
+          OPSPILOT_REMEDIATION_PROJECT_ID                    = var.project_id
+          OPSPILOT_REMEDIATION_DATABASE_ID                   = "opspilot-dev"
+          OPSPILOT_REMEDIATION_CONTROL_AUDIENCE              = local.remediation_control_audience
+          OPSPILOT_REMEDIATION_EXECUTOR_AUDIENCE             = local.remediation_executor_audience
+          OPSPILOT_REMEDIATION_WORKFLOW_NAME                 = local.remediation_workflow_name
+          OPSPILOT_REMEDIATION_WORKFLOW_SERVICE_ACCOUNT      = google_service_account.remediation_workflow[0].email
+          OPSPILOT_REMEDIATION_INVESTIGATION_SERVICE_ACCOUNT = var.enable_persistent_investigations ? google_service_account.investigation_api[0].email : ""
+          OPSPILOT_REMEDIATION_ORDER_URL                     = google_cloud_run_v2_service.formal_order["prod-sim"].uri
         }
         content {
           name  = env.key
@@ -265,7 +278,7 @@ resource "google_cloud_run_v2_service" "remediation_executor" {
           OPSPILOT_REMEDIATION_EXECUTOR_AUDIENCE        = local.remediation_executor_audience
           OPSPILOT_REMEDIATION_WORKFLOW_NAME            = local.remediation_workflow_name
           OPSPILOT_REMEDIATION_WORKFLOW_SERVICE_ACCOUNT = google_service_account.remediation_workflow[0].email
-          OPSPILOT_REMEDIATION_ORDER_URL                = google_cloud_run_v2_service.demo_order[0].uri
+          OPSPILOT_REMEDIATION_ORDER_URL                = google_cloud_run_v2_service.formal_order["prod-sim"].uri
         }
         content {
           name  = env.key
@@ -333,6 +346,16 @@ resource "google_cloud_run_v2_service_iam_member" "remediation_group_invoker" {
   member   = "group:${var.remediation_approver_group}"
 }
 
+resource "google_cloud_run_v2_service_iam_member" "investigation_invokes_remediation_control" {
+  count = var.enable_remediation && var.enable_persistent_investigations ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.remediation_control[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.investigation_api[0].email}"
+}
+
 resource "google_cloud_run_v2_service_iam_member" "workflow_invokes_control" {
   count = var.enable_remediation ? 1 : 0
 
@@ -358,7 +381,7 @@ resource "google_cloud_run_v2_service_iam_member" "control_invokes_order" {
 
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.demo_order[0].name
+  name     = google_cloud_run_v2_service.formal_order["prod-sim"].name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.remediation_control[0].email}"
 }

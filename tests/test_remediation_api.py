@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
+from opspilot.domain import Environment
 from opspilot.remediation.api import create_app, create_executor_app
 from opspilot.remediation.auth import GoogleIdTokenVerifier, require_service_account
 from opspilot.remediation.config import RemediationSettings
@@ -28,6 +29,17 @@ class FakeTokenVerifier:
         return Principal(subject="subject-1", email="approver@example.invalid", email_verified=True)
 
 
+class InternalTokenVerifier:
+    def verify(self, token: str, *, audience: str) -> Principal:
+        assert token == "internal-token"
+        assert audience == "opspilot-remediation-control"
+        return Principal(
+            subject="investigation-service",
+            email="opspilot-dev-inv-api@portfolio-project.iam.gserviceaccount.com",
+            email_verified=True,
+        )
+
+
 def _runtime_settings() -> RemediationSettings:
     return RemediationSettings(
         project_id="portfolio-project",
@@ -40,6 +52,9 @@ def _runtime_settings() -> RemediationSettings:
         ),
         workflow_service_account=(
             "opspilot-dev-rem-workflow@portfolio-project.iam.gserviceaccount.com"
+        ),
+        investigation_service_account=(
+            "opspilot-dev-inv-api@portfolio-project.iam.gserviceaccount.com"
         ),
         order_url="https://order.example.invalid",
     )
@@ -114,13 +129,15 @@ def test_M8_google_identity_claims_are_reverified_and_email_is_not_serialized(
 
 async def _client() -> TestClient:
     store = InMemoryRemediationStore()
-    report = await run_fixture_investigation("SCN-008")
+    report = (await run_fixture_investigation("SCN-008")).model_copy(
+        update={"environment": Environment.PROD_SIM}
+    )
     await store.seed_incident(
         report=report,
         target=RemediationTarget(
             project_id="portfolio-project",
             region="asia-northeast3",
-            service="opspilot-dev-payment",
+            service="opspilot-prod-sim-payment",
             source_revision="payment-faulty",
             target_revision="payment-good",
             target_image_digest="sha256:" + "a" * 64,
@@ -193,3 +210,54 @@ async def test_M8_control_api_request_show_and_decision_contract() -> None:
     assert shown.status_code == 200
     assert decision_without_callback.status_code == 409
     assert "callback_url" not in created.text
+
+
+@pytest.mark.asyncio
+async def test_internal_investigation_bridge_preserves_actor_and_stops_at_approval() -> None:
+    store = InMemoryRemediationStore()
+    report = (await run_fixture_investigation("SCN-008")).model_copy(
+        update={"environment": Environment.PROD_SIM}
+    )
+    await store.seed_incident(
+        report=report,
+        target=RemediationTarget(
+            project_id="portfolio-project",
+            region="asia-northeast3",
+            service="opspilot-prod-sim-payment",
+            source_revision="payment-faulty",
+            target_revision="payment-good",
+            target_image_digest="sha256:" + "a" * 64,
+            service_etag="etag-faulty",
+        ),
+    )
+    coordinator = RemediationCoordinator(
+        store=store,
+        workflow=LocalWorkflowGateway(),
+        callback_sender=LocalCallbackSender(),
+        now=lambda: datetime(2026, 8, 12, 12, 0, tzinfo=UTC),
+    )
+    actor_hash = "sha256:" + "c" * 64
+    with TestClient(
+        create_app(
+            coordinator=coordinator,
+            token_verifier=InternalTokenVerifier(),
+            settings=_runtime_settings(),
+        )
+    ) as client:
+        response = client.post(
+            "/internal/v1/incidents/INC-2026-0008/remediation-requests",
+            headers={
+                "Authorization": "Bearer internal-token",
+                "Idempotency-Key": "RUN-0123456789ABCDEF",
+            },
+            json={
+                "report_id": report.report_id,
+                "report_version": report.report_version,
+                "action_id": "ACT-01",
+                "requester_actor_hash": actor_hash,
+            },
+        )
+    assert response.status_code == 202
+    assert response.json()["status"] == "WAITING_APPROVAL"
+    assert response.json()["requester_actor_hash"] == actor_hash
+    assert response.json()["execution_attempt_id"] is None

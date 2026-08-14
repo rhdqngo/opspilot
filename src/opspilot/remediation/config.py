@@ -15,6 +15,7 @@ class RemediationSettings(BaseSettings):
     executor_audience: str = Field(min_length=1)
     workflow_name: str = Field(pattern=r"^projects/[^/]+/locations/[^/]+/workflows/[^/]+$")
     workflow_service_account: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$")
+    investigation_service_account: str = ""
     order_url: str = Field(pattern=r"^https://")
 
 

@@ -22,6 +22,17 @@ prompts, projects, URLs, tokens, evidence payloads, raw exceptions, and raw iden
 | Runtime surface expansion | One `AdkApp` async-stream operation and explicit archive allowlist | Platform behavior can change across provider versions |
 | Enterprise authentication bridge failure | Preserve private IAM; classify internal expired mint as external blocker | Preview may temporarily fail despite a healthy Runtime |
 
-M8 remains default-off and supports only SCN-008 payment revision rollback. Automatic remediation
+Formal-agent context adds no raw memory: `conversation_contexts` stores only a pseudonymous session
+hash and structured scope/report references with a 24-hour TTL. The model receives only bounded,
+sanitized evidence with logical URIs and remains tool-free. Revision snapshots outside the requested
+window may be used only for server-side key-difference calculation and are removed before report or
+model input.
+
+M8 remains default-off and supports only prod-sim payment revision rollback. Runtime can request a
+`WAITING_APPROVAL` record only through the authenticated investigation-to-control bridge; it cannot
+approve, reject, or execute. DEV, staging, order/inventory, restart, and real-production writes are
+policy rejected.
+
+Automatic remediation
 from alerts, general remediation, VPC/perimeter work, Model Armor, sessions/memory, dashboards,
 BigQuery, and multi-project support remain excluded.

@@ -1,11 +1,24 @@
 # Persistent Investigation API
 
-Status: deployed contract; iterative Preview-fix candidate locally verified
+Status: deployed v1 contract; formal-agent v2 candidate locally verified and not yet deployed
 
-`POST /api/v1/investigations` accepts a bounded natural-language query, optional incident ID, and
-requested depth. The parser accepts only the catalog services and `dev`/`development`/`개발`,
-rejects explicit prod/stage/qa scope, extracts at most one incident ID, and rejects body/field ID
-conflicts. An omitted environment is normalized to dev and recorded as an assumption.
+`POST /internal/v2/runtime/turns` is the authoritative conversational endpoint. It resolves
+investigate, refine, explain, compare, status, capability, and bounded remediation-request intents.
+Conversation state is limited to incident/environment/services/window/depth/report/hypothesis
+references under a domain-separated session hash and expires after 24 hours.
+The requested `output_language` is stored with the bounded investigation scope and is passed to the
+tool-free RCA graph so server-owned narrative is produced in Korean or English without translating
+evidence IDs or technical identifiers. Model root-cause codes outside the seven-value server
+taxonomy are rejected before scoring.
+
+The formal parser accepts three services individually or together, `dev`, `staging`, and synthetic
+`prod-sim`, relative or explicit 1-120 minute windows, six symptoms, and three investigation depths.
+Unqualified `prod`/`production`/`운영` remains real production and is rejected without coercion.
+
+`POST /api/v1/investigations` remains a compatible single-turn path accepting a bounded
+natural-language query, optional incident ID, and requested depth. It uses the same expanded parser,
+extracts at most one incident ID, and rejects body/field ID conflicts. An omitted environment is
+normalized to dev and recorded as an assumption.
 An incident ID does not need to exist before the request: a valid unused ID creates a new
 user-source incident transactionally, while an existing ID receives the new investigation.
 

@@ -215,11 +215,23 @@ def test_reviewer_rejects_forged_missing_and_direction_mismatched_citations() ->
     mismatched = valid.model_copy(
         update={"draft_id": "D-03", "supporting_evidence_ids": ["EV-MET-0001"]}
     )
+    outside_taxonomy = valid.model_copy(
+        update={"draft_id": "D-04", "root_cause_code": "ARBITRARY_MODEL_LABEL"}
+    )
     reviews = evidence_reviewer(
-        _review_context(), ReviewInput(evidence=evidence, drafts=[valid, forged, mismatched])
+        _review_context(),
+        ReviewInput(
+            evidence=evidence,
+            drafts=[valid, forged, mismatched],
+        ),
+    )
+    taxonomy_review = evidence_reviewer(
+        _review_context(),
+        ReviewInput(evidence=evidence, drafts=[outside_taxonomy]),
     )
 
     assert [review.decision for review in reviews.reviews] == ["ACCEPT", "REJECT", "REJECT"]
+    assert taxonomy_review.reviews[0].decision == "REJECT"
 
 
 def test_verified_evidence_not_model_label_determines_product_taxonomy() -> None:

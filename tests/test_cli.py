@@ -83,8 +83,10 @@ def test_scenario_run_prints_redacted_aggregate(
         latency_p95_ms=12,
     )
 
-    async def fake_run_scenario(*, scenario_id: str, auth: str) -> ScenarioRunSummary:
-        assert (scenario_id, auth) == ("SCN-001", "local")
+    async def fake_run_scenario(
+        *, scenario_id: str, auth: str, environment: str
+    ) -> ScenarioRunSummary:
+        assert (scenario_id, auth, environment) == ("SCN-001", "local", "dev")
         return ScenarioRunSummary(
             scenario_id="SCN-001",
             run_id="RUN-SCN-001-ABCDEF123456",

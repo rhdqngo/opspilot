@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from opspilot.domain import Environment
 from opspilot.remediation.contracts import (
     ExecutionOutcomeRequest,
     ExecutionRequest,
@@ -135,7 +136,7 @@ def _target(etag: str = "etag-faulty") -> RemediationTarget:
     return RemediationTarget(
         project_id="portfolio-project",
         region="asia-northeast3",
-        service="opspilot-dev-payment",
+        service="opspilot-prod-sim-payment",
         source_revision="payment-faulty",
         target_revision="payment-good",
         target_image_digest=DIGEST,
@@ -149,7 +150,9 @@ async def _coordinator(
     actual_clock = clock or Clock()
     actual_callback = callback or RecordingCallbackSender()
     store = InMemoryRemediationStore()
-    report = await run_fixture_investigation("SCN-008")
+    report = (await run_fixture_investigation("SCN-008")).model_copy(
+        update={"environment": Environment.PROD_SIM}
+    )
     await store.seed_incident(report=report, target=_target())
     return (
         RemediationCoordinator(

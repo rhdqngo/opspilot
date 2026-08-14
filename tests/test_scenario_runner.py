@@ -53,6 +53,40 @@ async def test_M3_scenario_runner_matches_baseline_incident_recovery_contract(
 
 
 @pytest.mark.asyncio
+async def test_scenario_runner_selects_the_requested_synthetic_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[str] = []
+
+    async def warmer(target: str, token: str | None) -> None:
+        assert token is None
+        observed.append(target)
+
+    async def sender(
+        target: str,
+        phase: str,
+        index: int,
+        token: str | None,
+        scenario: ScenarioContext | None,
+    ) -> tuple[int, int, bool]:
+        del phase, index, token
+        observed.append(target)
+        return (502 if scenario is not None and scenario.inject_payment_failure else 201, 1, True)
+
+    monkeypatch.setenv("OPSPILOT_PROD_SIM_ORDER_URL", "https://prod-sim-order.example.invalid")
+    result = await run_scenario(
+        scenario_id="SCN-001",
+        auth="local",
+        environment="prod-sim",
+        sender=sender,
+        warmer=warmer,
+    )
+
+    assert result.environment == "prod-sim"
+    assert set(observed) == {"https://prod-sim-order.example.invalid"}
+
+
+@pytest.mark.asyncio
 async def test_M3_scenario_runner_waits_for_scale_to_zero_service_without_counting_probe() -> None:
     attempts = 0
     order_attempts = 0

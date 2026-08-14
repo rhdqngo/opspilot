@@ -9,7 +9,9 @@ from fastapi.testclient import TestClient
 
 from opspilot.api import create_app
 from opspilot.audit import audit_hash
+from opspilot.remediation.bridge import RemediationRequestReference
 from opspilot.remediation.contracts import Principal
+from opspilot.service import InMemoryInvestigationStore
 
 
 class FakeTokenVerifier:
@@ -47,6 +49,40 @@ def _pubsub(payload: dict[str, Any], message_id: str) -> dict[str, Any]:
         },
         "subscription": "ignored",
     }
+
+
+def _runtime_turn_payload(query: str, suffix: str) -> dict[str, Any]:
+    return {
+        "query": query,
+        "run_id": f"RUN-{suffix:0>16}"[-20:],
+        "correlation_id": f"COR-{suffix:0>16}"[-20:],
+        "trace_id": suffix.lower().rjust(32, "0"),
+        "actor_hash": "a" * 64,
+        "session_hash": "b" * 64,
+        "query_hash": audit_hash("enterprise_query", query),
+        "output_language": "ko" if any("가" <= value <= "힣" for value in query) else "en",
+    }
+
+
+class FakeRemediationGateway:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, str]] = []
+
+    async def request(
+        self,
+        *,
+        incident_id: str,
+        report: object,
+        actor_hash: str,
+        idempotency_key: str,
+    ) -> RemediationRequestReference:
+        del report
+        self.calls.append((incident_id, actor_hash, idempotency_key))
+        return RemediationRequestReference(
+            remediation_id="REM-0123456789ABCDEF",
+            status="WAITING_APPROVAL",
+            expires_at="2026-08-14T12:15:00+00:00",
+        )
 
 
 def test_health_and_readiness() -> None:
@@ -142,6 +178,136 @@ def test_runtime_bridge_localizes_korean_and_renders_default_dev_assumption() ->
         assert "## 요약" in response.text
         assert "## 가정" in response.text
         assert "환경이 지정되지 않아 DEV를 사용합니다." in response.text
+
+
+def test_runtime_v2_supports_investigate_follow_up_refine_and_compare() -> None:
+    store = InMemoryInvestigationStore()
+    app = create_app(store=store)
+    with TestClient(app) as client:
+        first_query = "dev payment-service last 15 minutes errors"
+        first = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(first_query, "1"),
+        )
+        assert first.status_code == 200
+        assert first.json()["intent"] == "INVESTIGATE"
+        assert first.json()["started_investigation"] is True
+        incident_id = first.json()["incident_id"]
+
+        summary_query = "근본 원인과 근거를 요약해줘"
+        summary = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(summary_query, "2"),
+        )
+        assert summary.status_code == 200
+        assert summary.json()["intent"] == "EXPLAIN_REPORT"
+        assert summary.json()["started_investigation"] is False
+        assert summary.json()["incident_id"] == incident_id
+
+        refine_query = "최근 60분으로 넓혀서 심층 조사해줘"
+        refined = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(refine_query, "3"),
+        )
+        assert refined.status_code == 200
+        assert refined.json()["intent"] == "REFINE_INVESTIGATION"
+        assert refined.json()["started_investigation"] is True
+        assert refined.json()["incident_id"] == incident_id
+        assert refined.json()["report_version"] == 2
+
+        compare_query = "이전 보고서와 비교해줘"
+        compared = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(compare_query, "4"),
+        )
+        assert compared.status_code == 200
+        assert compared.json()["intent"] == "COMPARE_REPORT_VERSIONS"
+        assert "1 → 2" in compared.json()["markdown"]
+
+
+def test_runtime_v2_returns_specific_final_only_rejections_and_capabilities() -> None:
+    with TestClient(create_app()) as client:
+        capabilities_query = "무슨 기능을 지원해?"
+        capabilities = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(capabilities_query, "5"),
+        )
+        assert capabilities.status_code == 200
+        assert capabilities.json()["intent"] == "SHOW_CAPABILITIES"
+        assert capabilities.json()["started_investigation"] is False
+        assert "prod-sim" in capabilities.json()["markdown"]
+
+        production_query = "운영 payment-service 최근 15분 오류를 분석해줘"
+        production = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(production_query, "6"),
+        )
+        assert production.status_code == 200
+        assert production.json()["intent"] == "REJECTED"
+        assert production.json()["started_investigation"] is False
+        assert "실제 production" in production.json()["markdown"]
+
+        follow_up_query = "H-02를 더 설명해줘"
+        follow_up = client.post(
+            "/internal/v2/runtime/turns",
+            json={
+                **_runtime_turn_payload(follow_up_query, "7"),
+                "session_hash": "c" * 64,
+            },
+        )
+        assert follow_up.status_code == 200
+        assert follow_up.json()["intent"] == "REJECTED"
+        assert "대화 문맥" in follow_up.json()["markdown"]
+
+        multiple = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(
+                "Compare INC-2026-0001 and INC-2026-0002 payment errors",
+                "A",
+            ),
+        )
+        assert multiple.status_code == 200
+        assert multiple.json()["intent"] == "REJECTED"
+        assert multiple.json()["started_investigation"] is False
+        assert "Only one incident ID" in multiple.json()["markdown"]
+
+        conflict = client.post(
+            "/internal/v2/runtime/turns",
+            json={
+                **_runtime_turn_payload(
+                    "Explain INC-2026-0001 payment errors",
+                    "B",
+                ),
+                "incident_id": "INC-2026-0002",
+            },
+        )
+        assert conflict.status_code == 200
+        assert conflict.json()["intent"] == "REJECTED"
+        assert conflict.json()["started_investigation"] is False
+
+
+def test_runtime_v2_prod_sim_payment_can_only_create_an_m8_approval_request() -> None:
+    gateway = FakeRemediationGateway()
+    with TestClient(create_app(remediation_gateway=gateway)) as client:
+        investigate_query = "prod-sim payment-service last 15 minutes errors"
+        investigated = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(investigate_query, "8"),
+        )
+        assert investigated.status_code == 200
+        incident_id = investigated.json()["incident_id"]
+
+        rollback_query = "rollback payment-service to the previous revision"
+        requested = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(rollback_query, "9"),
+        )
+        assert requested.status_code == 200
+        assert requested.json()["intent"] == "CREATE_REMEDIATION_REQUEST"
+        assert requested.json()["started_investigation"] is False
+        assert requested.json()["remediation_id"] == "REM-0123456789ABCDEF"
+        assert "has not been executed" in requested.json()["markdown"]
+        assert gateway.calls == [(incident_id, "a" * 64, "RUN-0000000000000009")]
 
 
 def test_api_hashes_verified_actor_and_rejects_unauthenticated_calls(

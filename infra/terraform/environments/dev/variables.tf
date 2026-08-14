@@ -54,6 +54,12 @@ variable "deploy_demo" {
   default     = false
 }
 
+variable "enable_formal_environments" {
+  description = "Approval gate for the staging and prod-sim synthetic workloads."
+  type        = bool
+  default     = false
+}
+
 variable "demo_image_uri" {
   description = "Immutable Artifact Registry image URI supplied only after the Approval 2 push."
   type        = string
@@ -66,6 +72,12 @@ variable "demo_image_uri" {
       can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/[^/]+/[^/]+/[^@]+@sha256:[0-9a-f]{64}$", var.demo_image_uri))
     )
     error_message = "demo_image_uri must be empty or an immutable Artifact Registry digest URI."
+  }
+
+
+  validation {
+    condition     = !var.enable_formal_environments || can(regex("@sha256:[0-9a-f]{64}$", var.demo_image_uri))
+    error_message = "demo_image_uri is required when formal synthetic environments are enabled."
   }
 }
 
@@ -219,8 +231,8 @@ variable "enable_remediation" {
   default     = false
 
   validation {
-    condition     = !var.enable_remediation || (var.deploy_demo && var.enable_scenarios)
-    error_message = "M8 remediation requires the deployed, scenario-enabled demo workload."
+    condition     = !var.enable_remediation || (var.enable_formal_environments && var.enable_scenarios)
+    error_message = "M8 remediation requires the staging/prod-sim workloads and scenarios."
   }
 }
 

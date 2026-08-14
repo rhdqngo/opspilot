@@ -21,7 +21,7 @@ locals {
     "storage.googleapis.com",
   ])
 
-  m2_project_services = var.deploy_demo ? toset([
+  m2_project_services = var.deploy_demo || var.enable_formal_environments ? toset([
     "logging.googleapis.com",
     "run.googleapis.com",
   ]) : toset([])
@@ -61,6 +61,19 @@ locals {
   demo_leaf_service_names = var.deploy_demo ? toset([
     "inventory",
   ]) : toset([])
+
+  formal_environments = var.enable_formal_environments ? toset([
+    "staging",
+    "prod-sim",
+  ]) : toset([])
+
+  formal_service_instances = {
+    for pair in setproduct(local.formal_environments, toset(["order", "payment", "inventory"])) :
+    "${pair[0]}-${pair[1]}" => {
+      environment = pair[0]
+      service     = pair[1]
+    }
+  }
 
   runtime_class_methods = [{
     name     = "streaming_agent_run_with_events"

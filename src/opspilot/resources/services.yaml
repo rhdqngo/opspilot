@@ -3,10 +3,25 @@ max_query_window_minutes: 120
 services:
   inventory-service:
     environments: [dev, staging, prod-sim]
+    aliases: [inventory, stock, inventory service, "재고", "재고 서비스"]
+    cloud_run_services:
+      dev: opspilot-dev-inventory
+      staging: opspilot-staging-inventory
+      prod-sim: opspilot-prod-sim-inventory
     metrics: [request_count, error_ratio, latency_p95, instance_count]
   order-service:
     environments: [dev, staging, prod-sim]
+    aliases: [order, orders, order service, "주문", "주문 서비스"]
+    cloud_run_services:
+      dev: opspilot-dev-order
+      staging: opspilot-staging-order
+      prod-sim: opspilot-prod-sim-order
     metrics: [request_count, error_ratio, latency_p95, instance_count]
   payment-service:
     environments: [dev, staging, prod-sim]
+    aliases: [payment, payments, payment service, "결제", "결제 서비스"]
+    cloud_run_services:
+      dev: opspilot-dev-payment
+      staging: opspilot-staging-payment
+      prod-sim: opspilot-prod-sim-payment
     metrics: [request_count, error_ratio, latency_p95, instance_count, db_pool_waiters]

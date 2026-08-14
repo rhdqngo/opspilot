@@ -506,6 +506,7 @@ run "m8_remediation_default_off_and_apply_ready_contract" {
     billing_account_id         = "000000-000000-000000"
     budget_notification_email  = "operator@example.invalid"
     deploy_demo                = true
+    enable_formal_environments = true
     enable_scenarios           = true
     enable_remediation         = true
     remediation_approver_group = "approvers@example.invalid"
@@ -580,8 +581,12 @@ run "m8_remediation_default_off_and_apply_ready_contract" {
 
   assert {
     condition = (
-      google_cloud_run_v2_service_iam_member.remediation_executor_payment[0].name == "opspilot-dev-payment" &&
+      length(google_service_account.formal_demo) == 6 &&
+      length(google_cloud_run_v2_service.formal_order) == 2 &&
+      length(google_cloud_run_v2_service.formal_payment) == 2 &&
+      length(google_cloud_run_v2_service.formal_inventory) == 2 &&
       toset(google_project_iam_custom_role.remediation_executor_image_reader[0].permissions) == toset(["artifactregistry.repositories.downloadArtifacts"]) &&
+      google_cloud_run_v2_service_iam_member.remediation_executor_payment[0].name == "opspilot-prod-sim-payment" &&
       google_service_account_iam_member.remediation_executor_acts_as_payment[0].role == "roles/iam.serviceAccountUser" &&
       !contains(google_project_iam_custom_role.remediation_control[0].permissions, "run.services.update")
     )
@@ -634,6 +639,7 @@ run "persistent_investigation_boundary_contract" {
 
   assert {
     condition = toset(google_project_iam_custom_role.investigation_store[0].permissions) == toset([
+      "aiplatform.endpoints.predict",
       "cloudtasks.tasks.create",
       "datastore.databases.get",
       "datastore.entities.create",
@@ -642,6 +648,15 @@ run "persistent_investigation_boundary_contract" {
       "datastore.entities.update",
     ])
     error_message = "The investigation API store role must remain write-bounded and exclude delete permissions."
+  }
+
+  assert {
+    condition = (
+      length(google_firestore_field.conversation_context_ttl) == 1 &&
+      google_firestore_field.conversation_context_ttl[0].collection == "conversation_contexts" &&
+      google_firestore_field.conversation_context_ttl[0].field == "expires_at"
+    )
+    error_message = "Persistent conversations require one 24-hour context TTL field policy."
   }
 
   assert {
