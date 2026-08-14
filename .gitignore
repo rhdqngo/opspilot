@@ -2,6 +2,14 @@
 AGENTS.override.md
 docs/notes/handoff.local.md
 
+# Local AI-assistant workflow scaffolding (not part of the product repository)
+AGENTS.md
+START_HERE.md
+.agents/
+.codex/
+docs/ui/
+docs/skill-routing-evals.md
+
 # Bootstrap / UI probe temporary work
 .bootstrap-work/
 .ui-probes/

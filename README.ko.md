@@ -125,7 +125,7 @@ GitHub workflow는 수동 실행 전용입니다. Hosted Runner에는 외부 bil
 | --- | --- |
 | 앱 정보 | [관리자용 앱 안내](docs/guides/app-overview.ko.md) |
 | 처음 이용하기 | [체험자 가이드](docs/guides/first-time-user.ko.md) |
-| 가이드·원본 기획서 묶음 | [ZIP 압축 파일](opspilot-guides.zip) |
+| 한국어 기술 문서·원본 기획서 묶음 | [ZIP 압축 파일](opspilot-korean-docs.zip) |
 | 시스템 설계 | [아키텍처](docs/portfolio/architecture.ko.md) |
 | 품질 게이트 | [평가](docs/portfolio/evaluation.ko.md) |
 | 재현 가능한 데모 | [데모](docs/portfolio/demo.ko.md) |

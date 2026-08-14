@@ -126,7 +126,7 @@ authoritative release evidence. No misleading CI badge is displayed.
 | --- | --- |
 | App information | [Administrator overview](docs/guides/app-overview.md) |
 | First-time use | [Participant guide](docs/guides/first-time-user.md) |
-| Guides and original planning pack | [ZIP archive](opspilot-guides.zip) |
+| Korean technical documentation pack | [ZIP archive](opspilot-korean-docs.zip) |
 | System design | [Architecture](docs/portfolio/architecture.md) |
 | Quality gates | [Evaluation](docs/portfolio/evaluation.md) |
 | Reproducible demo | [Demo](docs/portfolio/demo.md) |

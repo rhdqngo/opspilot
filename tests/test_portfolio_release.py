@@ -262,21 +262,32 @@ def test_readme_points_to_current_formal_agent_evidence() -> None:
     assert "docs/guides/app-overview.ko.md" in korean_readme
     assert "docs/guides/first-time-user.md" in readme
     assert "docs/guides/first-time-user.ko.md" in korean_readme
-    assert "opspilot-guides.zip" in readme
-    assert "opspilot-guides.zip" in korean_readme
+    assert "opspilot-korean-docs.zip" in readme
+    assert "opspilot-korean-docs.zip" in korean_readme
     archive_sources = {
-        "app-overview.md": Path("docs/guides/app-overview.md"),
-        "app-overview.ko.md": Path("docs/guides/app-overview.ko.md"),
-        "first-time-user.md": Path("docs/guides/first-time-user.md"),
-        "first-time-user.ko.md": Path("docs/guides/first-time-user.ko.md"),
-        "opspilot_ai_implementation_spec.md": Path("docs/plans/opspilot_ai_implementation_spec.md"),
-        "opspilot_ai_implementation_spec.pdf": Path(
-            "docs/plans/opspilot_ai_implementation_spec.pdf"
-        ),
-        "opspilot_project_guide.html": Path("docs/plans/opspilot_project_guide.html"),
+        "00-product-overview.ko.md": Path("README.ko.md"),
+        "01-app-information.ko.md": Path("docs/guides/app-overview.ko.md"),
+        "02-first-time-user.ko.md": Path("docs/guides/first-time-user.ko.md"),
+        "03-original-master-spec.ko.md": Path("docs/plans/opspilot_ai_implementation_spec.md"),
+        "03-original-master-spec.ko.pdf": Path("docs/plans/opspilot_ai_implementation_spec.pdf"),
+        "04-project-guide.ko.html": Path("docs/plans/opspilot_project_guide.html"),
+        "technical/architecture.ko.md": Path("docs/portfolio/architecture.ko.md"),
+        "technical/requirements-traceability.ko.md": Path("docs/requirements-traceability.ko.md"),
+        "technical/evaluation.ko.md": Path("docs/portfolio/evaluation.ko.md"),
+        "technical/demo.ko.md": Path("docs/portfolio/demo.ko.md"),
+        "operations/agent-runtime.ko.md": Path("docs/operations/agent-runtime.ko.md"),
+        "operations/formal-agent-rollout.ko.md": Path("docs/operations/formal-agent-rollout.ko.md"),
+        "operations/scheduled-scenarios.ko.md": Path("docs/operations/scenarios.ko.md"),
+        "operations/remediation.ko.md": Path("docs/operations/remediation.ko.md"),
+        "security/threat-model.ko.md": Path("docs/security/threat-model.ko.md"),
+        "security/iam-matrix.ko.md": Path("docs/iam-matrix.ko.md"),
+        "security/cost-model.ko.md": Path("docs/cost-model.ko.md"),
+        "status/current.ko.md": Path("docs/plans/current.ko.md"),
+        "status/verification-index.ko.md": Path("docs/portfolio/results/README.ko.md"),
     }
-    with ZipFile(root / "opspilot-guides.zip") as archive:
+    with ZipFile(root / "opspilot-korean-docs.zip") as archive:
         assert set(archive.namelist()) == set(archive_sources)
+        assert all(".ko." in archived_name for archived_name in archive.namelist())
         for archived_name, source_path in archive_sources.items():
             assert archive.read(archived_name) == (root / source_path).read_bytes()
     assert "BEGIN GENERATED:PORTFOLIO_METRICS" not in readme
