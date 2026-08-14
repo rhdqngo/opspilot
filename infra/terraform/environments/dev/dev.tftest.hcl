@@ -753,6 +753,7 @@ run "scheduled_scenarios_bounded_contract" {
       google_cloud_run_v2_job.scheduled_scn001[0].template[0].parallelism == 1 &&
       google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].timeout == "300s" &&
       google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].max_retries == 0 &&
+      google_cloud_run_v2_job.scheduled_scn001[0].template[0].template[0].containers[0].resources[0].limits["memory"] == "512Mi" &&
       google_cloud_scheduler_job.scheduled_scn001[0].schedule == "5,35 * * * *" &&
       google_cloud_scheduler_job.scheduled_scn001[0].time_zone == "Asia/Seoul" &&
       google_cloud_scheduler_job.scheduled_scn001[0].retry_config[0].retry_count == 0

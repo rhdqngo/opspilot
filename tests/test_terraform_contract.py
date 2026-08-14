@@ -98,6 +98,7 @@ def test_scheduled_scenario_source_keeps_identity_and_target_scope_bounded() -> 
     assert "retry_count = 0" in source
     assert "max_retries     = 0" in source
     assert 'timeout         = "300s"' in source
+    assert 'memory = "512Mi"' in source
     assert '"--auth",\n          "workload"' in source
     assert "name     = google_cloud_run_v2_service.demo_order[0].name" in source
     assert 'resource "google_cloud_run_v2_job_iam_member" "scheduler_invokes_scn001"' in source

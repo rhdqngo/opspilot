@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from opspilot.portfolio.scheduled_scenario_release import (
     BOOTSTRAP_ADDRESS,
     BOOTSTRAP_PERMISSIONS,
@@ -87,6 +89,40 @@ def test_dev_plan_rejects_public_invoker_and_replacement(tmp_path: Path) -> None
         changes.append(_change(address, ["create"], None, after))
     _write(plan, changes)
     assert dev_plan_summary(plan, expected_image_digest=digest)["allowed"] is False
+
+
+def test_dev_recovery_plan_accepts_an_exact_nonempty_bounded_subset(tmp_path: Path) -> None:
+    plan = tmp_path / "recovery.json"
+    digest = "sha256:" + "c" * 64
+    expected = frozenset(
+        {
+            "google_cloud_run_v2_job.scheduled_scn001[0]",
+            "google_cloud_run_v2_job_iam_member.scheduler_invokes_scn001[0]",
+            "google_cloud_scheduler_job.scheduled_scn001[0]",
+        }
+    )
+    changes = [
+        _change(
+            address,
+            ["create"],
+            None,
+            ({"image": f"registry/runner@{digest}"} if "v2_job.scheduled" in address else {}),
+        )
+        for address in expected
+    ]
+    _write(plan, changes)
+
+    assert (
+        dev_plan_summary(
+            plan,
+            expected_image_digest=digest,
+            expected_addresses=expected,
+        )["allowed"]
+        is True
+    )
+
+    with pytest.raises(ValueError, match="non-empty bounded subset"):
+        dev_plan_summary(plan, expected_image_digest=digest, expected_addresses=frozenset())
 
     changes[-1]["change"] = {"actions": ["delete", "create"], "before": {}, "after": {}}
     _write(plan, changes)

@@ -117,10 +117,13 @@ def dev_plan_summary(
     path: Path,
     *,
     expected_image_digest: str,
+    expected_addresses: frozenset[str] = DEV_ADDRESSES,
     terraform_directory: Path | None = None,
 ) -> dict[str, object]:
     if DIGEST_PATTERN.fullmatch(expected_image_digest) is None:
         raise ValueError("scheduled scenario image digest is invalid")
+    if not expected_addresses or not expected_addresses.issubset(DEV_ADDRESSES):
+        raise ValueError("expected dev addresses must be a non-empty bounded subset")
     changed: list[str] = []
     actions_valid = True
     public_iam_absent = True
@@ -140,7 +143,7 @@ def dev_plan_summary(
         if address == "google_cloud_run_v2_job.scheduled_scn001[0]":
             images = [str(value) for value in _walk_key(after, "image") if isinstance(value, str)]
             image_bound = any(value.endswith(f"@{expected_image_digest}") for value in images)
-    exact_scope = set(changed) == DEV_ADDRESSES and len(changed) == len(DEV_ADDRESSES)
+    exact_scope = set(changed) == expected_addresses and len(changed) == len(expected_addresses)
     allowed = all((exact_scope, actions_valid, public_iam_absent, image_bound))
     return {
         "phase": "dev",
@@ -161,6 +164,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("plan_json", type=Path)
     parser.add_argument("--phase", choices=("bootstrap", "dev"), required=True)
     parser.add_argument("--image-digest")
+    parser.add_argument("--expected-address", action="append", default=[])
     parser.add_argument("--terraform-directory", type=Path)
     args = parser.parse_args(argv)
     if args.phase == "bootstrap":
@@ -173,6 +177,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         summary = dev_plan_summary(
             args.plan_json.resolve(),
             expected_image_digest=args.image_digest,
+            expected_addresses=(
+                frozenset(args.expected_address) if args.expected_address else DEV_ADDRESSES
+            ),
             terraform_directory=args.terraform_directory,
         )
     print(json.dumps(summary, indent=2, sort_keys=True))
