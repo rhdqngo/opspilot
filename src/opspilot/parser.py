@@ -51,7 +51,8 @@ HYPOTHESIS_TOKEN = re.compile(r"(?<![A-Za-z0-9-])H-\d{2}(?![A-Za-z0-9-])", re.I)
 ENVIRONMENT_TOKENS = {
     Environment.DEV: re.compile(r"(?i)(?<![A-Za-z0-9-])(?:dev|development)(?![A-Za-z0-9-])|개발"),
     Environment.STAGING: re.compile(
-        r"(?i)(?<![A-Za-z0-9-])(?:stage|staging|qa)(?![A-Za-z0-9-])|스테이징"
+        r"(?i)(?<![A-Za-z0-9-])(?:stage|staging)(?![A-Za-z0-9-])|"
+        r"(?<![A-Za-z0-9-])qa(?![A-Za-z0-9-@])|스테이징"
     ),
     Environment.PROD_SIM: re.compile(
         r"(?i)(?<![A-Za-z0-9-])(?:prod-sim|demo)(?![A-Za-z0-9-])|운영\s*모사|시뮬레이션"

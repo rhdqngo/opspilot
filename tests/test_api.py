@@ -225,6 +225,27 @@ def test_runtime_v2_supports_investigate_follow_up_refine_and_compare() -> None:
         assert "1 → 2" in compared.json()["markdown"]
 
 
+def test_runtime_v2_treats_depth_as_new_scope_and_recognizes_capability_wording() -> None:
+    with TestClient(create_app()) as client:
+        query = "dev payment-service last 15 minutes errors STANDARD"
+        investigated = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(query, "D1"),
+        )
+        assert investigated.status_code == 200
+        assert investigated.json()["intent"] == "INVESTIGATE"
+        assert investigated.json()["started_investigation"] is True
+
+        capability_query = "What services, environments, time ranges, and actions do you support?"
+        capabilities = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(capability_query, "CA"),
+        )
+        assert capabilities.status_code == 200
+        assert capabilities.json()["intent"] == "SHOW_CAPABILITIES"
+        assert capabilities.json()["started_investigation"] is False
+
+
 def test_runtime_v2_returns_specific_final_only_rejections_and_capabilities() -> None:
     with TestClient(create_app()) as client:
         capabilities_query = "무슨 기능을 지원해?"

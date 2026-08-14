@@ -123,6 +123,17 @@ def test_parser_supports_synthetic_environment_aliases(alias: str, environment: 
     assert request.environment.value == environment
 
 
+def test_parser_does_not_treat_qa_email_local_part_as_staging() -> None:
+    request = parse_investigation_request(
+        "dev inventory-service last 15 minutes errors for qa@example.invalid token: synthetic",
+        catalog=load_service_catalog(),
+        now=NOW,
+    )
+
+    assert request.environment.value == "dev"
+    assert request.services == ["inventory-service"]
+
+
 @pytest.mark.parametrize(
     ("query", "services"),
     [

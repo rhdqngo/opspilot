@@ -1,7 +1,7 @@
 # Current Project State
 
 status: formal_agent_candidate
-phase: formal Incident Commander implementation complete; managed rollout phase 1 applied
+phase: formal Incident Commander deployed; managed conversational QA repair cycle active
 updated: 2026-08-14
 
 ## Completed product scope
@@ -61,6 +61,15 @@ the investigation service consumes the remediation control URL, so targeting the
 planned the control cutover. The verifier stopped that mixed plan. The remaining phases now apply
 model/TTL prerequisites first, then atomically cut over the investigation image and M8 control
 boundary, and finally update the unchanged Runtime resource name.
+
+All four managed rollout phases are now applied. Twelve Cloud Run services are Ready, the
+investigation image is digest-bound, the Runtime resource name is unchanged, direct Runtime smoke
+passes three consecutive `progress + final` runs, and SCN-001 passes `5/5 → 4/6 → 5/5` with
+recovery in dev, staging, and prod-sim. The first conversational matrix found three generalized
+intake defects before Preview promotion: depth words were treated as follow-up intent even on a
+complete new scope, natural capability wording was missed, and `qa` in a synthetic email local
+part was treated as the staging alias. The fixes and regression tests pass locally; a new
+source-bound image/Runtime cycle and full managed matrix rerun are required.
 
 ## Long-spec defect remediation
 

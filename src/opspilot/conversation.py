@@ -10,7 +10,10 @@ from opspilot.domain import IncidentReport, OutputLanguage
 from opspilot.service import AgentTurnIntent, ConversationContext
 
 _CAPABILITY = re.compile(
-    r"\b(?:help|capabilit(?:y|ies)|what can you do)\b|기능|무엇을.*할 수", re.I
+    r"\b(?:help|capabilit(?:y|ies)|what can you do|"
+    r"what (?:services|environments|time ranges|actions).{0,120}\bsupport)\b|"
+    r"기능|무엇을.*할 수",
+    re.I,
 )
 _COMPARE = re.compile(
     r"\b(?:compare|difference|diff|previous version)\b|비교|이전 (?:보고서|버전)",
@@ -22,8 +25,7 @@ _EXPLAIN = re.compile(
     re.I,
 )
 _REFINE = re.compile(
-    r"\b(?:expand|widen|deepen|refine|quick|standard|deep|H-\d{2})\b|"
-    r"넓혀|확대|심층|간단|기본|H-\d{2}",
+    r"\b(?:expand|widen|deepen|refine|H-\d{2})\b|넓혀|확대|H-\d{2}",
     re.I,
 )
 _REMEDIATION = re.compile(
@@ -31,7 +33,8 @@ _REMEDIATION = re.compile(
 )
 _INCIDENT_ID = re.compile(r"\bINC-\d{4}-(?:\d{4}|[A-Fa-f0-9]{16})\b", re.I)
 _ENVIRONMENT = re.compile(
-    r"\b(?:dev(?:elopment)?|stage|staging|qa|prod-sim|demo|prod(?:uction)?)\b|개발|스테이징|운영(?:\s*모사)?",
+    r"\b(?:dev(?:elopment)?|stage|staging|prod-sim|demo|prod(?:uction)?)\b|"
+    r"\bqa\b(?!@)|개발|스테이징|운영(?:\s*모사)?",
     re.I,
 )
 _TIME = re.compile(
