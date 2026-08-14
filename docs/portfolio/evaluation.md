@@ -1,5 +1,7 @@
 # Portfolio Evaluation
 
+**English** | [한국어](evaluation.ko.md)
+
 Status: automated and versioned
 
 OpsPilot has two deterministic suites:
@@ -30,9 +32,11 @@ injection successes, and P95 fixture duration <= 45 seconds.
 Fixture latency is a regression signal, not a managed Runtime SLO. Direct Runtime and Gemini
 Enterprise timings remain separately recorded operator evidence.
 
-## Published release evidence
+## Published evaluation evidence
 
-The latest verified values are generated rather than copied into this document:
+The current product source of record is the
+[formal-agent v3 verification](results/long-spec-formal-agent-v3.md). The following artifacts retain
+the historical offline evaluation release:
 
 - [Markdown release evidence](results/portfolio-release-v1.md)
 - [JSON release evidence](results/portfolio-release-v1.json)
@@ -47,4 +51,4 @@ uv run python scripts/portfolio_release.py check --include-infra --publish `
 ```
 
 A failed release writes diagnostic evidence only below `.tmp`; it cannot replace the tracked result
-or README metrics block.
+or mutate the curated README release claims.

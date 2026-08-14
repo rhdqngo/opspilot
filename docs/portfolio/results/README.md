@@ -1,5 +1,7 @@
 # Verification Evidence Index
 
+**English** | [한국어](README.ko.md)
+
 This directory contains sanitized, source-bound release and QA records. Markdown files are the
 human-readable summaries; adjacent JSON files contain the same bounded result in machine-readable
 form. Cloud project identifiers, URLs, service identities, image digests, Runtime resource names,

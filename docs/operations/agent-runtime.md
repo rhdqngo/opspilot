@@ -1,5 +1,7 @@
 # Agent Runtime Runbook
 
+**English** | [한국어](agent-runtime.ko.md)
+
 Status: deployed thin adapter
 
 The deployed formal Runtime performs only input-length and language checks and sends

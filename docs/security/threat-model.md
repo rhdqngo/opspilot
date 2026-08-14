@@ -1,5 +1,7 @@
 # OpsPilot Formal Agent Threat Model
 
+**English** | [한국어](threat-model.ko.md)
+
 Status: active
 
 Run, correlation, and trace identifiers are generated independently for each agent/Runtime

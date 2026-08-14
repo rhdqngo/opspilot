@@ -248,7 +248,38 @@ def test_manual_ci_uploads_portfolio_artifact_without_automatic_trigger() -> Non
 def test_readme_points_to_current_formal_agent_evidence() -> None:
     root = Path(__file__).resolve().parents[1]
     readme = (root / "README.md").read_text(encoding="utf-8")
-    assert "278/278" in readme
-    assert "docs/portfolio/results/long-spec-formal-agent-v3.md" in readme
+    korean_readme = (root / "README.ko.md").read_text(encoding="utf-8")
+    for expected in ("278/278", "7/7", "40/40", "12/12"):
+        assert expected in readme
+        assert expected in korean_readme
+    evidence_path = "docs/portfolio/results/long-spec-formal-agent-v3.md"
+    assert evidence_path in readme
+    assert evidence_path in korean_readme
     assert "docs/portfolio/results/README.md" in readme
+    assert "docs/portfolio/results/README.ko.md" in korean_readme
     assert "BEGIN GENERATED:PORTFOLIO_METRICS" not in readme
+    assert "BEGIN GENERATED:PORTFOLIO_METRICS" not in korean_readme
+
+    bilingual_pairs = (
+        (Path("README.md"), Path("README.ko.md")),
+        (Path("docs/portfolio/architecture.md"), Path("docs/portfolio/architecture.ko.md")),
+        (Path("docs/portfolio/evaluation.md"), Path("docs/portfolio/evaluation.ko.md")),
+        (Path("docs/portfolio/demo.md"), Path("docs/portfolio/demo.ko.md")),
+        (Path("docs/requirements-traceability.md"), Path("docs/requirements-traceability.ko.md")),
+        (Path("docs/operations/agent-runtime.md"), Path("docs/operations/agent-runtime.ko.md")),
+        (
+            Path("docs/operations/formal-agent-rollout.md"),
+            Path("docs/operations/formal-agent-rollout.ko.md"),
+        ),
+        (Path("docs/operations/remediation.md"), Path("docs/operations/remediation.ko.md")),
+        (Path("docs/security/threat-model.md"), Path("docs/security/threat-model.ko.md")),
+        (Path("docs/iam-matrix.md"), Path("docs/iam-matrix.ko.md")),
+        (Path("docs/cost-model.md"), Path("docs/cost-model.ko.md")),
+        (Path("docs/plans/current.md"), Path("docs/plans/current.ko.md")),
+        (Path("docs/portfolio/results/README.md"), Path("docs/portfolio/results/README.ko.md")),
+    )
+    for english_path, korean_path in bilingual_pairs:
+        english = (root / english_path).read_text(encoding="utf-8")
+        korean = (root / korean_path).read_text(encoding="utf-8")
+        assert f"[한국어]({korean_path.name})" in english
+        assert f"[English]({english_path.name})" in korean

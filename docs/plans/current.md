@@ -1,5 +1,7 @@
 # Current Project State
 
+**English** | [한국어](current.ko.md)
+
 status: formal_agent_verified
 phase: formal Incident Commander deployed and Gemini Enterprise Preview QA verified
 updated: 2026-08-14
@@ -72,6 +74,8 @@ updated: 2026-08-14
 - GitHub portfolio documentation now uses the formal-agent release as its front-page baseline,
   separates current evidence from historical QA records, and publishes an MIT license without
   exposing raw cloud or browser identifiers.
+- Korean mirrors cover the README and every portfolio document linked from its documentation table;
+  English remains the canonical technical contract and both entrypoints cross-link explicitly.
 - Sanitized evidence: [formal-agent v3](../portfolio/results/long-spec-formal-agent-v3.md) and the
   [verification evidence index](../portfolio/results/README.md).
 

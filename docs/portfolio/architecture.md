@@ -1,5 +1,7 @@
 # OpsPilot Formal Agent Architecture
 
+**English** | [한국어](architecture.ko.md)
+
 Status: deployed and Gemini Enterprise Preview verified
 
 ## Investigation plane

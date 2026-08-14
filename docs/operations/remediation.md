@@ -1,10 +1,14 @@
 # M8 Approval-Gated Remediation
 
-Status: deployed and verified; default off after successful reset
+**English** | [한국어](remediation.ko.md)
 
-M8 does not add any remediation capability to the investigation API, Gemini Enterprise Runtime, or
-investigator identity. The only supported change is moving 100 percent of traffic on
-`opspilot-dev-payment` from a captured faulty revision to a captured known-good revision.
+Status: prod-sim target deployed and verified; approval-gated
+
+M8 grants no approval or execution capability to the investigation API, Gemini Enterprise Runtime,
+or investigator identity. The investigation API may create one eligible `WAITING_APPROVAL` record
+through its authenticated control bridge. The only executable change is moving 100 percent of
+traffic on `opspilot-prod-sim-payment` from a captured faulty revision to a captured known-good
+revision.
 
 ## Trust boundaries
 
@@ -14,7 +18,7 @@ flowchart LR
   C -->|"transaction"| F["Firestore opspilot-dev"]
   C -->|"start execution"| W["Workflows callback, 15 min"]
   W -->|"private invocation"| X["Internal-only executor"]
-  X -->|"etag + updateMask=traffic"| P["opspilot-dev-payment"]
+  X -->|"etag + updateMask=traffic"| P["opspilot-prod-sim-payment"]
   X -->|"read state"| F
   W -->|"begin/finalize state"| C
   C -->|"traffic + 10 orders + metric windows"| P

@@ -1,5 +1,7 @@
 # OpsPilot Cost Guardrails
 
+**English** | [한국어](cost-model.ko.md)
+
 Status: formal agent deployed; Gemini Enterprise Preview verified
 
 The `core-v1` and `portfolio-v1` evaluation suites use recorded synthetic evidence and the local
@@ -60,8 +62,8 @@ multi-project support remain future options and may not add cost without a separ
 ## Formal-agent bounded usage
 
 The deployed formal environment adds six scale-to-zero Cloud Run services: order, payment, and
-inventory in staging and prod-sim, each capped at two instances. A three-service STANDARD or DEEP investigation remains
-bounded to 12 logical tool calls and at most 18 provider calls; QUICK remains at six logical calls
+inventory in staging and prod-sim, each capped at two instances. A three-service STANDARD or DEEP
+investigation remains bounded to 12 logical tool calls and at most 18 provider calls; QUICK remains at six logical calls
 and at most nine provider calls. RCA/report generation remains capped at two model calls and is
 skipped when no direct incident signal exists. Conversation context is one small Firestore document
 per active session with a 24-hour TTL. These are architectural bounds, not a monetary estimate.

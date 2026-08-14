@@ -1,5 +1,7 @@
 # OpsPilot
 
+**English** | [한국어](README.ko.md)
+
 **Evidence-grounded AI Incident Commander for Google Cloud and Gemini Enterprise**
 
 OpsPilot investigates synthetic ecommerce incidents with bounded Google Cloud evidence, verifies

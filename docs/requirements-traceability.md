@@ -1,5 +1,7 @@
 # Lean MVP v1 Requirements Traceability
 
+**English** | [한국어](requirements-traceability.ko.md)
+
 Status: formal Incident Commander / Gemini Enterprise Preview QA verified
 
 This matrix compares the M0-M10 North Star specification with the deployed MVP investigation and
@@ -35,9 +37,9 @@ The source-bound formal-agent release and final conversational QA are published 
 | FR-010 | Implemented | Forged, missing, duplicate, and direction-mismatched evidence references are rejected. |
 | FR-011 | Implemented | [`report_policy.py`](../src/opspilot/report_policy.py) emits at most one evidence-grounded containment, mitigation, and root-fix recommendation; [`reporting.py`](../src/opspilot/reporting.py) renders separate sections. The [managed Runtime smoke](portfolio/results/long-spec-preqa-v1.md) verifies H-01/H-02, all three classes, and valid citations. Generalized execution remains an intentional boundary. |
 | FR-012 | Implemented | Investigator identity and public surfaces are read-only. |
-| FR-013 | Implemented | The isolated M8 API supports only the canonical SCN-008 payment rollback and was verified in dev. |
+| FR-013 | Implemented | The isolated M8 API supports only the canonical SCN-008 payment rollback and is deployed against synthetic `prod-sim payment-service`. |
 | FR-014 | Implemented | Firestore transaction, 15-minute Workflow callback, hash-bound approval, TTL cleanup, and actor audit were verified end to end. |
-| FR-015 | Implemented | Exact target traffic, revision/digest binding, metric windows, and 10/10 recovery were verified in dev. |
+| FR-015 | Implemented | Exact target traffic, revision/digest binding, metric windows, and 10/10 recovery were verified on the synthetic prod-sim target. |
 | FR-016 | Implemented | [`audit.py`](../src/opspilot/audit.py), Runtime, API, task worker, executors, and report audit reuse one trace/correlation identity; concurrent run-ID idempotency is covered by [`test_investigation_service.py`](../tests/test_investigation_service.py) and the [20-submit managed smoke](portfolio/results/long-spec-preqa-v1.md). |
 | FR-017 | Implemented | Each logical evidence tool emits the fixed privacy-safe `ToolCallAuditEvent` schema with scope, timing, result, truncation/cache, and safe error fields. Every final positive Preview run emitted four events with the Runtime `run_id` and shared trace/correlation IDs; all rejected runs emitted none. |
 | FR-018 | Implemented | Versioned 7-case core and 40-case portfolio evaluation suites enforce deterministic gates. |

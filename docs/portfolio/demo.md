@@ -1,5 +1,7 @@
 # OpsPilot 3-5 Minute Demo
 
+**English** | [한국어](demo.ko.md)
+
 ## Preparation
 
 ```powershell

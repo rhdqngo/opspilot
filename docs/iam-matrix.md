@@ -1,5 +1,7 @@
 # OpsPilot IAM Matrix
 
+**English** | [한국어](iam-matrix.ko.md)
+
 Status: formal agent and prod-sim M8 boundary deployed and verified
 
 | Principal | Allowed purpose | Explicitly excluded |
@@ -42,8 +44,8 @@ Logging/Monitoring filter, or serving config.
   document keyed by a domain-separated session hash; raw session/user identities and prompts are
   not persisted, and `aiplatform.sessions.create` is not granted.
 - No public principal, service-account key, broad predefined runtime role, OAuth delegation,
-  session/memory permission, or VPC permission exists. M8 principals remain absent until the
-  separately approved `enable_remediation=true` apply.
+  session/memory permission, or VPC permission exists. The deployed M8 principals exist only under
+  the separately approved `enable_remediation=true` input; the default configuration omits them.
 - Existing Enterprise registration is managed through the official console; registration mutation
   code is not part of the product.
 

@@ -1,5 +1,7 @@
 # Formal Agent Rollout
 
+**English** | [한국어](formal-agent-rollout.ko.md)
+
 Status: all four phases deployed and managed/Preview QA verified
 
 The formal Incident Commander rollout used four independently reviewed binary Terraform plans.
