@@ -222,6 +222,11 @@ def test_runtime_reuses_identity_token_within_its_safe_lifetime(
     runtime_module._ID_TOKEN_CACHE.clear()
 
 
+def test_runtime_deadline_matches_the_managed_turn_contract() -> None:
+    assert runtime_module.RUNTIME_DEADLINE_SECONDS == 75.0
+    assert runtime_module.RUNTIME_API_TIMEOUT_SECONDS < runtime_module.RUNTIME_DEADLINE_SECONDS
+
+
 def test_runtime_identity_token_transport_caps_each_request_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

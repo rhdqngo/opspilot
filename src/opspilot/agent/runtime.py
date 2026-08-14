@@ -39,7 +39,7 @@ from opspilot.domain import OutputLanguage
 from opspilot.retry import RetryPolicy, run_with_retry
 
 RUNTIME_API_TIMEOUT_SECONDS = 32.0
-RUNTIME_DEADLINE_SECONDS = 40.0
+RUNTIME_DEADLINE_SECONDS = 75.0
 MIN_INPUT_CHARS = 3
 MAX_INPUT_CHARS = 500
 LOGGER = logging.getLogger(__name__)
