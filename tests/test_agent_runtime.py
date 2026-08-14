@@ -224,7 +224,8 @@ def test_runtime_reuses_identity_token_within_its_safe_lifetime(
 
 def test_runtime_deadline_matches_the_managed_turn_contract() -> None:
     assert runtime_module.RUNTIME_DEADLINE_SECONDS == 75.0
-    assert runtime_module.RUNTIME_API_TIMEOUT_SECONDS < runtime_module.RUNTIME_DEADLINE_SECONDS
+    assert runtime_module.RUNTIME_API_TIMEOUT_SECONDS == 8.0
+    assert runtime_module.RUNTIME_API_RECONCILE_TIMEOUT_SECONDS == 8.0
 
 
 @pytest.mark.asyncio

@@ -38,8 +38,8 @@ from opspilot.audit import audit_hash, new_correlation_id, new_trace_id
 from opspilot.domain import OutputLanguage
 from opspilot.retry import RetryPolicy, run_with_retry
 
-RUNTIME_API_TIMEOUT_SECONDS = 32.0
-RUNTIME_API_RECONCILE_TIMEOUT_SECONDS = 12.0
+RUNTIME_API_TIMEOUT_SECONDS = 8.0
+RUNTIME_API_RECONCILE_TIMEOUT_SECONDS = 8.0
 RUNTIME_DEADLINE_SECONDS = 75.0
 MIN_INPUT_CHARS = 3
 MAX_INPUT_CHARS = 500
