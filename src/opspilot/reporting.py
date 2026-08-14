@@ -178,6 +178,12 @@ KOREAN_TEXT = {
 
 
 def _display_text(value: str, language: OutputLanguage) -> str:
+    return localize_report_text(value, language)
+
+
+def localize_report_text(value: str, language: OutputLanguage) -> str:
+    """Localize stable server-owned report copy for full and concise renderers."""
+
     if language is OutputLanguage.KO:
         return KOREAN_TEXT.get(value, value)
     return value

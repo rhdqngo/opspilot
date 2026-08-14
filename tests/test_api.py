@@ -194,7 +194,7 @@ def test_runtime_v2_supports_investigate_follow_up_refine_and_compare() -> None:
         assert first.json()["started_investigation"] is True
         incident_id = first.json()["incident_id"]
 
-        summary_query = "근본 원인과 근거를 요약해줘"
+        summary_query = "결론과 사용자 영향을 세 줄로 요약해줘"
         summary = client.post(
             "/internal/v2/runtime/turns",
             json=_runtime_turn_payload(summary_query, "2"),
@@ -203,6 +203,9 @@ def test_runtime_v2_supports_investigate_follow_up_refine_and_compare() -> None:
         assert summary.json()["intent"] == "EXPLAIN_REPORT"
         assert summary.json()["started_investigation"] is False
         assert summary.json()["incident_id"] == incident_id
+        assert "- 사용자 영향:" in summary.json()["markdown"]
+        assert "- 결론:" in summary.json()["markdown"]
+        assert "요청한 가설" not in summary.json()["markdown"]
 
         refine_query = "최근 60분으로 넓혀서 심층 조사해줘"
         refined = client.post(

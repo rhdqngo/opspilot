@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 from opspilot.catalog import ServiceCatalog
 from opspilot.domain import IncidentReport, OutputLanguage
+from opspilot.reporting import localize_report_text
 from opspilot.service import AgentTurnIntent, ConversationContext
 
 _CAPABILITY = re.compile(
@@ -188,24 +189,46 @@ def explain_report_markdown(
     if requested_hypothesis:
         hypothesis_id = requested_hypothesis.group(0).upper()
         hypotheses = [item for item in hypotheses if item.hypothesis_id == hypothesis_id]
+    impact = localize_report_text(report.impact_summary, language)
     if language is OutputLanguage.KO:
-        lines = [f"# 보고서 {report.report_version} 요약", "", f"- 상태: `{report.status.value}`"]
+        lines = [
+            f"# 보고서 {report.report_version} 요약",
+            "",
+            f"- 상태: `{report.status.value}`",
+            f"- 사용자 영향: {impact}",
+        ]
         if not hypotheses:
-            lines.append("- 요청한 가설을 이 보고서에서 찾지 못했습니다.")
+            conclusion = (
+                f"요청한 {requested_hypothesis.group(0).upper()} 가설을 "
+                "이 보고서에서 찾지 못했습니다."
+                if requested_hypothesis
+                else "검증된 근본 원인 가설이 없습니다."
+            )
+            lines.append(f"- 결론: {conclusion}")
         for item in hypotheses:
             citations = ", ".join(f"`{value}`" for value in item.supporting_evidence_ids) or "없음"
             lines.append(
-                f"- **{item.hypothesis_id} {item.claim}** — "
+                f"- 결론: **{item.hypothesis_id} {localize_report_text(item.claim, language)}** — "
                 f"지지도 {item.evidence_support_score}/100; 근거 {citations}"
             )
         return "\n".join(lines) + "\n"
-    lines = [f"# Report {report.report_version} summary", "", f"- Status: `{report.status.value}`"]
+    lines = [
+        f"# Report {report.report_version} summary",
+        "",
+        f"- Status: `{report.status.value}`",
+        f"- User impact: {impact}",
+    ]
     if not hypotheses:
-        lines.append("- The requested hypothesis is not present in this report.")
+        conclusion = (
+            f"The requested {requested_hypothesis.group(0).upper()} hypothesis is not present."
+            if requested_hypothesis
+            else "No root-cause hypothesis is verified."
+        )
+        lines.append(f"- Conclusion: {conclusion}")
     for item in hypotheses:
         citations = ", ".join(f"`{value}`" for value in item.supporting_evidence_ids) or "none"
         lines.append(
-            f"- **{item.hypothesis_id} {item.claim}** — "
+            f"- Conclusion: **{item.hypothesis_id} {item.claim}** — "
             f"support {item.evidence_support_score}/100; evidence {citations}"
         )
     return "\n".join(lines) + "\n"
