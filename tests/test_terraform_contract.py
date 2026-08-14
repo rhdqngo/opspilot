@@ -255,6 +255,7 @@ def test_M7_terraform_is_default_off_and_defines_only_bounded_runtime_resources(
     assert 'memory = "1Gi"' in dev_source
     assert "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT" in dev_source
     assert 'name  = "OPSPILOT_RUNTIME_PROJECT_ID"' in dev_source
+    assert 'name  = "GOOGLE_CLOUD_PROJECT"' in dev_source
     assert "value = var.project_id" in dev_source
     assert 'value = "false"' in dev_source
     assert 'entrypoint_module = "opspilot.agent.runtime_agent"' in dev_source

@@ -374,6 +374,11 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
         value = var.project_id
       }
 
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+
       dynamic "env" {
         for_each = var.enable_persistent_investigations ? [1] : []
         content {
