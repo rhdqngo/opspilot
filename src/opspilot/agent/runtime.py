@@ -34,7 +34,8 @@ from opspilot.domain import OutputLanguage
 from opspilot.parser import parse_investigation_request
 from opspilot.retry import RetryPolicy, run_with_retry
 
-RUNTIME_DEADLINE_SECONDS = 18.0
+RUNTIME_API_TIMEOUT_SECONDS = 32.0
+RUNTIME_DEADLINE_SECONDS = 40.0
 MIN_INPUT_CHARS = 3
 MAX_INPUT_CHARS = 500
 LOGGER = logging.getLogger(__name__)
@@ -341,7 +342,7 @@ async def _run_api_runtime_investigation(
                 "output_language": decision.output_language.value,
             },
             accept="text/markdown",
-            timeout_seconds=14,
+            timeout_seconds=RUNTIME_API_TIMEOUT_SECONDS,
             trace_id=decision.trace_id,
             idempotency_key=decision.run_id,
         )
@@ -417,7 +418,7 @@ async def _cancel_handler(
 
 
 class OpsPilotRuntimeAgent(BaseAgent):
-    """Emit an immediate progress event before running the bounded investigation."""
+    """Emit one progress event and one final event without an idle stream gap."""
 
     handler: RuntimeHandler = Field(exclude=True)
 
@@ -486,13 +487,6 @@ class OpsPilotRuntimeAgent(BaseAgent):
                 correlation_id=decision.correlation_id,
                 trace_id=decision.trace_id,
                 started_clock=started_clock,
-            )
-            yield _runtime_event(
-                context,
-                author=self.name,
-                text=progress,
-                partial=True,
-                turn_complete=False,
             )
             remaining_seconds = max(
                 0.0,
@@ -616,6 +610,16 @@ class OpsPilotRuntimeAgent(BaseAgent):
             correlation_id=decision.correlation_id,
             trace_id=decision.trace_id,
             started_clock=started_clock,
+        )
+        # Agent Engine has intermittently dropped the final event when a partial
+        # event is followed by a long idle period. Buffer the bounded operation,
+        # then emit the required progress/final pair back-to-back.
+        yield _runtime_event(
+            context,
+            author=self.name,
+            text=progress,
+            partial=True,
+            turn_complete=False,
         )
         yield _runtime_event(
             context,

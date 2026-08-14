@@ -422,7 +422,7 @@ def create_app(
             )
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        deadline = asyncio.get_running_loop().time() + 12
+        deadline = asyncio.get_running_loop().time() + 30
         while asyncio.get_running_loop().time() < deadline:
             record = await coordinator_value.store.get_record(submitted.investigation_id)
             if record is None:

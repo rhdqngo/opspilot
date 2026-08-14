@@ -214,7 +214,7 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
                 "query_hash": decision.query_hash,
                 "output_language": "en",
             },
-            14,
+            runtime_module.RUNTIME_API_TIMEOUT_SECONDS,
             decision.trace_id,
             decision.run_id,
         )
@@ -315,6 +315,52 @@ async def test_runtime_agent_streams_dynamic_progress_then_report() -> None:
     assert events[1].turn_complete is True
     assert events[1].content is not None and events[1].content.parts is not None
     assert events[1].content.parts[0].text == "# Safe report\n"
+
+
+@pytest.mark.asyncio
+async def test_runtime_buffers_progress_until_handler_completes() -> None:
+    release = asyncio.Event()
+    started = asyncio.Event()
+
+    async def delayed_handler(_decision: object) -> RuntimeInvocationResult:
+        started.set()
+        await release.wait()
+        return RuntimeInvocationResult(
+            accepted=True,
+            succeeded=True,
+            output_markdown="# Delayed safe report\n",
+        )
+
+    agent = create_runtime_root_agent(handler=delayed_handler)
+    session_service = create_ephemeral_session_service()
+    session = await session_service.create_session(
+        app_name="test", user_id="ignored-user", session_id="session"
+    )
+    context = InvocationContext(
+        session_service=session_service,
+        invocation_id="buffered-invocation",
+        agent=agent,
+        user_content=types.Content(
+            role="user",
+            parts=[types.Part(text="payment-service recent 30 minutes status analyze")],
+        ),
+        session=session,
+    )
+    stream = agent._run_async_impl(context)
+    first_event = asyncio.create_task(anext(stream))
+
+    await started.wait()
+    await asyncio.sleep(0)
+    assert first_event.done() is False
+
+    release.set()
+    progress = await first_event
+    final = await anext(stream)
+
+    assert progress.partial is True and progress.turn_complete is False
+    assert final.partial is False and final.turn_complete is True
+    assert final.content is not None and final.content.parts is not None
+    assert final.content.parts[0].text == "# Delayed safe report\n"
 
 
 @pytest.mark.asyncio
@@ -439,10 +485,13 @@ async def test_runtime_generator_exit_cancels_started_handler(
     )
     stream = agent._run_async_impl(context)
 
-    progress = await anext(stream)
-    await stream.aclose()
+    first_event = asyncio.create_task(anext(stream))
+    while calls == 0:
+        await asyncio.sleep(0)
+    first_event.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first_event
 
-    assert progress.partial is True
     assert calls == 1
     assert cancelled.is_set()
     assert '"stage":"handler_started"' in caplog.text
