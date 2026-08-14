@@ -249,7 +249,7 @@ def test_readme_points_to_current_formal_agent_evidence() -> None:
     root = Path(__file__).resolve().parents[1]
     readme = (root / "README.md").read_text(encoding="utf-8")
     korean_readme = (root / "README.ko.md").read_text(encoding="utf-8")
-    for expected in ("278/278", "7/7", "40/40", "12/12"):
+    for expected in ("289/289", "7/7", "40/40", "12/12"):
         assert expected in readme
         assert expected in korean_readme
     evidence_path = "docs/portfolio/results/long-spec-formal-agent-v3.md"

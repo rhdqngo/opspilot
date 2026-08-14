@@ -15,11 +15,11 @@ ADK Runtime과 권위 있는 FastAPI 조사 서비스를 기반으로 비공개 
 
 | 게이트 | 결과 |
 | --- | --- |
-| Python 테스트 | 278/278 |
+| Python 테스트 | 289/289 |
 | Core agent 평가 | 7/7 |
 | Portfolio 평가 | 40/40 |
 | Remediation 평가 | 12/12 |
-| Terraform 테스트 | bootstrap 1/1, environment 8/8 |
+| Terraform 테스트 | bootstrap 1/1, environment 10/10 |
 | Runtime 패키징 | 11개 파일 archive 2회 byte-identical |
 | 최종 인프라 계획 | `No changes` |
 
@@ -28,6 +28,8 @@ ADK Runtime과 권위 있는 FastAPI 조사 서비스를 기반으로 비공개 
 동일 결과의 [JSON 기록](docs/portfolio/results/long-spec-formal-agent-v3.json)도 제공합니다.
 이전 릴리스와 QA 결과는 감사 이력으로 [검증 증빙 색인](docs/portfolio/results/README.ko.md)에
 보존합니다.
+선택형 예약 데모 확장은 별도의
+[예약 장애 체험 검증 기록](docs/portfolio/results/long-spec-scheduled-experience-v1.md)으로 확인할 수 있습니다.
 
 ## 에이전트가 지원하는 범위
 
@@ -39,6 +41,9 @@ ADK Runtime과 권위 있는 FastAPI 조사 서비스를 기반으로 비공개 
 - 원문 질문, 사용자·세션 ID, evidence 본문을 저장하지 않는 가명화된 24시간 대화 문맥
 - 서버 소유 allowlist와 query builder로 생성한 Logging, Monitoring, Cloud Run revision,
   Agent Search 증거
+- 한국어 Gemini Enterprise 빠른 시작 프롬프트 칩과 30분마다 요청 단위로 실행되는
+  `dev payment-service` SCN-001 펄스. 최근 60분을 조사하면 별도 장애 준비 없이 실제 합성
+  탐지 흐름을 체험할 수 있습니다.
 
 최종 Gemini Enterprise Preview 검수에서는 통제된 합성 payment 장애를 발생시킨 뒤,
 한정된 metric 수집이 완료될 때까지 안전하게 기다리고 `SEV-2 / IDENTIFIED` 보고서를

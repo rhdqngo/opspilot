@@ -13,6 +13,7 @@ capture는 의도적으로 제외합니다.
 | 기록 | Status | 목적 |
 | --- | --- | --- |
 | [Formal agent v3](long-spec-formal-agent-v3.md) ([JSON](long-spec-formal-agent-v3.json)) | Passed | 최종 Gemini Enterprise Preview 양성 장애 탐지, localization correction, backend invariant와 278-test source-bound gate |
+| [Scheduled incident experience v1](long-spec-scheduled-experience-v1.md) ([JSON](long-spec-scheduled-experience-v1.json)) | Passed | 한국어 빠른 시작, 제한된 30분 SCN-001 실행, Preview 실제 탐지, 정상 상태 회귀, IAM 경계와 최종 무드리프트 계획 |
 
 ## Formal-agent 진행 이력
 

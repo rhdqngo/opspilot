@@ -15,11 +15,11 @@ Status: **formal agent deployed and Gemini Enterprise Preview QA verified**
 
 | Gate | Result |
 | --- | --- |
-| Python tests | 278/278 |
+| Python tests | 289/289 |
 | Core agent evaluation | 7/7 |
 | Portfolio evaluation | 40/40 |
 | Remediation evaluation | 12/12 |
-| Terraform tests | bootstrap 1/1, environment 8/8 |
+| Terraform tests | bootstrap 1/1, environment 10/10 |
 | Runtime packaging | two byte-identical 11-file archives |
 | Final infrastructure plan | `No changes` |
 
@@ -28,6 +28,8 @@ The current source of record is the sanitized
 with a machine-readable [JSON companion](docs/portfolio/results/long-spec-formal-agent-v3.json).
 Earlier release and QA records are retained in the
 [evidence index](docs/portfolio/results/README.md) as an audit trail.
+The optional scheduled-demo extension is verified separately in the
+[scheduled incident experience record](docs/portfolio/results/long-spec-scheduled-experience-v1.md).
 
 ## What the agent supports
 
@@ -41,6 +43,9 @@ Earlier release and QA records are retained in the
   evidence bodies.
 - Logging, Monitoring, Cloud Run revision, and Agent Search evidence selected through server-owned
   allowlists and query builders.
+- A Korean Gemini Enterprise quick-start prompt chip and a request-scoped `dev payment-service`
+  SCN-001 pulse every 30 minutes, so a 60-minute investigation can demonstrate live synthetic
+  detection without manual incident preparation.
 
 In the final Gemini Enterprise Preview pass, OpsPilot observed a controlled synthetic payment
 failure, safely waited for bounded metric ingestion, and then returned `SEV-2 / IDENTIFIED` with a

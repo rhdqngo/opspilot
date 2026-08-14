@@ -4,7 +4,7 @@
 
 status: formal_agent_verified
 phase: formal Incident Commander deployed and Gemini Enterprise Preview QA verified
-updated: 2026-08-14
+updated: 2026-08-15
 
 ## Verified product scope
 
@@ -26,6 +26,9 @@ updated: 2026-08-14
   recommendations.
 - The Runtime can create one eligible `WAITING_APPROVAL` rollback request only for
   `prod-sim payment-service`. Approval and execution remain in the isolated M8 control plane.
+- Gemini Enterprise publishes a Korean quick-start prompt chip. An opt-in, request-scoped SCN-001
+  Job runs against `dev payment-service` at minutes 5 and 35 so a recent 60-minute investigation
+  can demonstrate live synthetic detection without manual incident preparation.
 
 ## Deployment and permission boundary
 
@@ -40,6 +43,9 @@ updated: 2026-08-14
   boundaries remain separate, private, and negatively tested.
 - The final feature correction changed only the investigation API in place. Runtime, IAM, M8,
   registration, data schema, and synthetic workloads did not change in that cycle.
+- The scheduled experience uses two dedicated identities: the runner invokes only the dev order
+  workload, and the Scheduler trigger invokes only its Job. Neither receives project-wide invoker,
+  Token Creator, evidence, persistence, Runtime, or remediation permissions.
 
 ## Final validation
 
@@ -76,8 +82,12 @@ updated: 2026-08-14
   exposing raw cloud or browser identifiers.
 - Korean mirrors cover the README and every portfolio document linked from its documentation table;
   English remains the canonical technical contract and both entrypoints cross-link explicitly.
-- Sanitized evidence: [formal-agent v3](../portfolio/results/long-spec-formal-agent-v3.md) and the
-  [verification evidence index](../portfolio/results/README.md).
+- The scheduled experience passed manual and automatic `5/5 -> 4/6 -> 5/5` execution, a positive
+  60-minute Preview investigation, a healthy one-minute regression, 289/289 pytest, Terraform dev
+  10/10, and final bootstrap/dev `No changes` plans.
+- Sanitized evidence: [formal-agent v3](../portfolio/results/long-spec-formal-agent-v3.md),
+  [scheduled incident experience v1](../portfolio/results/long-spec-scheduled-experience-v1.md),
+  and the [verification evidence index](../portfolio/results/README.md).
 
 ## External non-blocking item
 
@@ -89,6 +99,8 @@ updated: 2026-08-14
 
 - Treat the deployed formal agent as the release baseline.
 - Use the root README and verification evidence index as the portfolio documentation entrypoints.
+- Keep the scheduled scenario enabled for the bounded educational demo; pause it through the
+  documented runbook when the experience is not required.
 - Resume only for a new requirement, a reproducible product defect, or a provider incident that
   violates the documented transient policy.
 - Keep raw browser captures, cloud identifiers, and execution mappings under `.tmp` only.

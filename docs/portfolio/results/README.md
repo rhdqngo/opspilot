@@ -12,6 +12,7 @@ trace/run/investigation IDs, and browser captures are intentionally excluded.
 | Record | Status | Purpose |
 | --- | --- | --- |
 | [Formal agent v3](long-spec-formal-agent-v3.md) ([JSON](long-spec-formal-agent-v3.json)) | Passed | Final positive Gemini Enterprise Preview incident detection, localization correction, backend invariants, and 278-test source-bound gate |
+| [Scheduled incident experience v1](long-spec-scheduled-experience-v1.md) ([JSON](long-spec-scheduled-experience-v1.json)) | Passed | Korean quick start, bounded 30-minute SCN-001 execution, live Preview detection, healthy-state regression, IAM boundaries, and final no-drift plans |
 
 ## Formal-agent progression
 

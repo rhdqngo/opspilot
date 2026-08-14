@@ -4,7 +4,7 @@
 
 status: formal_agent_verified
 phase: formal Incident Commander 배포 및 Gemini Enterprise Preview QA 검증 완료
-updated: 2026-08-14
+updated: 2026-08-15
 
 ## 검증된 제품 범위
 
@@ -26,6 +26,9 @@ updated: 2026-08-14
   healthy/inconclusive report를 반환합니다.
 - Runtime은 `prod-sim payment-service`에 대해서만 적격한 `WAITING_APPROVAL` rollback 요청
   하나를 만들 수 있습니다. Approval과 execution은 isolated M8 control plane에 남습니다.
+- Gemini Enterprise에는 한국어 빠른 시작 프롬프트 칩이 게시되어 있습니다. 선택적으로
+  활성화한 요청 단위 SCN-001 Job이 매시 5분과 35분에 `dev payment-service`를 대상으로
+  실행되어, 최근 60분 조사로 별도 준비 없이 실제 합성 탐지를 체험할 수 있습니다.
 
 ## 배포 및 권한 경계
 
@@ -40,6 +43,9 @@ updated: 2026-08-14
   executor boundary는 분리·비공개 상태이며 negative test를 통과했습니다.
 - 최종 feature correction은 investigation API만 in-place로 변경했습니다. Runtime, IAM, M8,
   registration, data schema와 synthetic workload는 해당 cycle에서 변경하지 않았습니다.
+- 예약 체험은 두 전용 identity를 사용합니다. Runner는 dev order workload만 호출하고
+  Scheduler trigger는 전용 Job만 호출합니다. Project-wide invoker, Token Creator, evidence,
+  persistence, Runtime 또는 remediation 권한은 추가하지 않았습니다.
 
 ## 최종 검증
 
@@ -78,7 +84,10 @@ updated: 2026-08-14
   게시합니다.
 - README와 documentation table의 모든 portfolio 문서에 한국어 mirror를 제공하고,
   English를 canonical technical contract로 유지하면서 두 진입점을 명시적으로 연결합니다.
+- 예약 체험은 수동·자동 `5/5 -> 4/6 -> 5/5` 실행, Preview 60분 양성 조사, 1분 정상 상태
+  회귀, pytest 289/289, Terraform dev 10/10과 최종 bootstrap/dev `No changes`를 통과했습니다.
 - 정제된 증빙: [formal-agent v3](../portfolio/results/long-spec-formal-agent-v3.md),
+  [scheduled incident experience v1](../portfolio/results/long-spec-scheduled-experience-v1.md),
   [한국어 검증 증빙 색인](../portfolio/results/README.ko.md)
 
 ## 외부 비차단 항목
@@ -91,6 +100,8 @@ updated: 2026-08-14
 
 - 배포된 formal agent를 release baseline으로 취급합니다.
 - Root README와 verification evidence index를 portfolio documentation 진입점으로 사용합니다.
+- 교육용 체험이 필요할 때만 예약 시나리오를 활성 상태로 유지하고, 필요하지 않을 때는
+  운영 runbook 절차로 일시중지합니다.
 - 새 요구사항, 재현 가능한 product defect 또는 documented transient policy를 위반한
   provider incident가 있을 때만 작업을 재개합니다.
 - Raw browser capture, cloud identifier와 execution mapping은 `.tmp`에만 보관합니다.

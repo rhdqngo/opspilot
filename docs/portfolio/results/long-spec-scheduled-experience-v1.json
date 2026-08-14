@@ -1,0 +1,88 @@
+{
+  "schema_version": "long-spec-scheduled-experience-v1",
+  "generated_at": "2026-08-14T16:29:35Z",
+  "status": "passed",
+  "source": {
+    "commit": "f176287b642eba5650c3f530bea6e3c4c7f9cb8c",
+    "source_bound": true
+  },
+  "experience": {
+    "prompt_chip_visible": true,
+    "prompt_chip_language": "ko",
+    "prompt_count": 4,
+    "schedule": "5,35 * * * *",
+    "time_zone": "Asia/Seoul",
+    "maximum_runs_per_day": 48,
+    "order_requests_per_run": 20,
+    "maximum_order_requests_per_day": 960,
+    "target": "dev payment-service",
+    "request_scoped_fault_only": true
+  },
+  "scenario": {
+    "manual_execution_passed": true,
+    "scheduled_execution_passed": true,
+    "scheduled_attempt_matched_execution": true,
+    "baseline": "5/5",
+    "incident_fulfilled": 4,
+    "incident_failed": 6,
+    "recovery": "5/5",
+    "recovered": true,
+    "ground_truth_matched": true
+  },
+  "preview_qa": {
+    "positive_window_minutes": 60,
+    "same_deployment_reruns": "2/2",
+    "top_hypothesis": "PAYMENT_DB_POOL_EXHAUSTION",
+    "hypothesis_ids": ["H-01", "H-02"],
+    "evidence_types": ["LOG", "METRIC", "KNOWLEDGE"],
+    "recommendation_categories": ["CONTAINMENT", "MITIGATION", "ROOT_FIX"],
+    "all_changes_require_approval": true,
+    "citation_integrity": true,
+    "healthy_window_minutes": 1,
+    "healthy_hypotheses": 0,
+    "healthy_changing_recommendations": 0,
+    "initial_safe_failure_classification": "provider_runtime_transient"
+  },
+  "iam": {
+    "runner_invokes_dev_order_only": true,
+    "trigger_invokes_job_only": true,
+    "public_invoker_absent": true,
+    "project_wide_invoker_absent": true,
+    "token_creator_absent": true,
+    "runtime_identity_unchanged": true,
+    "remediation_identity_unchanged": true
+  },
+  "deployment": {
+    "bootstrap_change": "one bounded custom-role update",
+    "scheduled_addresses_added": 7,
+    "partial_apply_recovered": true,
+    "job_memory": "512Mi",
+    "job_max_retries": 0,
+    "scheduler_retry_count": 0,
+    "bootstrap_terraform_no_changes": true,
+    "dev_terraform_no_changes": true
+  },
+  "local_gates": {
+    "pytest": "289/289",
+    "ruff_format": true,
+    "ruff_check": true,
+    "mypy": true,
+    "build": true,
+    "core_evaluation": "7/7",
+    "portfolio_evaluation": "40/40",
+    "remediation_evaluation": "12/12",
+    "terraform_bootstrap": "1/1",
+    "terraform_dev": "10/10",
+    "runtime_packages_byte_identical": true
+  },
+  "omitted": [
+    "cloud_project",
+    "service_urls",
+    "service_identities",
+    "image_digest",
+    "job_and_scheduler_ids",
+    "runtime_resource_name",
+    "trace_run_investigation_ids",
+    "browser_capture"
+  ]
+}
