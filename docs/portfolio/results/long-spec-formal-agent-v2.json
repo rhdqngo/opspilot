@@ -1,0 +1,59 @@
+{
+  "schema_version": "long-spec-formal-agent-v2",
+  "generated_at": "2026-08-14T11:55:34Z",
+  "status": "passed",
+  "source": {
+    "commit": "a72f137c9be9af9e7707defcb7a324cc80a1ca22",
+    "main_matches_origin": true,
+    "clean_at_release": true
+  },
+  "local_gates": {
+    "pytest": "277/277",
+    "ruff_format": true,
+    "ruff_check": true,
+    "mypy_source_files": 92,
+    "build": true,
+    "core_evaluation": "7/7",
+    "portfolio_evaluation": "40/40",
+    "remediation_evaluation": "12/12",
+    "terraform_bootstrap": "1/1",
+    "terraform_dev": "8/8",
+    "runtime_packages_byte_identical": true
+  },
+  "deployment": {
+    "add": 0,
+    "change": 1,
+    "destroy": 0,
+    "investigation_api_only": true,
+    "cloud_run_ready": true,
+    "terraform_no_changes": true
+  },
+  "preview_qa": {
+    "three_service_investigation": true,
+    "same_session_three_line_summary": true,
+    "capability_guidance": true,
+    "actual_production_rejection": true,
+    "summary_defect_detected_and_corrected": true,
+    "post_fix_regression_passed": true,
+    "initial_capability_provider_transient": true,
+    "same_deployment_capability_reruns": "2/2"
+  },
+  "backend_invariants": {
+    "runtime_stages": 4,
+    "tool_events": 12,
+    "unique_tools": 4,
+    "trace_linked": true,
+    "correlation_linked": true,
+    "task_attempts": 1,
+    "report_version": 1
+  },
+  "omitted": [
+    "cloud_project",
+    "service_urls",
+    "identities",
+    "image_digest",
+    "runtime_resource_name",
+    "trace_run_investigation_ids",
+    "browser_capture"
+  ]
+}

@@ -55,12 +55,16 @@ updated: 2026-08-14
   investigation, a same-session concise follow-up, localized capability guidance, and explicit
   actual-production rejection. Investigations emitted one progress and one final; immediate turns
   emitted one final only.
+- A final live regression pass found and corrected the concise healthy-report summary so that it
+  now returns status, localized user impact, and conclusion instead of claiming that an unrequested
+  hypothesis was missing. The exact Preview phrase is covered by the 277-test source-bound gate and
+  passed after an API-only in-place update.
 - The final investigation linked four Runtime stages and four unique tool events to one
   investigation, one task attempt, and report version 1 with shared trace/correlation identity.
   Application payload scans found no raw sentinel, identity, project, URL, or permission error.
 - Cloud Run is Ready and the final Terraform plan using the same image digest and Runtime archive
   reports `No changes`.
-- Sanitized evidence: [long-spec-formal-agent-v1.md](../portfolio/results/long-spec-formal-agent-v1.md).
+- Sanitized evidence: [long-spec-formal-agent-v2.md](../portfolio/results/long-spec-formal-agent-v2.md).
 
 ## External non-blocking item
 
