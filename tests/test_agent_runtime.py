@@ -14,6 +14,7 @@ import pytest
 from google.adk.agents import InvocationContext
 from google.adk.runners import InMemoryRunner
 from google.adk.sessions import InMemorySessionService
+from google.auth.transport.requests import Request as AuthRequest
 from google.genai import types
 from google.oauth2 import id_token
 from vertexai import agent_engines
@@ -243,6 +244,33 @@ def test_runtime_reuses_identity_token_within_its_safe_lifetime(
     runtime_module._ID_TOKEN_CACHE.clear()
 
 
+def test_runtime_identity_token_transport_caps_each_request_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    timeouts: list[float] = []
+
+    def send(
+        _self: object,
+        _url: str,
+        *,
+        method: str = "GET",
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float = 120,
+        **_kwargs: object,
+    ) -> object:
+        del method, body, headers
+        timeouts.append(timeout)
+        return object()
+
+    monkeypatch.setattr(AuthRequest, "__call__", send)
+    request = runtime_module._BoundedAuthRequest()
+
+    request("https://metadata.invalid", timeout=120)
+
+    assert timeouts == [runtime_module.ID_TOKEN_REQUEST_TIMEOUT_SECONDS]
+
+
 def test_runtime_write_retries_only_with_an_idempotency_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -414,7 +442,7 @@ async def test_enterprise_session_uses_ephemeral_state_and_hides_identifiers() -
     serialized = json.dumps(events)
 
     converted = _converted_events(events)
-    assert len(events) == 1
+    assert len(events) == 2
     assert len(converted) == 2
     assert converted[0]["partial"] is True
     assert converted[1]["turn_complete"] is True
@@ -474,7 +502,7 @@ async def test_runtime_exception_emits_fixed_safe_final_event(
     serialized = json.dumps(chunks)
 
     converted = _converted_events(chunks)
-    assert len(chunks) == 1
+    assert len(chunks) == 2
     assert len(converted) == 2
     assert converted[1]["content"]["parts"][0]["text"] == RUNTIME_FAILURE_TEXT
     assert "private-user" not in serialized
@@ -617,7 +645,7 @@ async def test_concurrent_enterprise_requests_keep_events_and_logs_private(
     serialized = json.dumps(results)
 
     assert calls == 20
-    assert all(len(chunks) == 1 for chunks in results)
+    assert all(len(chunks) == 2 for chunks in results)
     assert all(len(_converted_events(chunks)) == 2 for chunks in results)
     assert len(accepted_logs) == 20 and len(summary_logs) == 20
     assert len({item["run_id"] for item in accepted_logs}) == 20

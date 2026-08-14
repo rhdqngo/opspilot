@@ -106,6 +106,7 @@ _EXTERNAL_RUNTIME_SESSION_ID: ContextVar[str | None] = ContextVar(
 )
 _ID_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
 _ID_TOKEN_CACHE_LOCK = threading.Lock()
+ID_TOKEN_REQUEST_TIMEOUT_SECONDS = 3.0
 
 
 @contextmanager
@@ -135,6 +136,28 @@ def _token_expiry(token: str, *, now: float) -> float:
         return now + 300
 
 
+class _BoundedAuthRequest(AuthRequest):
+    """Cap metadata and credential HTTP calls below the Runtime deadline."""
+
+    def __call__(
+        self,
+        url: str,
+        method: str = "GET",
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float = 120,
+        **kwargs: object,
+    ) -> object:
+        return super().__call__(  # type: ignore[no-untyped-call]
+            url,
+            method=method,
+            body=body,
+            headers=headers,
+            timeout=min(float(timeout), ID_TOKEN_REQUEST_TIMEOUT_SECONDS),
+            **kwargs,
+        )
+
+
 def _fetch_cached_id_token(audience: str) -> str:
     """Reuse a short-lived identity token to avoid metadata latency on every turn."""
 
@@ -147,7 +170,24 @@ def _fetch_cached_id_token(audience: str) -> str:
         cached = _ID_TOKEN_CACHE.get(audience)
         if cached is not None and cached[1] > now + 60:
             return cached[0]
-        token = str(id_token.fetch_id_token(AuthRequest(), audience))  # type: ignore[no-untyped-call]
+
+        def fetch_token() -> str:
+            return str(
+                id_token.fetch_id_token(  # type: ignore[no-untyped-call]
+                    _BoundedAuthRequest(), audience
+                )
+            )
+
+        token = run_with_retry(
+            fetch_token,
+            should_retry=lambda error: isinstance(error, (GoogleAuthError, OSError, TimeoutError)),
+            policy=RetryPolicy(
+                max_attempts=3,
+                base_delay_seconds=0.1,
+                max_delay_seconds=0.5,
+                deadline_seconds=10,
+            ),
+        )
         _ID_TOKEN_CACHE[audience] = (token, _token_expiry(token, now=now))
         return token
 

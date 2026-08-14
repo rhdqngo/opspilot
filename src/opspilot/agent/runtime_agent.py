@@ -88,6 +88,7 @@ class OpsPilotRuntimeApp(agent_engines.AdkApp):
                 response["session_id"] = response_session_id
             if response:
                 yield response
+                yield {"events": []}
 
 
 def create_ephemeral_session_service() -> InMemorySessionService:

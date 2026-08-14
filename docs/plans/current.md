@@ -45,12 +45,12 @@ updated: 2026-08-14
   report while preserving the original actor hash and idempotency key. Approval and execution stay
   exclusively in the existing M8 control plane and Workflow.
 
-Current candidate validation: 263/263 pytest, Ruff format/check, strict mypy over 92 source files,
+Current candidate validation: 264/264 pytest, Ruff format/check, strict mypy over 92 source files,
 package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap 1/1 and dev 8/8
 pass. Two 11-file Runtime packages are byte-identical. The four-phase Terraform plan guard rejects
 cross-phase addresses, unreviewed replacements, public invokers, and image/Runtime hash drift.
 The current local Runtime archive SHA-256 is
-`6c04a53376fde11fd7c37d9a59d6d3acbb1f2120780f61421266b3520e4e2d5d`.
+`fc02f8a8acf7b60dd9eef14d2a621a5ea079ae597e7340dff1b5b57b769aa1ad`.
 Managed deployment, three-environment smoke, conversational Preview QA, and final Terraform
 `No changes` remain required before `formal_agent_verified`.
 
@@ -81,8 +81,12 @@ deepening, and version comparison now retain context and return the expected eve
 Independent dev retries both passed, but one multi-service retry still lost the second transport
 chunk even though Runtime logged `final_emitted` after 8.2 seconds. The next candidate preserves the
 ordered progress/final events while batching them into one atomic Agent Engine response chunk, so
-the provider cannot deliver progress while dropping a later final chunk. Local Runtime and full
-repository gates pass; a new source-bound Runtime-only cycle is pending.
+the provider cannot deliver progress while dropping a later final chunk. Managed retries confirmed
+that atomic batching removed progress-only delivery, but also exposed two remaining tail risks: an
+entire last data chunk can be dropped, and a cold metadata identity-token fetch can consume the
+Runtime deadline before the API call starts. The next candidate appends a non-visible empty trailer
+after the atomic data chunk and caps each credential transport attempt at three seconds with bounded
+retry. Local Runtime and full repository gates pass; a source-bound Runtime-only cycle is pending.
 
 ## Long-spec defect remediation
 
