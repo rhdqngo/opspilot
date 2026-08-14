@@ -1,7 +1,7 @@
 # Current Project State
 
-status: enterprise_qa_blocked
-phase: Application and backend gates pass; Gemini Enterprise Preview repeatedly fails final delivery
+status: enterprise_qa_remediating
+phase: Buffered managed Runtime delivery candidate passed all local release gates
 updated: 2026-08-14
 
 ## Completed product scope
@@ -92,6 +92,13 @@ updated: 2026-08-14
   `No changes`.
 - Sanitized iterative evidence:
   [long-spec-enterprise-qa-v2.md](../portfolio/results/long-spec-enterprise-qa-v2.md).
+- QA v3 stopped before its Preview canary because the direct Runtime SDK received only progress for
+  45.270 seconds. Runtime still recorded `timeout` and `final_emitted`, while Firestore completed one
+  task and report v1 with linked trace/correlation IDs. No browser query or deployment occurred.
+- Candidate 1 remains deployed. After a scale-to-zero `3/5` first probe, warm normal traffic passed
+  `5/5`; Cloud Run is Ready and Terraform remains `No changes`.
+- Sanitized v3 resume evidence:
+  [long-spec-enterprise-qa-v3.md](../portfolio/results/long-spec-enterprise-qa-v3.md).
 
 ## External non-blocking item
 
@@ -101,11 +108,11 @@ updated: 2026-08-14
 
 ## Next checkpoint
 
-- Wait for Gemini Enterprise Preview streaming to recover or obtain provider guidance for the
-  confirmed final-delivery failure. Do not change application code, Runtime, IAM, or registration
-  for this external condition.
-- When the provider boundary is healthy, deploy the already verified scenario warm-up candidate
-  with the same one-address plan, then restart the entire v2 matrix from three healthy chats.
+- Deploy the source-bound Runtime delivery candidate with exactly the investigation API and Runtime
+  in-place updates. It aligns the API/HTTP/Runtime deadlines and buffers the accepted result before
+  emitting progress and final back-to-back, removing the managed stream idle gap.
+- Require three consecutive direct SDK two-event calls before restarting the entire Preview matrix.
+  Keep IAM, registration, M8, and all other infrastructure unchanged.
 
 ## Deferred beyond this milestone
 

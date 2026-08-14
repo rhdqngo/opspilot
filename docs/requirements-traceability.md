@@ -12,7 +12,9 @@ The source-bound managed-environment verification is published in
 [`long-spec-preqa-v1.md`](portfolio/results/long-spec-preqa-v1.md). The executed Preview result is
 published in [`long-spec-enterprise-qa-v1.md`](portfolio/results/long-spec-enterprise-qa-v1.md);
 the iterative provider-blocked rerun is
-[`long-spec-enterprise-qa-v2.md`](portfolio/results/long-spec-enterprise-qa-v2.md).
+[`long-spec-enterprise-qa-v2.md`](portfolio/results/long-spec-enterprise-qa-v2.md), and the v3
+pre-canary resume failure is
+[`long-spec-enterprise-qa-v3.md`](portfolio/results/long-spec-enterprise-qa-v3.md).
 
 ## Functional requirements
 

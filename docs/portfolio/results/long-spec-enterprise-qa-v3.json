@@ -1,0 +1,41 @@
+{
+  "schema_version": "long-spec-enterprise-qa-v3",
+  "generated_at": "2026-08-14",
+  "status": "blocked_before_preview_canary",
+  "source_commit": "286fe06fee59eedd5fb56ce5556aff9cae7a19ab",
+  "resume_gate": {
+    "gcloud_authenticated": true,
+    "application_default_credentials_authenticated": true,
+    "cloud_run_ready": true,
+    "public_invoker_absent": true,
+    "terraform_no_changes": true,
+    "runtime_direct_two_events": false
+  },
+  "direct_runtime_observation": {
+    "sdk_chunk_count": 1,
+    "progress_received": true,
+    "final_received": false,
+    "sdk_wait_ms": 45270,
+    "runtime_accepted": true,
+    "runtime_handler_started": true,
+    "runtime_run_summary": true,
+    "runtime_timeout": true,
+    "runtime_final_emitted": true,
+    "firestore_complete": true,
+    "task_attempts": 1,
+    "report_version": 1,
+    "trace_and_correlation_linked": true
+  },
+  "preview": {
+    "canary_submitted": false,
+    "additional_queries_submitted": 0,
+    "candidate_2_deployed": false
+  },
+  "exit_gate": {
+    "deployment_unchanged": true,
+    "cloud_run_ready": true,
+    "warm_healthy_orders": "5/5",
+    "terraform_no_changes": true
+  },
+  "blocking_finding": "Managed Runtime final delivery remains unhealthy before the Preview canary; retry only after the direct SDK returns progress and final."
+}
