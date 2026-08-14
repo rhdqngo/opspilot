@@ -245,6 +245,16 @@ def test_runtime_v2_treats_depth_as_new_scope_and_recognizes_capability_wording(
         assert capabilities.json()["intent"] == "SHOW_CAPABILITIES"
         assert capabilities.json()["started_investigation"] is False
 
+        korean_capability_query = "지원하는 서비스, 환경, 시간 범위와 가능한 작업을 알려줘"
+        korean_capabilities = client.post(
+            "/internal/v2/runtime/turns",
+            json=_runtime_turn_payload(korean_capability_query, "CB"),
+        )
+        assert korean_capabilities.status_code == 200
+        assert korean_capabilities.json()["intent"] == "SHOW_CAPABILITIES"
+        assert korean_capabilities.json()["started_investigation"] is False
+        assert "prod-sim" in korean_capabilities.json()["markdown"]
+
 
 def test_runtime_v2_returns_specific_final_only_rejections_and_capabilities() -> None:
     with TestClient(create_app()) as client:

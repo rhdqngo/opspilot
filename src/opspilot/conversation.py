@@ -12,7 +12,9 @@ from opspilot.service import AgentTurnIntent, ConversationContext
 _CAPABILITY = re.compile(
     r"\b(?:help|capabilit(?:y|ies)|what can you do|"
     r"what (?:services|environments|time ranges|actions).{0,120}\bsupport)\b|"
-    r"기능|무엇을.*할 수",
+    r"기능|무엇을.*할 수|"
+    r"지원(?:하(?:는|나요|는지)?|되(?:는|나요)?)?\s*(?:서비스|환경|시간|범위|작업)|"
+    r"가능한\s*(?:작업|기능|조사)",
     re.I,
 )
 _COMPARE = re.compile(
