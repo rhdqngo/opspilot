@@ -36,6 +36,7 @@ from opspilot.agent.runtime_agent import (
     create_runtime_app,
     root_agent,
 )
+from opspilot.audit import audit_hash
 from opspilot.domain import OutputLanguage
 
 
@@ -223,6 +224,27 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
     ]
 
 
+def test_runtime_reuses_identity_token_within_its_safe_lifetime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def fetch(*_: object) -> str:
+        nonlocal calls
+        calls += 1
+        return "synthetic-token"
+
+    runtime_module._ID_TOKEN_CACHE.clear()
+    monkeypatch.setattr(id_token, "fetch_id_token", fetch)
+
+    first = runtime_module._fetch_cached_id_token("https://cache-audience.invalid")
+    second = runtime_module._fetch_cached_id_token("https://cache-audience.invalid")
+
+    assert first == second == "synthetic-token"
+    assert calls == 1
+    runtime_module._ID_TOKEN_CACHE.clear()
+
+
 def test_runtime_write_retries_only_with_an_idempotency_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -371,7 +393,10 @@ async def test_runtime_buffers_progress_until_handler_completes() -> None:
 
 @pytest.mark.asyncio
 async def test_enterprise_session_uses_ephemeral_state_and_hides_identifiers() -> None:
-    async def handler(_decision: object) -> RuntimeInvocationResult:
+    decisions: list[Any] = []
+
+    async def handler(decision: object) -> RuntimeInvocationResult:
+        decisions.append(decision)
         return RuntimeInvocationResult(
             accepted=True,
             succeeded=True,
@@ -395,6 +420,40 @@ async def test_enterprise_session_uses_ephemeral_state_and_hides_identifiers() -
     assert _single_converted_event(events[1])["turn_complete"] is True
     assert "private-enterprise-user" not in serialized
     assert request_text not in serialized
+    decision = decisions[0]
+    assert decision.actor_hash == audit_hash("enterprise_actor", "private-enterprise-user")
+    assert decision.session_hash == audit_hash("enterprise_session", "private-session")
+
+
+@pytest.mark.asyncio
+async def test_enterprise_follow_up_reuses_external_session_hash() -> None:
+    decisions: list[Any] = []
+
+    async def handler(decision: object) -> RuntimeInvocationResult:
+        decisions.append(decision)
+        return RuntimeInvocationResult(
+            accepted=True,
+            succeeded=True,
+            output_markdown="# Safe report\n",
+            started_investigation=True,
+            progress_markdown="Collecting bounded evidence...\n",
+        )
+
+    app = _local_runtime_app(handler)
+    for query in (
+        "payment-service recent 30 minutes status analyze",
+        "Summarize that report",
+    ):
+        _ = [
+            event
+            async for event in app.streaming_agent_run_with_events(
+                _request_json(query, session="stable-enterprise-chat")
+            )
+        ]
+
+    assert len(decisions) == 2
+    assert decisions[0].session_hash == decisions[1].session_hash
+    assert decisions[0].session_hash == audit_hash("enterprise_session", "stable-enterprise-chat")
 
 
 @pytest.mark.asyncio
@@ -615,6 +674,7 @@ def test_packaged_entrypoint_is_narrow_adk_app() -> None:
     assert isinstance(root_agent, OpsPilotRuntimeApp)
     assert isinstance(create_ephemeral_session_service(), InMemorySessionService)
     assert root_agent.register_operations() == {"async_stream": ["streaming_agent_run_with_events"]}
+    assert root_agent._telemetry_enabled() is False
     assert callable(root_agent.streaming_agent_run_with_events)
 
 

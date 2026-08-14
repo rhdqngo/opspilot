@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
+from collections.abc import AsyncGenerator
+from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -34,6 +37,7 @@ from vertexai import agent_engines  # noqa: E402
 
 from opspilot.agent.runtime import (  # noqa: E402
     RuntimeHandler,
+    bind_external_runtime_identity,
     create_runtime_root_agent,
     run_live_runtime_investigation,
 )
@@ -45,9 +49,29 @@ class OpsPilotRuntimeApp(agent_engines.AdkApp):
     def register_operations(self) -> dict[str, list[str]]:
         return {"async_stream": ["streaming_agent_run_with_events"]}
 
+    def _telemetry_enabled(self) -> bool:
+        """Use bounded stdout audit events without blocking the response on OTEL flush."""
+
+        return False
+
+    async def streaming_agent_run_with_events(
+        self, request_json: str
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Preserve the stable external session key across ADK session creation."""
+
+        request = json.loads(request_json)
+        user_id = request.get("user_id") or request.get("userId")
+        session_id = request.get("session_id") or request.get("sessionId")
+        with bind_external_runtime_identity(
+            user_id=str(user_id) if user_id else None,
+            session_id=str(session_id) if session_id else None,
+        ):
+            async for event in super().streaming_agent_run_with_events(request_json):
+                yield event
+
 
 def create_ephemeral_session_service() -> InMemorySessionService:
-    """Keep the single-turn MVP independent of managed Agent Platform Sessions."""
+    """Keep ADK event state ephemeral; the API owns minimal durable conversation context."""
     return InMemorySessionService()  # type: ignore[no-untyped-call]
 
 
@@ -55,7 +79,7 @@ def create_runtime_app(
     *,
     handler: RuntimeHandler = run_live_runtime_investigation,
 ) -> OpsPilotRuntimeApp:
-    """Create the fixed-scope Enterprise Runtime application."""
+    """Create the bounded conversational Enterprise Runtime application."""
     return OpsPilotRuntimeApp(
         agent=create_runtime_root_agent(handler=handler),
         app_name="opspilot_runtime",

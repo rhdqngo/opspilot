@@ -336,7 +336,7 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
   project         = var.project_id
   region          = var.region
   display_name    = "OpsPilot Incident Commander"
-  description     = "Fixed-scope read-only payment-service incident investigation runtime."
+  description     = "Bounded conversational incident commander for synthetic operations data."
   labels          = local.labels
   deletion_policy = "PREVENT"
 

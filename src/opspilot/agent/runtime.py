@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import gzip
 import hashlib
 import io
@@ -11,7 +12,11 @@ import logging
 import os
 import re
 import tarfile
-from collections.abc import AsyncGenerator, Awaitable, Callable
+import threading
+import time
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from time import perf_counter
 from typing import Literal, NamedTuple
@@ -92,6 +97,59 @@ RUNTIME_SOURCE_ALLOWLIST = (
     "opspilot/resources/services.yaml",
     "opspilot/retry.py",
 )
+
+_EXTERNAL_RUNTIME_USER_ID: ContextVar[str | None] = ContextVar(
+    "opspilot_external_runtime_user_id", default=None
+)
+_EXTERNAL_RUNTIME_SESSION_ID: ContextVar[str | None] = ContextVar(
+    "opspilot_external_runtime_session_id", default=None
+)
+_ID_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
+_ID_TOKEN_CACHE_LOCK = threading.Lock()
+
+
+@contextmanager
+def bind_external_runtime_identity(
+    *, user_id: str | None, session_id: str | None
+) -> Iterator[None]:
+    """Bind managed request identifiers only for the lifetime of one invocation."""
+
+    user_token = _EXTERNAL_RUNTIME_USER_ID.set(user_id)
+    session_token = _EXTERNAL_RUNTIME_SESSION_ID.set(session_id)
+    try:
+        yield
+    finally:
+        _EXTERNAL_RUNTIME_SESSION_ID.reset(session_token)
+        _EXTERNAL_RUNTIME_USER_ID.reset(user_token)
+
+
+def _token_expiry(token: str, *, now: float) -> float:
+    """Read only the JWT expiry for local caching; token validation stays server-side."""
+
+    try:
+        payload = token.split(".")[1]
+        padded = payload + "=" * (-len(payload) % 4)
+        decoded = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+        return float(decoded["exp"])
+    except (IndexError, KeyError, TypeError, ValueError, UnicodeDecodeError):
+        return now + 300
+
+
+def _fetch_cached_id_token(audience: str) -> str:
+    """Reuse a short-lived identity token to avoid metadata latency on every turn."""
+
+    now = time.time()
+    cached = _ID_TOKEN_CACHE.get(audience)
+    if cached is not None and cached[1] > now + 60:
+        return cached[0]
+    with _ID_TOKEN_CACHE_LOCK:
+        now = time.time()
+        cached = _ID_TOKEN_CACHE.get(audience)
+        if cached is not None and cached[1] > now + 60:
+            return cached[0]
+        token = str(id_token.fetch_id_token(AuthRequest(), audience))  # type: ignore[no-untyped-call]
+        _ID_TOKEN_CACHE[audience] = (token, _token_expiry(token, now=now))
+        return token
 
 
 class RuntimeInputDecision(BaseModel):
@@ -306,7 +364,7 @@ async def _run_api_runtime_investigation(
 
     audience = os.getenv("OPSPILOT_INVESTIGATION_API_AUDIENCE", api_url).strip()
     try:
-        token = await asyncio.to_thread(id_token.fetch_id_token, AuthRequest(), audience)
+        token = await asyncio.to_thread(_fetch_cached_id_token, audience)
         status, body = await asyncio.to_thread(
             _api_request,
             f"{api_url}/internal/v2/runtime/turns",
@@ -416,8 +474,12 @@ class OpsPilotRuntimeAgent(BaseAgent):
         started_clock = perf_counter()
         input_text = _content_text(context.user_content)
         decision = validate_runtime_api_input(input_text)
-        user_id = str(getattr(context.session, "user_id", "") or "")
-        session_id = str(getattr(context.session, "id", "") or "")
+        user_id = _EXTERNAL_RUNTIME_USER_ID.get() or str(
+            getattr(context.session, "user_id", "") or ""
+        )
+        session_id = _EXTERNAL_RUNTIME_SESSION_ID.get() or str(
+            getattr(context.session, "id", "") or ""
+        )
         decision = decision.model_copy(
             update={
                 "actor_hash": (audit_hash("enterprise_actor", user_id) if user_id else None),

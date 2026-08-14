@@ -45,12 +45,12 @@ updated: 2026-08-14
   report while preserving the original actor hash and idempotency key. Approval and execution stay
   exclusively in the existing M8 control plane and Workflow.
 
-Current candidate validation: 258/258 pytest, Ruff format/check, strict mypy over 92 source files,
+Current candidate validation: 263/263 pytest, Ruff format/check, strict mypy over 92 source files,
 package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap 1/1 and dev 8/8
 pass. Two 11-file Runtime packages are byte-identical. The four-phase Terraform plan guard rejects
 cross-phase addresses, unreviewed replacements, public invokers, and image/Runtime hash drift.
 The current local Runtime archive SHA-256 is
-`01aeb775fe76385edae28ee439a0e981a1fcade35ee9da66c43a92b6b3e3e9b0`.
+`cfcbe4615d643e5a2fb308f000406317a36493f6332b954d51d1a45e7985c28b`.
 Managed deployment, three-environment smoke, conversational Preview QA, and final Terraform
 `No changes` remain required before `formal_agent_verified`.
 
@@ -69,7 +69,14 @@ recovery in dev, staging, and prod-sim. The first conversational matrix found th
 intake defects before Preview promotion: depth words were treated as follow-up intent even on a
 complete new scope, natural capability wording was missed, and `qa` in a synthetic email local
 part was treated as the staging alias. The fixes and regression tests pass locally; a new
-source-bound image/Runtime cycle and full managed matrix rerun are required.
+source-bound image/Runtime cycle was deployed. The managed matrix then exposed two transport-layer
+defects: ADK replaced a caller-supplied session ID with an internal generated ID before the Runtime
+hashed it, and Agent Engine's per-request OTEL force-flush delayed stream completion long enough for
+the gateway to drop a final event. The next candidate binds the external user/session identifiers
+only within the invocation before hashing, keeps durable context in Firestore, disables the blocking
+ADK flush while retaining privacy-safe stdout audit events, and caches short-lived Runtime bridge ID
+tokens in memory. Its full local gate and two-package reproducibility check pass; managed deployment
+and the complete conversation matrix rerun remain pending.
 
 ## Long-spec defect remediation
 
