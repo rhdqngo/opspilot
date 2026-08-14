@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
@@ -34,7 +35,19 @@ DEV_ADDRESSES = frozenset(
 
 
 def _read(path: Path) -> dict[str, object]:
-    value = json.loads(path.read_text(encoding="utf-8"))
+    if path.suffix == ".tfplan":
+        completed = subprocess.run(
+            ["terraform", "show", "-json", str(path)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if completed.returncode != 0:
+            raise ValueError("terraform show failed for the binary plan")
+        value = json.loads(completed.stdout)
+    else:
+        value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise ValueError("Terraform plan JSON must be an object")
     return cast(dict[str, object], value)
