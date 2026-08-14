@@ -16,6 +16,10 @@ def _normalize_agent_engine_project() -> None:
     """Replace Agent Engine's numeric project hint before Vertex SDK initialization."""
 
     configured = os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
+    explicit = os.getenv("OPSPILOT_RUNTIME_PROJECT_ID", "").strip()
+    if re.fullmatch(r"[a-z][a-z0-9-]{4,28}[a-z0-9]", explicit):
+        os.environ["GOOGLE_CLOUD_PROJECT"] = explicit
+        return
     if not configured.isdigit():
         return
     request = Request(

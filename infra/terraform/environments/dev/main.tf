@@ -369,6 +369,11 @@ resource "google_vertex_ai_reasoning_engine" "opspilot" {
         value = "true"
       }
 
+      env {
+        name  = "OPSPILOT_RUNTIME_PROJECT_ID"
+        value = var.project_id
+      }
+
       dynamic "env" {
         for_each = var.enable_persistent_investigations ? [1] : []
         content {

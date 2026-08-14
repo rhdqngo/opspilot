@@ -88,6 +88,22 @@ def test_agent_engine_normalizes_numeric_project_without_project_iam(
     assert os.environ["GOOGLE_CLOUD_PROJECT"] == "safe-project-id"
 
 
+def test_agent_engine_prefers_explicit_runtime_project_without_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "123456789012")
+    monkeypatch.setenv("OPSPILOT_RUNTIME_PROJECT_ID", "safe-runtime-project")
+
+    def unexpected_metadata(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("explicit runtime project must avoid metadata lookup")
+
+    monkeypatch.setattr("opspilot.agent.runtime_agent.urlopen", unexpected_metadata)
+
+    _normalize_agent_engine_project()
+
+    assert os.environ["GOOGLE_CLOUD_PROJECT"] == "safe-runtime-project"
+
+
 def test_enterprise_adapter_defers_scope_and_intent_to_the_api() -> None:
     explicit = validate_runtime_api_input(
         "order-service inventory-service 최근 120분 오류를 분석해줘"
