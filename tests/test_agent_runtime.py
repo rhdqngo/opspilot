@@ -227,6 +227,51 @@ def test_runtime_deadline_matches_the_managed_turn_contract() -> None:
     assert runtime_module.RUNTIME_API_TIMEOUT_SECONDS < runtime_module.RUNTIME_DEADLINE_SECONDS
 
 
+@pytest.mark.asyncio
+async def test_runtime_reconciles_an_ambiguous_transport_result_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[float, str | None]] = []
+    monkeypatch.setenv("OPSPILOT_INVESTIGATION_API_URL", "https://investigation.example")
+    monkeypatch.setattr(runtime_module, "_fetch_cached_id_token", lambda *_: "token")
+
+    def request(
+        _url: str,
+        *,
+        token: str,
+        method: str = "GET",
+        payload: dict[str, object] | None = None,
+        accept: str = "application/json",
+        timeout_seconds: float = 5,
+        trace_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> tuple[int, bytes]:
+        del token, method, payload, accept, trace_id
+        calls.append((timeout_seconds, idempotency_key))
+        if len(calls) == 1:
+            return 0, b""
+        return 200, json.dumps(
+            {
+                "outcome": "complete",
+                "accepted": True,
+                "started_investigation": True,
+                "markdown": "# Reconciled report\n",
+            }
+        ).encode()
+
+    monkeypatch.setattr(runtime_module, "_api_request", request)
+    decision = validate_runtime_api_input("dev all services last 15 minutes errors")
+
+    result = await run_live_runtime_investigation(decision)
+
+    assert result.succeeded is True
+    assert result.output_markdown == "# Reconciled report\n"
+    assert calls == [
+        (runtime_module.RUNTIME_API_TIMEOUT_SECONDS, decision.run_id),
+        (runtime_module.RUNTIME_API_RECONCILE_TIMEOUT_SECONDS, decision.run_id),
+    ]
+
+
 def test_runtime_identity_token_transport_caps_each_request_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -39,6 +39,7 @@ from opspilot.domain import OutputLanguage
 from opspilot.retry import RetryPolicy, run_with_retry
 
 RUNTIME_API_TIMEOUT_SECONDS = 32.0
+RUNTIME_API_RECONCILE_TIMEOUT_SECONDS = 12.0
 RUNTIME_DEADLINE_SECONDS = 75.0
 MIN_INPUT_CHARS = 3
 MAX_INPUT_CHARS = 500
@@ -412,11 +413,10 @@ def _execute_runtime_turn(
     """Run the identity lookup and API turn on the bounded bridge executor."""
 
     token = _fetch_cached_id_token(audience)
-    return _api_request(
-        f"{api_url}/internal/v2/runtime/turns",
-        token=token,
-        method="POST",
-        payload={
+    request_arguments: dict[str, Any] = {
+        "token": token,
+        "method": "POST",
+        "payload": {
             "query": decision.user_query,
             "mode": "STANDARD",
             "run_id": decision.run_id,
@@ -427,11 +427,23 @@ def _execute_runtime_turn(
             "query_hash": decision.query_hash,
             "output_language": decision.output_language.value,
         },
-        accept="application/json",
+        "accept": "application/json",
+        "trace_id": decision.trace_id,
+        "idempotency_key": decision.run_id,
+    }
+    endpoint = f"{api_url}/internal/v2/runtime/turns"
+    status, body = _api_request(
+        endpoint,
         timeout_seconds=RUNTIME_API_TIMEOUT_SECONDS,
-        trace_id=decision.trace_id,
-        idempotency_key=decision.run_id,
+        **request_arguments,
     )
+    if status == 0:
+        return _api_request(
+            endpoint,
+            timeout_seconds=RUNTIME_API_RECONCILE_TIMEOUT_SECONDS,
+            **request_arguments,
+        )
+    return status, body
 
 
 async def _run_api_runtime_investigation(
