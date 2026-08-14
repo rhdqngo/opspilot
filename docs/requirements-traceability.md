@@ -17,13 +17,13 @@ pre-canary resume failure is
 [`long-spec-enterprise-qa-v3.md`](portfolio/results/long-spec-enterprise-qa-v3.md). The final passing
 record is [`long-spec-enterprise-qa-v4.md`](portfolio/results/long-spec-enterprise-qa-v4.md).
 The source-bound formal-agent release and final conversational QA are published in
-[`long-spec-formal-agent-v2.md`](portfolio/results/long-spec-formal-agent-v2.md).
+[`long-spec-formal-agent-v3.md`](portfolio/results/long-spec-formal-agent-v3.md).
 
 ## Functional requirements
 
 | ID | Status | Lean MVP evidence or boundary |
 | --- | --- | --- |
-| FR-001 | Implemented | [`parser.py`](../src/opspilot/parser.py) parses one incident ID, three services and aliases, `dev`/`staging`/`prod-sim`, relative and explicit 1-120 minute windows, six symptoms, and three depths. Real production and conflicting scope are explicitly rejected; three-environment managed and Preview QA pass in the [formal-agent record](portfolio/results/long-spec-formal-agent-v2.md). |
+| FR-001 | Implemented | [`parser.py`](../src/opspilot/parser.py) parses one incident ID, three services and aliases, `dev`/`staging`/`prod-sim`, relative and explicit 1-120 minute windows, six symptoms, and three depths. Real production and conflicting scope are explicitly rejected; three-environment managed and positive Preview QA pass in the [formal-agent record](portfolio/results/long-spec-formal-agent-v3.md). |
 | FR-002 | Implemented | Missing service defaults to all three and missing time to 30 minutes; both assumptions are recorded. |
 | FR-003 | Implemented | Bounded Logging filter/client and live evidence tests. |
 | FR-004 | Implemented | Bounded error-ratio and latency Monitoring queries, including zero-point gaps. |
@@ -44,7 +44,7 @@ The source-bound formal-agent release and final conversational QA are published 
 | FR-019 | Deferred | User feedback persistence is post-MVP. |
 | FR-020 | Implemented | Seven fixture scenarios, SCN-001 workload execution, and SCN-008 prepare/approve/execute/reset/abort are covered. |
 | FR-021 | Deferred | Public backend switching was removed; each surface has a fixed documented execution mode. |
-| FR-022 | Implemented | The unchanged Gemini Enterprise registration targets Runtime v2. The [formal-agent record](portfolio/results/long-spec-formal-agent-v2.md) verifies single- and multi-service investigation, corrected same-session explanation, capability guidance, and final-only rejection in Preview. |
+| FR-022 | Implemented | The unchanged Gemini Enterprise registration targets Runtime v2. The [formal-agent record](portfolio/results/long-spec-formal-agent-v3.md) verifies positive incident identification, single- and multi-service investigation, corrected same-session explanation, capability guidance, and final-only rejection in Preview. |
 | FR-023 | Implemented | Incidents, investigations, and immutable JSON/Markdown reports are persisted in Firestore. |
 | FR-024 | Implemented | Transactional report versions and deterministic version comparison are exposed by API. |
 | FR-025 | Implemented | Persisted incident replay creates a new investigation and report version; fixture CLI replay remains available. |
@@ -53,7 +53,7 @@ The source-bound formal-agent release and final conversational QA are published 
 
 | ID | Status | Evidence or boundary |
 | --- | --- | --- |
-| FA-001 | Implemented | [`conversation.py`](../src/opspilot/conversation.py), Runtime v2, and Firestore `conversation_contexts` provide 24-hour pseudonymous structured context for refine, explain, status, and report comparison turns without storing prompts or evidence bodies. Managed and Preview conversation checks pass in the [formal-agent record](portfolio/results/long-spec-formal-agent-v2.md). |
+| FA-001 | Implemented | [`conversation.py`](../src/opspilot/conversation.py), Runtime v2, and Firestore `conversation_contexts` provide 24-hour pseudonymous structured context for refine, explain, status, and report comparison turns without storing prompts or evidence bodies. Managed and Preview conversation checks pass in the [formal-agent record](portfolio/results/long-spec-formal-agent-v3.md). |
 | FA-002 | Implemented | An eligible `prod-sim payment-service` report creates exactly one M8 `WAITING_APPROVAL` request through the authenticated internal bridge; Runtime cannot approve or execute it. Three-environment managed smoke and remediation 12/12 pass. |
 
 ## Non-functional requirements

@@ -59,12 +59,17 @@ updated: 2026-08-14
   now returns status, localized user impact, and conclusion instead of claiming that an unrequested
   hypothesis was missing. The exact Preview phrase is covered by the 277-test source-bound gate and
   passed after an API-only in-place update.
+- A subsequent positive Preview pass executed SCN-001 exactly once, verified `5/5 → 4/6 → 5/5`
+  recovery, and confirmed that Preview identifies payment connection-pool exhaustion as H-01 with
+  a zero-support H-02, three evidence types, three approval-gated recommendation categories, and
+  valid persisted citations. One live-summary Korean copy gap found during the pass was corrected;
+  the final source-bound gate now contains 278 tests.
 - The final investigation linked four Runtime stages and four unique tool events to one
   investigation, one task attempt, and report version 1 with shared trace/correlation identity.
   Application payload scans found no raw sentinel, identity, project, URL, or permission error.
 - Cloud Run is Ready and the final Terraform plan using the same image digest and Runtime archive
   reports `No changes`.
-- Sanitized evidence: [long-spec-formal-agent-v2.md](../portfolio/results/long-spec-formal-agent-v2.md).
+- Sanitized evidence: [long-spec-formal-agent-v3.md](../portfolio/results/long-spec-formal-agent-v3.md).
 
 ## External non-blocking item
 

@@ -1,0 +1,72 @@
+{
+  "schema_version": "long-spec-formal-agent-v3",
+  "generated_at": "2026-08-14T12:18:38Z",
+  "status": "passed",
+  "source": {
+    "commit": "29c4ecc00cbcf071a48ce4cce971283db6669a28",
+    "main_matches_origin": true,
+    "clean_at_release": true
+  },
+  "scenario": {
+    "environment": "dev",
+    "baseline": "5/5",
+    "incident_fulfilled": 4,
+    "incident_failed": 6,
+    "recovery": "5/5",
+    "recovered": true,
+    "ground_truth_matched": true
+  },
+  "preview_positive_qa": {
+    "input_window_minutes": 15,
+    "status": "IDENTIFIED",
+    "severity": "SEV-2",
+    "top_hypothesis": "PAYMENT_DB_POOL_EXHAUSTION",
+    "hypothesis_ids": ["H-01", "H-02"],
+    "h02_support_score": 0,
+    "evidence_types": ["LOG", "METRIC", "KNOWLEDGE"],
+    "recommendation_categories": ["CONTAINMENT", "MITIGATION", "ROOT_FIX"],
+    "all_changes_require_approval": true,
+    "citation_integrity": true,
+    "korean_summary_localized": true,
+    "initial_metric_ingestion_gap_handled_safely": true
+  },
+  "backend_invariants": {
+    "runtime_stages": 4,
+    "tool_events": 4,
+    "unique_tools": 4,
+    "trace_linked": true,
+    "correlation_linked": true,
+    "task_attempts": 1,
+    "report_version": 1
+  },
+  "local_gates": {
+    "pytest": "278/278",
+    "ruff_format": true,
+    "ruff_check": true,
+    "mypy_source_files": 92,
+    "build": true,
+    "core_evaluation": "7/7",
+    "portfolio_evaluation": "40/40",
+    "remediation_evaluation": "12/12",
+    "terraform_bootstrap": "1/1",
+    "terraform_dev": "8/8",
+    "runtime_packages_byte_identical": true
+  },
+  "deployment": {
+    "add": 0,
+    "change": 1,
+    "destroy": 0,
+    "investigation_api_only": true,
+    "terraform_no_changes": true
+  },
+  "omitted": [
+    "cloud_project",
+    "service_urls",
+    "identities",
+    "image_digest",
+    "runtime_resource_name",
+    "scenario_run_id",
+    "trace_run_investigation_ids",
+    "browser_capture"
+  ]
+}
