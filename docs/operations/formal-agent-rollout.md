@@ -1,10 +1,11 @@
 # Formal Agent Rollout
 
-Status: local candidate verified; deployment and managed QA pending
+Status: all four phases deployed and managed/Preview QA verified
 
-The formal Incident Commander rollout is split into four independently reviewed binary Terraform
-plans. A plan may contain only the addresses owned by its phase. Every apply uses the already
-reviewed binary plan; a newly generated plan is never substituted at apply time.
+The formal Incident Commander rollout used four independently reviewed binary Terraform plans.
+Each plan contained only the addresses owned by its phase, and every apply reused the reviewed
+binary plan rather than generating a substitute. This runbook preserves that release contract for
+future source-bound updates.
 
 ## Plan phases
 
@@ -37,7 +38,7 @@ Before each apply, record the binary plan SHA-256 and re-run the matching verifi
 `terraform show -json` output. Stop on an unexpected add, update, replacement, delete, IAM member,
 Runtime name, public invoker, source hash, or registration target.
 
-After all four phases, require Ready checks for all nine synthetic workloads, private IAM checks,
+The completed rollout passed Ready checks for all nine synthetic workloads, private IAM checks,
 direct Runtime conversation smoke, three-environment SCN-001 recovery, prod-sim M8
 `WAITING_APPROVAL` without execution, Gemini Enterprise conversational QA, and a final plan with
-the same inputs reporting `No changes`.
+the same inputs reporting `No changes`. Future rollouts must retain the same gates.

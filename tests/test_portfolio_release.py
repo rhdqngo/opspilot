@@ -11,11 +11,8 @@ import pytest
 
 from opspilot.portfolio.release import (
     ARTIFACT_SCHEMA_VERSION,
-    README_END,
-    README_START,
     CommandExecution,
     PortfolioReleaseRunner,
-    _readme_metrics_block,
     publish_release_artifact,
     source_tree_sha256,
 )
@@ -106,9 +103,7 @@ def _root(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
     root.mkdir()
     (root / ".tmp").mkdir()
-    (root / "README.md").write_text(
-        f"# Portfolio\n\n{README_START}\nold\n{README_END}\n", encoding="utf-8"
-    )
+    (root / "README.md").write_text("# Portfolio\n", encoding="utf-8")
     (root / "source.py").write_text("VALUE = 1\n", encoding="utf-8")
     return root
 
@@ -175,8 +170,9 @@ def test_publish_rejects_failed_result_without_mutating_files(tmp_path: Path) ->
     assert not (root / "docs/portfolio/results").exists()
 
 
-def test_publish_updates_only_generated_readme_block(tmp_path: Path) -> None:
+def test_publish_writes_artifacts_without_mutating_readme(tmp_path: Path) -> None:
     root = _root(tmp_path)
+    readme_before = (root / "README.md").read_text(encoding="utf-8")
     artifact: dict[str, object] = {
         "schema_version": ARTIFACT_SCHEMA_VERSION,
         "generated_at": "2026-08-12T00:00:00+00:00",
@@ -211,21 +207,19 @@ def test_publish_updates_only_generated_readme_block(tmp_path: Path) -> None:
 
     assert json_path.is_file()
     assert markdown_path.is_file()
-    readme = (root / "README.md").read_text(encoding="utf-8")
-    assert readme.startswith("# Portfolio")
-    assert "**3/3 pytest**" in readme
-    assert _readme_metrics_block(artifact) in readme
+    assert (root / "README.md").read_text(encoding="utf-8") == readme_before
 
 
-def test_source_fingerprint_ignores_generated_readme_metrics(tmp_path: Path) -> None:
+def test_source_fingerprint_includes_readme_content(tmp_path: Path) -> None:
     root = _root(tmp_path)
     paths = (Path("README.md"), Path("source.py"))
     before = source_tree_sha256(root, paths)
     readme = (root / "README.md").read_text(encoding="utf-8")
-    (root / "README.md").write_text(readme.replace("old", "new metrics"), encoding="utf-8")
-    assert source_tree_sha256(root, paths) == before
-    (root / "source.py").write_text("VALUE = 2\n", encoding="utf-8")
+    (root / "README.md").write_text(readme + "\nUpdated.\n", encoding="utf-8")
     assert source_tree_sha256(root, paths) != before
+    after_readme = source_tree_sha256(root, paths)
+    (root / "source.py").write_text("VALUE = 2\n", encoding="utf-8")
+    assert source_tree_sha256(root, paths) != after_readme
 
 
 def test_release_output_is_bounded_to_tmp(tmp_path: Path) -> None:
@@ -251,11 +245,10 @@ def test_manual_ci_uploads_portfolio_artifact_without_automatic_trigger() -> Non
     assert "retention-days: 30" in workflow
 
 
-def test_readme_metrics_match_published_artifact_when_present() -> None:
+def test_readme_points_to_current_formal_agent_evidence() -> None:
     root = Path(__file__).resolve().parents[1]
-    artifact_path = root / "docs/portfolio/results/portfolio-release-v1.json"
-    if not artifact_path.is_file():
-        pytest.skip("release evidence has not been published yet")
-    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
     readme = (root / "README.md").read_text(encoding="utf-8")
-    assert _readme_metrics_block(artifact) in readme
+    assert "278/278" in readme
+    assert "docs/portfolio/results/long-spec-formal-agent-v3.md" in readme
+    assert "docs/portfolio/results/README.md" in readme
+    assert "BEGIN GENERATED:PORTFOLIO_METRICS" not in readme

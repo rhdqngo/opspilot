@@ -1,6 +1,6 @@
-# OpsPilot MVP Architecture
+# OpsPilot Formal Agent Architecture
 
-Status: MVP complete / M9 ready
+Status: deployed and Gemini Enterprise Preview verified
 
 ## Investigation plane
 
@@ -9,6 +9,7 @@ flowchart LR
     U["Operator"] --> GE["Gemini Enterprise"]
     GE --> RT["Managed ADK Runtime\nthin adapter"]
     RT -->|"authenticated request"| API["Private investigation API"]
+    API --> CTX["Firestore conversation context\n24-hour pseudonymous TTL"]
     API --> T["Cloud Tasks"]
     T --> EX["Idempotent executor"]
     EX --> L["Cloud Logging"]
@@ -20,10 +21,16 @@ flowchart LR
 ```
 
 The parser accepts `order-service`, `payment-service`, and `inventory-service`, plus Korean or
-English relative windows from 1 to 120 minutes. Omitted service scope means all three services;
-an omitted window means 30 minutes. It extracts at most one incident ID, accepts only dev aliases,
-and rejects explicit prod/stage scope. Omitted scope assumptions are recorded in the report.
+English relative or explicit windows from 1 to 120 minutes. Omitted service scope means all three
+services; an omitted window means 30 minutes. It extracts at most one incident ID and supports
+synthetic `dev`, `staging`, and `prod-sim`; actual production remains explicitly rejected. Omitted
+scope assumptions are recorded in the report.
 Project IDs, resource names, URLs, metrics, and raw provider filters are always server-owned.
+
+The v2 turn API owns intent and 24-hour structured conversation context for investigation,
+refinement, explanation, status, report comparison, capability guidance, and eligible remediation
+request creation. Context contains only pseudonymous scope references, never raw prompts,
+user/session identifiers, or evidence bodies.
 
 Reports are immutable Firestore documents. A transaction assigns a monotonically increasing
 `report_version`; replay uses the persisted incident scope and compare deterministically reports
@@ -31,8 +38,10 @@ changes between two versions. Runtime creates one run/correlation/trace identity
 worker reuse it, and the run ID deterministically maps to one investigation. Cloud Task redelivery
 is deduplicated by investigation ID.
 
-The fixture graph and its two-model evaluation remain an offline quality surface. They do not
-provide a production fallback for the Runtime.
+Direct live signals enter the bounded RCA and verification graph with at most two model calls.
+No-signal requests skip the model, and model timeout, schema failure, or invalid citations degrade
+to an evidence-backed inconclusive report. The recorded fixture graph remains the deterministic
+offline quality surface rather than a fallback for live evidence.
 
 ## Remediation plane
 
@@ -46,9 +55,10 @@ flowchart LR
     E --> V["Traffic and 10/10 recovery verification"]
 ```
 
-The M8 plane is isolated from the read-only investigator. It supports only the fixed SCN-008
-Cloud Run rollback and retains approval, actor audit, plan hash, expiry, idempotency, lease,
-etag/revision/image digest, and final traffic verification.
+The M8 plane is isolated from the read-only investigator. It supports only an eligible
+`prod-sim payment-service` Cloud Run rollback and retains approval, actor audit, plan hash, expiry,
+idempotency, lease, etag/revision/image digest, and final traffic verification. The agent may create
+`WAITING_APPROVAL`; approval and execution remain in the separate control plane.
 
 ## Trust boundary
 

@@ -2,7 +2,7 @@
 
 Status: deployed thin adapter
 
-Formal-agent candidate note: Runtime now performs only input-length and language checks and sends
+The deployed formal Runtime performs only input-length and language checks and sends
 all valid turns to `POST /internal/v2/runtime/turns`. The API returns whether evidence collection
 actually started. Investigation/refinement turns emit one buffered progress event followed by one
 final event; capability, explanation, status, comparison, clarification, and rejection turns emit
@@ -19,10 +19,10 @@ result, Runtime emits one localized safe failure; it never changes to a differen
 The Runtime identity needs only permission to invoke that API. Logging, Monitoring, Cloud Run,
 Search, Cloud Tasks, and Firestore access remain on API-owned identities.
 
-Agent Engine can expose `GOOGLE_CLOUD_PROJECT` as a numeric project hint. The Runtime entrypoint
-resolves the project ID from the platform metadata endpoint before importing the Vertex SDK. This
-avoids granting `resourcemanager.projects.get` to the Runtime identity and does not persist or log
-either value.
+Agent Engine can expose `GOOGLE_CLOUD_PROJECT` as a numeric project hint. The Runtime identity has
+one dedicated custom role containing exactly `resourcemanager.projects.get`, which lets the SDK
+resolve that hint without granting a broad viewer or any evidence, persistence, task, IAM, or
+remediation permission. The project value is never persisted or logged.
 
 Input supports the catalog services `order-service`, `payment-service`, and `inventory-service`
 and Korean or English relative windows from 1 to 120 minutes. Missing service means all three;

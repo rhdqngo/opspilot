@@ -41,7 +41,7 @@ updated: 2026-08-14
 
 ## Final validation
 
-- Source-bound local release: 277/277 pytest, Ruff format/check, strict mypy over 92 source files,
+- Initial formal-agent source-bound release: 277/277 pytest, Ruff format/check, strict mypy over 92 source files,
   package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap 1/1, and dev 8/8.
 - Two 11-file Runtime packages are byte-identical. The API image is linux/amd64, non-root,
   health/ready checked, and registry-digest bound.
@@ -69,7 +69,11 @@ updated: 2026-08-14
   Application payload scans found no raw sentinel, identity, project, URL, or permission error.
 - Cloud Run is Ready and the final Terraform plan using the same image digest and Runtime archive
   reports `No changes`.
-- Sanitized evidence: [long-spec-formal-agent-v3.md](../portfolio/results/long-spec-formal-agent-v3.md).
+- GitHub portfolio documentation now uses the formal-agent release as its front-page baseline,
+  separates current evidence from historical QA records, and publishes an MIT license without
+  exposing raw cloud or browser identifiers.
+- Sanitized evidence: [formal-agent v3](../portfolio/results/long-spec-formal-agent-v3.md) and the
+  [verification evidence index](../portfolio/results/README.md).
 
 ## External non-blocking item
 
@@ -80,6 +84,7 @@ updated: 2026-08-14
 ## Next checkpoint
 
 - Treat the deployed formal agent as the release baseline.
+- Use the root README and verification evidence index as the portfolio documentation entrypoints.
 - Resume only for a new requirement, a reproducible product defect, or a provider incident that
   violates the documented transient policy.
 - Keep raw browser captures, cloud identifiers, and execution mappings under `.tmp` only.

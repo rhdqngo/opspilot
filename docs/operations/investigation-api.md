@@ -1,6 +1,6 @@
 # Persistent Investigation API
 
-Status: deployed v1 contract; formal-agent v2 candidate locally verified and not yet deployed
+Status: formal-agent v2 deployed and Gemini Enterprise Preview verified
 
 `POST /internal/v2/runtime/turns` is the authoritative conversational endpoint. It resolves
 investigate, refine, explain, compare, status, capability, and bounded remediation-request intents.

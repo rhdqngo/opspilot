@@ -1,4 +1,4 @@
-# OpsPilot MVP Threat Model
+# OpsPilot Formal Agent Threat Model
 
 Status: active
 
@@ -13,7 +13,7 @@ prompts, projects, URLs, tokens, evidence payloads, raw exceptions, and raw iden
 | Arbitrary cloud scope | Fixed project environment plus service/time/metric/filter allowlists; no caller project, URL, token, resource name, or raw filter | Project-level read permissions still rely on application allowlists |
 | Evidence forgery | Immutable evidence IDs, direction checks, duplicate/missing reference rejection, complete citation admission | Source systems can contain incorrect synthetic data |
 | Prompt injection | Knowledge text is tagged untrusted data; model has no tools; action filtering is deterministic | Model prose may still be poor, but cannot execute |
-| Unsafe remediation | M7 Runtime remains read-only; separate M8 control API requires report/change evidence, canonical plan hash, 15-minute approval, transaction, exact service/revision/digest/etag revalidation, and one traffic-only executor | An authorized approver can still approve a poor but policy-valid rollback |
+| Unsafe remediation | Runtime investigation authority remains read-only; separate M8 control API requires report/change evidence, canonical plan hash, 15-minute approval, transaction, exact service/revision/digest/etag revalidation, and one traffic-only executor | An authorized approver can still approve a poor but policy-valid rollback |
 | Callback theft or replay | Callback URL is stored only in a 24-hour TTL collection, never returned or logged, requires `workflows.callbacks.send`, and every decision checks explicit plan expiry | TTL deletion is asynchronous; explicit expiry checks remain authoritative |
 | Concurrent or lost responses | Atomic idempotency and one execution lease; executor concurrency is one; already-recovered traffic is idempotent success after response loss | Provider reconciliation or verification can still end in a safe terminal failure |
 | Identity confusion | Cloud Run IAM plus issuer/audience/subject checks; Runtime, task, alert, direct API, and M8 identities are endpoint-scoped and source-domain hashed; audit never stores email | Group and service-account lifecycle remains an external administrative control |
@@ -28,7 +28,7 @@ sanitized evidence with logical URIs and remains tool-free. Revision snapshots o
 window may be used only for server-side key-difference calculation and are removed before report or
 model input.
 
-M8 remains default-off and supports only prod-sim payment revision rollback. Runtime can request a
+M8 remains approval-gated and supports only prod-sim payment revision rollback. Runtime can request a
 `WAITING_APPROVAL` record only through the authenticated investigation-to-control bridge; it cannot
 approve, reject, or execute. DEV, staging, order/inventory, restart, and real-production writes are
 policy rejected.

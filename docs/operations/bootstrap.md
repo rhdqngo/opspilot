@@ -2,6 +2,9 @@
 
 Status: M1 bootstrap and dev foundation complete
 
+This is a historical milestone record. The current deployed permission boundary is documented in
+the [IAM matrix](../iam-matrix.md).
+
 ## Approval 1 execution record
 
 - Applied the reviewed bootstrap plan with 14 managed resources and no delete or replacement.

@@ -19,8 +19,6 @@ from pathlib import Path
 from typing import cast
 
 ARTIFACT_SCHEMA_VERSION = "portfolio-release-v1"
-README_START = "<!-- BEGIN GENERATED:PORTFOLIO_METRICS -->"
-README_END = "<!-- END GENERATED:PORTFOLIO_METRICS -->"
 PUBLISHED_RESULT_DIRECTORY = Path("docs/portfolio/results")
 
 
@@ -110,18 +108,6 @@ def discover_source_paths(root: Path) -> tuple[Path, ...]:
     return tuple(sorted(paths, key=lambda item: item.as_posix()))
 
 
-def _fingerprint_content(relative: Path, content: bytes) -> bytes:
-    if relative.as_posix() != "README.md":
-        return content
-    text = content.decode("utf-8")
-    start = text.find(README_START)
-    end = text.find(README_END)
-    if start < 0 or end < 0 or end < start:
-        return content
-    normalized = text[:start] + README_START + "\n" + README_END + text[end + len(README_END) :]
-    return normalized.encode("utf-8")
-
-
 def source_tree_sha256(root: Path, paths: Sequence[Path]) -> str:
     digest = hashlib.sha256()
     for relative in sorted(paths, key=lambda item: item.as_posix()):
@@ -129,7 +115,7 @@ def source_tree_sha256(root: Path, paths: Sequence[Path]) -> str:
         if not path.is_file():
             continue
         encoded_path = relative.as_posix().encode("utf-8")
-        content = _fingerprint_content(relative, path.read_bytes())
+        content = path.read_bytes()
         digest.update(len(encoded_path).to_bytes(8, "big"))
         digest.update(encoded_path)
         digest.update(len(content).to_bytes(8, "big"))
@@ -420,59 +406,9 @@ def _render_markdown(artifact: Mapping[str, object]) -> str:
     )
 
 
-def _readme_metrics_block(artifact: Mapping[str, object]) -> str:
-    validation = _mapping(artifact.get("validation"))
-    pytest_result = _mapping(validation.get("pytest"))
-    core = _mapping(validation.get("core_evaluation"))
-    portfolio = _mapping(validation.get("portfolio_evaluation"))
-    metrics = _mapping(portfolio.get("metrics"))
-    durations = _mapping(portfolio.get("duration_percentiles"))
-    return "\n".join(
-        [
-            README_START,
-            (
-                "Latest published verification: "
-                f"**{pytest_result.get('passed', 0)}/{pytest_result.get('executed', 0)} pytest**; "
-                f"core **{core.get('passed_case_count', 0)}/"
-                f"{core.get('executed_case_count', 0)}**; portfolio "
-                f"**{portfolio.get('passed_case_count', 0)}/"
-                f"{portfolio.get('executed_case_count', 0)}**."
-            ),
-            (
-                "RCA top-1/top-3, required-tool recall, citation coverage, and "
-                "evidence-ID validity: "
-                f"**{_number(metrics.get('rca_top1_accuracy')):.3f}/"
-                f"{_number(metrics.get('rca_top3_accuracy')):.3f}/"
-                f"{_number(metrics.get('required_tool_recall')):.3f}/"
-                f"{_number(metrics.get('citation_coverage')):.3f}/"
-                f"{_number(metrics.get('evidence_id_validity')):.3f}**; "
-                f"fixture P50/P95 **{durations.get('p50_ms', 0)}/{durations.get('p95_ms', 0)} ms**."
-            ),
-            (
-                "The generated [Markdown evidence]"
-                "(docs/portfolio/results/portfolio-release-v1.md) and [JSON evidence]"
-                "(docs/portfolio/results/portfolio-release-v1.json) are the source of record."
-            ),
-            README_END,
-        ]
-    )
-
-
-def _replace_readme_block(readme: str, block: str) -> str:
-    start = readme.find(README_START)
-    end = readme.find(README_END)
-    if start < 0 or end < 0 or end < start:
-        raise ValueError("README generated metrics markers are missing or invalid")
-    return readme[:start] + block + readme[end + len(README_END) :]
-
-
 def publish_release_artifact(root: Path, artifact: Mapping[str, object]) -> tuple[Path, Path]:
     if artifact.get("status") != "passed":
         raise ValueError("failed release evidence cannot be published")
-    readme_path = root / "README.md"
-    new_readme = _replace_readme_block(
-        readme_path.read_text(encoding="utf-8"), _readme_metrics_block(artifact)
-    )
     destination = root / PUBLISHED_RESULT_DIRECTORY
     destination.mkdir(parents=True, exist_ok=True)
     json_path = destination / f"{ARTIFACT_SCHEMA_VERSION}.json"
@@ -481,7 +417,6 @@ def publish_release_artifact(root: Path, artifact: Mapping[str, object]) -> tupl
         json.dumps(dict(artifact), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     markdown_path.write_text(_render_markdown(artifact), encoding="utf-8")
-    readme_path.write_text(new_readme, encoding="utf-8")
     return json_path, markdown_path
 
 

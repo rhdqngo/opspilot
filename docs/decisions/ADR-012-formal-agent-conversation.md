@@ -1,6 +1,6 @@
 # ADR-012: Formal Incident Commander Conversation Boundary
 
-Status: accepted for implementation; managed validation pending  
+Status: accepted, deployed, and Gemini Enterprise Preview verified
 Date: 2026-08-14  
 Supersedes: the production-graph and single-turn constraints in ADR-011
 
