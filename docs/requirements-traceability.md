@@ -1,6 +1,6 @@
 # Lean MVP v1 Requirements Traceability
 
-Status: MVP complete / Gemini Enterprise Preview QA blocked
+Status: MVP complete / Gemini Enterprise Preview QA verified
 
 This matrix compares the M0-M10 North Star specification with the deployed MVP investigation and
 approval-gated M8 control planes.
@@ -14,13 +14,14 @@ published in [`long-spec-enterprise-qa-v1.md`](portfolio/results/long-spec-enter
 the iterative provider-blocked rerun is
 [`long-spec-enterprise-qa-v2.md`](portfolio/results/long-spec-enterprise-qa-v2.md), and the v3
 pre-canary resume failure is
-[`long-spec-enterprise-qa-v3.md`](portfolio/results/long-spec-enterprise-qa-v3.md).
+[`long-spec-enterprise-qa-v3.md`](portfolio/results/long-spec-enterprise-qa-v3.md). The final passing
+record is [`long-spec-enterprise-qa-v4.md`](portfolio/results/long-spec-enterprise-qa-v4.md).
 
 ## Functional requirements
 
 | ID | Status | Lean MVP evidence or boundary |
 | --- | --- | --- |
-| FR-001 | Partial | [`parser.py`](../src/opspilot/parser.py) extracts one incident ID, normalizes dev aliases, and rejects explicit prod/stage scope. The iterative candidate transactionally creates a user-source incident for a valid unused ID and passes local/API concurrency tests; Preview v2 stopped at a confirmed provider streaming failure before the Korean unused-ID case. |
+| FR-001 | Implemented | [`parser.py`](../src/opspilot/parser.py) extracts one incident ID, normalizes dev aliases, and rejects explicit prod/stage scope. Valid unused IDs create a user-source incident transactionally; the final Korean Preview case and concurrency tests pass. |
 | FR-002 | Implemented | Missing service defaults to all three and missing time to 30 minutes; both assumptions are recorded. |
 | FR-003 | Implemented | Bounded Logging filter/client and live evidence tests. |
 | FR-004 | Implemented | Bounded error-ratio and latency Monitoring queries, including zero-point gaps. |
@@ -36,12 +37,12 @@ pre-canary resume failure is
 | FR-014 | Implemented | Firestore transaction, 15-minute Workflow callback, hash-bound approval, TTL cleanup, and actor audit were verified end to end. |
 | FR-015 | Implemented | Exact target traffic, revision/digest binding, metric windows, and 10/10 recovery were verified in dev. |
 | FR-016 | Implemented | [`audit.py`](../src/opspilot/audit.py), Runtime, API, task worker, executors, and report audit reuse one trace/correlation identity; concurrent run-ID idempotency is covered by [`test_investigation_service.py`](../tests/test_investigation_service.py) and the [20-submit managed smoke](portfolio/results/long-spec-preqa-v1.md). |
-| FR-017 | Partial | Each logical evidence tool emits the fixed privacy-safe `ToolCallAuditEvent` schema with scope, timing, result, truncation/cache, and safe error fields. Four cycle-2 Preview runs each emitted four distinct events with the Runtime `run_id` and shared trace/correlation IDs, but the complete positive/negative Preview matrix stopped at the provider safety boundary. |
+| FR-017 | Implemented | Each logical evidence tool emits the fixed privacy-safe `ToolCallAuditEvent` schema with scope, timing, result, truncation/cache, and safe error fields. Every final positive Preview run emitted four events with the Runtime `run_id` and shared trace/correlation IDs; all rejected runs emitted none. |
 | FR-018 | Implemented | Versioned 7-case core and 40-case portfolio evaluation suites enforce deterministic gates. |
 | FR-019 | Deferred | User feedback persistence is post-MVP. |
 | FR-020 | Implemented | Seven fixture scenarios, SCN-001 workload execution, and SCN-008 prepare/approve/execute/reset/abort are covered. |
 | FR-021 | Deferred | Public backend switching was removed; each surface has a fixed documented execution mode. |
-| FR-022 | Partial | The registration is stable and cycle-1 healthy chats plus earlier English/privacy/negative flows are verified. In cycle 2, Runtime repeatedly logged `final_emitted` while Preview failed to close or render the final; the full v2 matrix is blocked on the confirmed provider streaming boundary. |
+| FR-022 | Implemented | The existing registration remained stable. The [final Preview record](portfolio/results/long-spec-enterprise-qa-v4.md) covers canary, three healthy chats, four positive language/scope/privacy cases, eight rejection boundaries, backend linkage, and a final no-drift plan. |
 | FR-023 | Implemented | Incidents, investigations, and immutable JSON/Markdown reports are persisted in Firestore. |
 | FR-024 | Implemented | Transactional report versions and deterministic version comparison are exposed by API. |
 | FR-025 | Implemented | Persisted incident replay creates a new investigation and report version; fixture CLI replay remains available. |

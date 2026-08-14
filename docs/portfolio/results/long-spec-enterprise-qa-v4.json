@@ -1,0 +1,105 @@
+{
+  "schema_version": "long-spec-enterprise-qa-v4",
+  "generated_at": "2026-08-14",
+  "status": "passed",
+  "source": {
+    "final_commit": "f73c7a002b02957a65a4496a1aedd0eeb17ba019",
+    "runtime_sha256": "e83403ae406325a0b753f60763903f3793b77ee0728445b368f45286481df068",
+    "runtime_files": 11,
+    "runtime_reproducible": true
+  },
+  "local_gates": {
+    "pytest": "237/237",
+    "core": "7/7",
+    "portfolio": "40/40",
+    "remediation": "12/12",
+    "ruff": "passed",
+    "strict_mypy": "passed",
+    "build": "passed",
+    "terraform": "bootstrap 1/1 and dev 8/8"
+  },
+  "release_cycles": [
+    {
+      "purpose": "managed Runtime final delivery stabilization",
+      "plan": "0 add / 2 update / 0 destroy",
+      "scope": "investigation API and existing Agent Runtime in-place",
+      "direct_runtime_runs": 3,
+      "direct_runtime_two_events_passed": 3
+    },
+    {
+      "purpose": "SCN-001 end-to-end order-path warm-up",
+      "plan": "0 add / 1 update / 0 destroy",
+      "scope": "investigation API image in-place",
+      "runtime_and_registration_unchanged": true
+    }
+  ],
+  "preview": {
+    "canary_passed": true,
+    "healthy_runs": {
+      "executed": 3,
+      "passed": 3,
+      "one_progress_and_final": true,
+      "no_hypothesis_or_changing_action": true
+    },
+    "final_clean_scenario": {
+      "baseline": "5/5",
+      "incident": "4 fulfilled / 6 failed",
+      "recovery": "5/5",
+      "recovered": true,
+      "ground_truth_matched": true
+    },
+    "positive_cases": {
+      "english": "passed",
+      "korean_unused_incident": "passed",
+      "environment_omitted": "passed",
+      "privacy": "passed",
+      "h01_h02": true,
+      "evidence_types_at_least_three": true,
+      "three_action_classes": true,
+      "citations_valid": true,
+      "approval_required": true,
+      "one_progress_and_final": true
+    },
+    "negative_cases": {
+      "executed": 8,
+      "passed": 8,
+      "progress_events": 0,
+      "investigations": 0,
+      "tool_events": 0
+    },
+    "transient_observation": {
+      "privacy_display_error_runs": 1,
+      "backend_completed_safely": true,
+      "same_deployment_retries": 2,
+      "same_deployment_retries_passed": 2,
+      "classified_as_transient": true
+    }
+  },
+  "managed_cross_checks": {
+    "final_positive_runs": 4,
+    "one_investigation_task_report_each": true,
+    "four_runtime_stages_each": true,
+    "four_tool_events_each": true,
+    "trace_and_correlation_linked": true,
+    "audit_hashes_valid": true,
+    "redaction_verified": true,
+    "application_log_scan_clean": true,
+    "provider_user_activity_audit_retains_submitted_prompt": true,
+    "provider_audit_classification": "Gemini Enterprise platform audit, outside OpsPilot Runtime/tool application logs"
+  },
+  "exit_gate": {
+    "healthy_orders": "5/5",
+    "cloud_run_ready": true,
+    "traffic_percent": 100,
+    "public_invoker_absent": true,
+    "runtime_auth_boundaries": true,
+    "runtime_resource_stable": true,
+    "registration_stable": true,
+    "terraform_no_changes": true
+  },
+  "hosted_workflows": {
+    "dispatched": 3,
+    "zero_step_failures": 3,
+    "classification": "existing external non-blocking runner billing or spending-limit condition"
+  }
+}

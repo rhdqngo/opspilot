@@ -1,7 +1,7 @@
 # Current Project State
 
-status: enterprise_qa_remediating
-phase: Buffered managed Runtime delivery candidate passed all local release gates
+status: enterprise_qa_verified
+phase: Gemini Enterprise Preview and managed backend QA passed on the final source-bound candidate
 updated: 2026-08-14
 
 ## Completed product scope
@@ -30,7 +30,7 @@ updated: 2026-08-14
 
 ## Validation state
 
-- Source-bound preflight passes 230/230 pytest, Ruff format/check, strict mypy over 88 files,
+- Final source-bound preflight passes 237/237 pytest, Ruff format/check, strict mypy over 88 files,
   package build, core 7/7, portfolio 40/40, remediation 12/12, Terraform bootstrap 1/1, and dev 8/8.
 - Two 11-file Runtime packages are byte-identical. The implementation image is linux/amd64,
   non-root, health-checked, and digest-bound to the implementation commit.
@@ -99,6 +99,21 @@ updated: 2026-08-14
   `5/5`; Cloud Run is Ready and Terraform remains `No changes`.
 - Sanitized v3 resume evidence:
   [long-spec-enterprise-qa-v3.md](../portfolio/results/long-spec-enterprise-qa-v3.md).
+- The final delivery candidate buffers the accepted investigation before emitting progress and final
+  back-to-back and aligns the API, HTTP, and Runtime deadlines. Three consecutive direct SDK calls
+  and the Preview canary delivered exactly one progress and one final event.
+- SCN-001 now warms the authenticated end-to-end order path. The final clean cycle passed baseline
+  `5/5`, incident `4 fulfilled / 6 failed`, recovery `5/5`, and matching ground truth.
+- Three healthy chats, English and Korean incident cases, environment omission, privacy redaction,
+  and all eight rejection boundaries passed in new Preview chats. Every final positive run persisted
+  one investigation/task/report, four Runtime stages, four tool events, shared trace/correlation IDs,
+  valid audit hashes, H-01/H-02, three action classes, and contained citations.
+- One provider display error had a complete 3.485-second backend result; both prescribed
+  same-deployment retries and the final clean privacy case passed, so it is recorded as transient.
+- Normal traffic passed `5/5`, Cloud Run is Ready with private IAM, the Runtime and registration are
+  stable, and the final Terraform plan reports `No changes`.
+- Sanitized passing evidence:
+  [long-spec-enterprise-qa-v4.md](../portfolio/results/long-spec-enterprise-qa-v4.md).
 
 ## External non-blocking item
 
@@ -108,11 +123,10 @@ updated: 2026-08-14
 
 ## Next checkpoint
 
-- Deploy the source-bound Runtime delivery candidate with exactly the investigation API and Runtime
-  in-place updates. It aligns the API/HTTP/Runtime deadlines and buffers the accepted result before
-  emitting progress and final back-to-back, removing the managed stream idle gap.
-- Require three consecutive direct SDK two-event calls before restarting the entire Preview matrix.
-  Keep IAM, registration, M8, and all other infrastructure unchanged.
+- Preserve the verified deployment inputs and use the v4 record as the release baseline. No product,
+  Runtime, IAM, registration, M8, or Terraform change is pending for Enterprise QA.
+- Re-run the three hosted workflows when the external runner billing or spending-limit condition is
+  cleared; their zero-step result remains non-blocking because all local and managed gates passed.
 
 ## Deferred beyond this milestone
 
