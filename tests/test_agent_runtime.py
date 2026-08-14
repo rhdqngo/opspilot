@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import tarfile
+import threading
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
@@ -137,6 +138,7 @@ async def test_runtime_requires_the_persistent_api(monkeypatch: pytest.MonkeyPat
 @pytest.mark.asyncio
 async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, dict[str, object] | None, float, str | None, str | None]] = []
+    bridge_threads: list[str] = []
     monkeypatch.setenv("OPSPILOT_INVESTIGATION_API_URL", "https://investigation.example")
     monkeypatch.setenv("OPSPILOT_INVESTIGATION_API_AUDIENCE", "https://audience.example")
     monkeypatch.setattr(runtime_module, "_fetch_cached_id_token", lambda *_: "token")
@@ -153,6 +155,7 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
         idempotency_key: str | None = None,
     ) -> tuple[int, bytes]:
         del token, method, accept
+        bridge_threads.append(threading.current_thread().name)
         calls.append((url, payload, timeout_seconds, trace_id, idempotency_key))
         return 200, json.dumps(
             {
@@ -174,6 +177,8 @@ async def test_runtime_calls_the_internal_api_once(monkeypatch: pytest.MonkeyPat
 
     assert result.succeeded is True
     assert result.output_markdown == "# Persisted report\n"
+    assert len(bridge_threads) == 1
+    assert bridge_threads[0].startswith("opspilot-runtime-bridge_")
     assert calls == [
         (
             "https://investigation.example/internal/v2/runtime/turns",

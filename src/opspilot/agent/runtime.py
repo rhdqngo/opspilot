@@ -15,8 +15,10 @@ import tarfile
 import threading
 import time
 from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from contextvars import ContextVar
+from functools import partial
 from pathlib import Path
 from time import perf_counter
 from typing import Literal, NamedTuple
@@ -106,6 +108,10 @@ _EXTERNAL_RUNTIME_SESSION_ID: ContextVar[str | None] = ContextVar(
 _ID_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
 _ID_TOKEN_CACHE_LOCK = threading.Lock()
 ID_TOKEN_REQUEST_TIMEOUT_SECONDS = 3.0
+_RUNTIME_BRIDGE_EXECUTOR = ThreadPoolExecutor(
+    max_workers=4,
+    thread_name_prefix="opspilot-runtime-bridge",
+)
 METADATA_IDENTITY_ENDPOINT = (
     "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity"
 )
@@ -388,6 +394,37 @@ def _api_request(
         return 0, b""
 
 
+def _execute_runtime_turn(
+    decision: RuntimeInputDecision,
+    *,
+    api_url: str,
+    audience: str,
+) -> tuple[int, bytes]:
+    """Run the identity lookup and API turn on the bounded bridge executor."""
+
+    token = _fetch_cached_id_token(audience)
+    return _api_request(
+        f"{api_url}/internal/v2/runtime/turns",
+        token=token,
+        method="POST",
+        payload={
+            "query": decision.user_query,
+            "mode": "STANDARD",
+            "run_id": decision.run_id,
+            "correlation_id": decision.correlation_id,
+            "trace_id": decision.trace_id,
+            "actor_hash": decision.actor_hash,
+            "session_hash": decision.session_hash,
+            "query_hash": decision.query_hash,
+            "output_language": decision.output_language.value,
+        },
+        accept="application/json",
+        timeout_seconds=RUNTIME_API_TIMEOUT_SECONDS,
+        trace_id=decision.trace_id,
+        idempotency_key=decision.run_id,
+    )
+
+
 async def _run_api_runtime_investigation(
     decision: RuntimeInputDecision, *, api_url: str
 ) -> RuntimeInvocationResult:
@@ -395,27 +432,14 @@ async def _run_api_runtime_investigation(
 
     audience = os.getenv("OPSPILOT_INVESTIGATION_API_AUDIENCE", api_url).strip()
     try:
-        token = await asyncio.to_thread(_fetch_cached_id_token, audience)
-        status, body = await asyncio.to_thread(
-            _api_request,
-            f"{api_url}/internal/v2/runtime/turns",
-            token=token,
-            method="POST",
-            payload={
-                "query": decision.user_query,
-                "mode": "STANDARD",
-                "run_id": decision.run_id,
-                "correlation_id": decision.correlation_id,
-                "trace_id": decision.trace_id,
-                "actor_hash": decision.actor_hash,
-                "session_hash": decision.session_hash,
-                "query_hash": decision.query_hash,
-                "output_language": decision.output_language.value,
-            },
-            accept="application/json",
-            timeout_seconds=RUNTIME_API_TIMEOUT_SECONDS,
-            trace_id=decision.trace_id,
-            idempotency_key=decision.run_id,
+        status, body = await asyncio.get_running_loop().run_in_executor(
+            _RUNTIME_BRIDGE_EXECUTOR,
+            partial(
+                _execute_runtime_turn,
+                decision,
+                api_url=api_url,
+                audience=audience,
+            ),
         )
         if status != 200:
             raise RuntimeError("investigation API did not return a completed turn")
