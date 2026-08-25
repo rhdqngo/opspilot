@@ -59,9 +59,6 @@ ENVIRONMENT_TOKENS = {
         r"(?i)(?<![A-Za-z0-9-])(?:prod-sim|demo)(?![A-Za-z0-9-])|운영\s*모사|시뮬레이션"
     ),
 }
-REAL_PRODUCTION = re.compile(
-    r"(?i)(?<![A-Za-z0-9-])(?:prod|production)(?![-A-Za-z0-9])|(?<!모사)운영(?! 모사)"
-)
 DEPTH_TOKENS = {
     RequestedDepth.QUICK: re.compile(r"(?i)\bquick\b|간단|빠르게"),
     RequestedDepth.DEEP: re.compile(r"(?i)\bdeep\b|심층|깊게"),
@@ -74,6 +71,23 @@ class RequestValidationError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+def _requests_real_production(query: str) -> bool:
+    normalized = " ".join(query.casefold().split())
+    token: list[str] = []
+    for character in normalized:
+        if character.isalnum() or character == "-":
+            token.append(character)
+            continue
+        if "".join(token) in {"prod", "production"}:
+            return True
+        token.clear()
+    if "".join(token) in {"prod", "production"}:
+        return True
+
+    without_simulation_aliases = normalized.replace("운영 모사", "").replace("운영모사", "")
+    return "운영" in without_simulation_aliases
 
 
 def _parse_iso(value: str, assumptions: list[str]) -> datetime:
@@ -183,8 +197,7 @@ def parse_investigation_request(
         )
     end = now or datetime.now(UTC)
     lowered = query.casefold()
-    normalized_query = " ".join(query.split())
-    if REAL_PRODUCTION.search(normalized_query):
+    if _requests_real_production(query):
         raise RequestValidationError(
             "real_production_unsupported",
             "real production is not supported; use the explicit prod-sim environment",

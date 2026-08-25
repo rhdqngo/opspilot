@@ -100,7 +100,7 @@ def test_FR_001_normalizes_dev_environment_aliases(alias: str) -> None:
     assert all("No environment was specified" not in item for item in request.assumptions)
 
 
-@pytest.mark.parametrize("alias", ["prod", "Production", "운영"])
+@pytest.mark.parametrize("alias", ["prod", "Production", "운영", "운영 모사 운영"])
 def test_parser_rejects_real_production_without_coercing_to_prod_sim(alias: str) -> None:
     with pytest.raises(ValueError, match="real production is not supported"):
         parse_investigation_request(
