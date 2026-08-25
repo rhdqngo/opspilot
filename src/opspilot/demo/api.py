@@ -94,8 +94,11 @@ def create_app(
                 scenario = parse_scenario_context(
                     request.headers, scenarios_enabled=runtime.scenarios_enabled
                 )
-            except ScenarioContextError as exc:
-                return JSONResponse(status_code=400, content={"error_code": str(exc)})
+            except ScenarioContextError:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error_code": "INVALID_SCENARIO_CONTEXT"},
+                )
             fixed_failure = runtime.payment_failure_profile == "payment-failure"
             if fixed_failure or (scenario is not None and scenario.inject_payment_failure):
                 await asyncio.sleep(0.25)
@@ -125,8 +128,11 @@ def create_app(
         ) -> InventoryReservationResponse | JSONResponse:
             try:
                 parse_scenario_context(request.headers, scenarios_enabled=runtime.scenarios_enabled)
-            except ScenarioContextError as exc:
-                return JSONResponse(status_code=400, content={"error_code": str(exc)})
+            except ScenarioContextError:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error_code": "INVALID_SCENARIO_CONTEXT"},
+                )
             return InventoryReservationResponse(
                 reservation_id=f"res_{uuid4().hex[:16]}",
                 request_id=_request_id(request),
@@ -149,8 +155,11 @@ def create_app(
                 scenario = parse_scenario_context(
                     request.headers, scenarios_enabled=runtime.scenarios_enabled
                 )
-            except ScenarioContextError as exc:
-                return JSONResponse(status_code=400, content={"error_code": str(exc)})
+            except ScenarioContextError:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error_code": "INVALID_SCENARIO_CONTEXT"},
+                )
             order_id = f"ord_{uuid4().hex[:16]}"
             try:
                 async with asyncio.timeout(ORDER_TIMEOUT_SECONDS):

@@ -59,7 +59,7 @@ ENVIRONMENT_TOKENS = {
     ),
 }
 REAL_PRODUCTION = re.compile(
-    r"(?i)(?<![A-Za-z0-9-])(?:prod|production)(?![-A-Za-z0-9])|(?<!모사)운영(?!\s*모사)"
+    r"(?i)(?<![A-Za-z0-9-])(?:prod|production)(?![-A-Za-z0-9])|(?<!모사)운영(?! 모사)"
 )
 DEPTH_TOKENS = {
     RequestedDepth.QUICK: re.compile(r"(?i)\bquick\b|간단|빠르게"),
@@ -178,7 +178,8 @@ def parse_investigation_request(
 ) -> InvestigationRequest:
     end = now or datetime.now(UTC)
     lowered = query.casefold()
-    if REAL_PRODUCTION.search(query):
+    normalized_query = " ".join(query.split())
+    if REAL_PRODUCTION.search(normalized_query):
         raise RequestValidationError(
             "real_production_unsupported",
             "real production is not supported; use the explicit prod-sim environment",

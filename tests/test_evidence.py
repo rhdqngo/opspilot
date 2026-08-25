@@ -7,6 +7,7 @@ from email.message import Message
 from io import BytesIO
 from typing import Any, cast
 from urllib.error import HTTPError
+from urllib.parse import urlsplit
 
 import pytest
 from pydantic import ValidationError
@@ -513,7 +514,8 @@ async def test_M5_live_adapter_uses_fixed_bounded_requests_and_logical_citations
             assert token == "secret-live-token"
             assert quota_project == "secret-project-id"
             self.calls.append((method, url, body))
-            if "logging.googleapis.com" in url:
+            hostname = urlsplit(url).hostname
+            if hostname == "logging.googleapis.com":
                 assert body is not None
                 assert body["pageSize"] == 100
                 assert "secret-project-id" not in str(body["filter"])
@@ -532,7 +534,7 @@ async def test_M5_live_adapter_uses_fixed_bounded_requests_and_logical_citations
                     },
                     128,
                 )
-            if "monitoring.googleapis.com" in url:
+            if hostname == "monitoring.googleapis.com":
                 metric_value = "250" if "request_latencies" in url else "6"
                 labels = {} if "request_latencies" in url else {"response_code_class": "5xx"}
                 return (
@@ -581,7 +583,7 @@ async def test_M5_live_adapter_uses_fixed_bounded_requests_and_logical_citations
                     },
                     128,
                 )
-            if "discoveryengine.googleapis.com" in url:
+            if hostname == "discoveryengine.googleapis.com":
                 return (
                     {
                         "results": [

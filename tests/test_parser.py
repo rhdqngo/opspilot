@@ -111,6 +111,7 @@ def test_parser_rejects_real_production_without_coercing_to_prod_sim(alias: str)
         ("prod-sim", "prod-sim"),
         ("demo", "prod-sim"),
         ("운영 모사", "prod-sim"),
+        ("운영   모사", "prod-sim"),
     ],
 )
 def test_parser_supports_synthetic_environment_aliases(alias: str, environment: str) -> None:

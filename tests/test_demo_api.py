@@ -269,6 +269,7 @@ def test_M3_rejects_disabled_incomplete_or_invalid_scenario_context(
             headers={"X-Request-ID": "req_scenario_0002", **headers},
         )
     assert response.status_code == 400
+    assert response.json() == {"error_code": "INVALID_SCENARIO_CONTEXT"}
 
 
 def test_M3_payment_injects_only_the_first_six_SCN_001_steps(
