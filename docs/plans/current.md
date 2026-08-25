@@ -2,9 +2,9 @@
 
 **English** | [한국어](current.ko.md)
 
-status: formal_agent_verified
-phase: formal Incident Commander deployed and Gemini Enterprise Preview QA verified
-updated: 2026-08-15
+status: public_release_verified
+phase: public portfolio release and security baseline verified
+updated: 2026-08-25
 
 ## Verified product scope
 
@@ -86,21 +86,33 @@ updated: 2026-08-15
   the 10-minute experience path, report interpretation, expected rejections, privacy, and recovery
   from common Preview conditions in both English and Korean.
 - The scheduled experience passed manual and automatic `5/5 -> 4/6 -> 5/5` execution, a positive
-  60-minute Preview investigation, a healthy one-minute regression, 289/289 pytest, Terraform dev
+  60-minute Preview investigation, a healthy one-minute regression, 299/299 pytest, Terraform dev
   10/10, and final bootstrap/dev `No changes` plans.
+- The public-release source gate passes 299/299 pytest without cloud credentials, Ruff
+  format/check, strict mypy over 96 source files, package build, and Terraform bootstrap 1/1 and
+  dev 10/10. Public hosted-runner PR and Terraform checks pass.
+- Git history was rewritten before publication: all author and committer addresses use the GitHub
+  noreply address, retired AI workspace paths are absent from every reachable commit, and the
+  current tree and full reachable history pass credential, personal-email, forbidden-path, and
+  abnormal-blob scans. An unauthenticated clean clone and README, ZIP, and PDF downloads succeed.
+- All 119 pre-publication Actions runs and their artifacts were deleted. Secret scanning with push
+  protection, Dependabot alerts and security updates, CodeQL default setup, private vulnerability
+  reporting, and `main` force-push/deletion protection are enabled. Current secret-scanning,
+  Dependabot, and CodeQL alert counts are zero.
 - Sanitized evidence: [formal-agent v3](../portfolio/results/long-spec-formal-agent-v3.md),
   [scheduled incident experience v1](../portfolio/results/long-spec-scheduled-experience-v1.md),
   and the [verification evidence index](../portfolio/results/README.md).
 
-## External non-blocking item
+## Public release operational note
 
-- The three manual GitHub workflows remain affected by the existing hosted-runner billing or
-  spending-limit condition. Local and managed-environment gates are authoritative until the hosted
-  runner executes steps normally.
+- The pre-publication credentialed Terraform-plan run did not acquire a hosted runner, so no live
+  plan output was produced. `TF_PLAN_ENABLED=false` is the public baseline. Static public Terraform
+  checks pass; re-enable the live plan only for a deliberate controlled validation, then inspect
+  the redacted log and artifact before retaining the run.
 
 ## Next checkpoint
 
-- Treat the deployed formal agent as the release baseline.
+- Treat the public, sanitized repository and deployed formal agent as the release baseline.
 - Use the root README and verification evidence index as the portfolio documentation entrypoints.
 - Give reviewers the app-information and first-time-user guides instead of sharing account
   credentials or relying on verbal setup instructions.
@@ -109,6 +121,8 @@ updated: 2026-08-15
 - Resume only for a new requirement, a reproducible product defect, or a provider incident that
   violates the documented transient policy.
 - Keep raw browser captures, cloud identifiers, and execution mappings under `.tmp` only.
+- Preserve the pre-rewrite recovery bundle locally under `.tmp`; never upload it because it
+  contains the retired history and former author metadata.
 
 ## Deferred beyond this milestone
 

@@ -15,7 +15,7 @@ ADK Runtime과 권위 있는 FastAPI 조사 서비스를 기반으로 비공개 
 
 | 게이트 | 결과 |
 | --- | --- |
-| Python 테스트 | 289/289 |
+| Python 테스트 | 299/299 |
 | Core agent 평가 | 7/7 |
 | Portfolio 평가 | 40/40 |
 | Remediation 평가 | 12/12 |
@@ -115,9 +115,10 @@ terraform -chdir=infra/terraform/environments/dev validate
 terraform -chdir=infra/terraform/environments/dev test
 ```
 
-GitHub workflow는 수동 실행 전용입니다. Hosted Runner에는 외부 billing 또는 spending-limit
-문제가 남아 있어 source-bound 로컬 및 관리형 환경 게이트가 현재의 권위 있는 릴리스
-증거입니다. 오해를 부를 수 있는 CI badge는 표시하지 않습니다.
+프로젝트 GitHub workflow는 수동 실행 전용입니다. 공개 Hosted Runner에서 Python 및 정적
+Terraform 검증은 통과했으며, 자격증명을 사용하는 실제 Terraform plan은 통제된 비공개
+클라우드 검증 때 다시 활성화할 때까지 `TF_PLAN_ENABLED=false`로 유지합니다. CodeQL은
+`main`에서 별도로 실행됩니다. 오해를 부를 수 있는 CI badge는 표시하지 않습니다.
 
 ## 문서
 

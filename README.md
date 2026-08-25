@@ -15,7 +15,7 @@ Status: **formal agent deployed and Gemini Enterprise Preview QA verified**
 
 | Gate | Result |
 | --- | --- |
-| Python tests | 289/289 |
+| Python tests | 299/299 |
 | Core agent evaluation | 7/7 |
 | Portfolio evaluation | 40/40 |
 | Remediation evaluation | 12/12 |
@@ -116,9 +116,10 @@ terraform -chdir=infra/terraform/environments/dev validate
 terraform -chdir=infra/terraform/environments/dev test
 ```
 
-GitHub workflows are manual-only. Their hosted runner currently has an external billing or
-spending-limit condition, so the source-bound local and managed-environment gates above remain the
-authoritative release evidence. No misleading CI badge is displayed.
+Project GitHub workflows are manual-only. Public hosted-runner executions of the Python and static
+Terraform checks pass; the credentialed live Terraform plan remains intentionally disabled with
+`TF_PLAN_ENABLED=false` until it is re-enabled for a controlled private-cloud validation. CodeQL
+runs independently on `main`. No misleading CI badge is displayed.
 
 ## Documentation
 

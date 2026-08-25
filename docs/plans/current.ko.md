@@ -2,9 +2,9 @@
 
 [English](current.md) | **한국어**
 
-status: formal_agent_verified
-phase: formal Incident Commander 배포 및 Gemini Enterprise Preview QA 검증 완료
-updated: 2026-08-15
+status: public_release_verified
+phase: 공개 포트폴리오 릴리스 및 보안 기준 검증 완료
+updated: 2026-08-25
 
 ## 검증된 제품 범위
 
@@ -88,20 +88,32 @@ updated: 2026-08-15
   해석, 의도적 거절, 개인정보 보호와 일반적인 Preview 상태의 대응 방법을 한국어·영어로
   안내합니다.
 - 예약 체험은 수동·자동 `5/5 -> 4/6 -> 5/5` 실행, Preview 60분 양성 조사, 1분 정상 상태
-  회귀, pytest 289/289, Terraform dev 10/10과 최종 bootstrap/dev `No changes`를 통과했습니다.
+  회귀, pytest 299/299, Terraform dev 10/10과 최종 bootstrap/dev `No changes`를 통과했습니다.
+- 공개 릴리스 source gate는 클라우드 자격증명 없이 pytest 299/299, Ruff format/check,
+  96개 source file strict mypy, package build, Terraform bootstrap 1/1 및 dev 10/10을
+  통과했습니다. 공개 Hosted Runner의 PR 및 Terraform check도 통과했습니다.
+- 공개 전에 Git history를 재작성했습니다. 모든 author/committer 주소는 GitHub noreply
+  주소이며, 폐기한 AI workspace 경로는 접근 가능한 모든 commit에서 제거됐습니다. 현재
+  tree와 전체 접근 가능 history의 credential, 개인 이메일, 금지 경로, 비정상 blob scan이
+  통과했고 인증 없는 새 clone 및 README·ZIP·PDF 다운로드도 확인했습니다.
+- 공개 전 Actions run 119개와 연결 artifact를 모두 삭제했습니다. Secret scanning과 push
+  protection, Dependabot alert와 security update, CodeQL default setup, private vulnerability
+  reporting, `main` force-push/deletion protection을 활성화했습니다. 현재 secret scanning,
+  Dependabot, CodeQL alert는 모두 0건입니다.
 - 정제된 증빙: [formal-agent v3](../portfolio/results/long-spec-formal-agent-v3.md),
   [scheduled incident experience v1](../portfolio/results/long-spec-scheduled-experience-v1.md),
   [한국어 검증 증빙 색인](../portfolio/results/README.ko.md)
 
-## 외부 비차단 항목
+## 공개 릴리스 운영 참고
 
-- 수동 GitHub workflow 3개는 기존 hosted-runner billing 또는 spending-limit 조건의 영향을
-  받습니다. Runner가 정상적으로 step을 실행할 때까지 local 및 managed-environment gate가
-  권위 있는 결과입니다.
+- 공개 전 자격증명 기반 Terraform-plan 실행은 Hosted Runner를 배정받지 못해 실제 plan
+  출력이 생성되지 않았습니다. 공개 기준은 `TF_PLAN_ENABLED=false`입니다. 공개 정적
+  Terraform check는 통과했으며, 실제 plan은 통제된 검증에서만 의도적으로 다시 켠 뒤
+  redacted log와 artifact를 검사하고 실행을 보존합니다.
 
 ## 다음 checkpoint
 
-- 배포된 formal agent를 release baseline으로 취급합니다.
+- 공개·정제된 저장소와 배포된 formal agent를 release baseline으로 취급합니다.
 - Root README와 verification evidence index를 portfolio documentation 진입점으로 사용합니다.
 - 검토자에게 계정 credential이나 구두 설명 대신 앱 정보와 처음 이용하기 문서를
   전달합니다.
@@ -110,6 +122,8 @@ updated: 2026-08-15
 - 새 요구사항, 재현 가능한 product defect 또는 documented transient policy를 위반한
   provider incident가 있을 때만 작업을 재개합니다.
 - Raw browser capture, cloud identifier와 execution mapping은 `.tmp`에만 보관합니다.
+- 재작성 전 recovery bundle은 `.tmp` 아래에만 로컬 보관합니다. 폐기한 history와 이전
+  author metadata가 포함되므로 업로드하지 않습니다.
 
 ## 이 milestone 이후로 연기한 범위
 
