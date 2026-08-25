@@ -135,7 +135,7 @@ authoritative release evidence. No misleading CI badge is displayed.
 | Formal rollout | [Formal agent rollout](docs/operations/formal-agent-rollout.md) |
 | Scheduled incident experience | [Synthetic scenarios](docs/operations/scenarios.md) |
 | Remediation boundary | [Remediation runbook](docs/operations/remediation.md) |
-| Security | [Threat model](docs/security/threat-model.md) and [IAM matrix](docs/iam-matrix.md) |
+| Security | [Reporting policy](SECURITY.md), [threat model](docs/security/threat-model.md), and [IAM matrix](docs/iam-matrix.md) |
 | Cost controls | [Cost guardrails](docs/cost-model.md) |
 | Current state | [Project state](docs/plans/current.md) |
 | Verification history | [Evidence index](docs/portfolio/results/README.md) |

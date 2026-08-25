@@ -13,10 +13,13 @@ REDACTION_ENV = {
     "OPSPILOT_REDACT_BILLING_ACCOUNT_ID": "<billing-account-id>",
     "OPSPILOT_REDACT_STATE_BUCKET": "<state-bucket>",
     "OPSPILOT_REDACT_BUDGET_EMAIL": "<budget-email>",
+    "OPSPILOT_REDACT_INVESTIGATOR_OPERATOR_EMAIL": "<investigator-operator-email>",
     "OPSPILOT_REDACT_DEMO_IMAGE_URI": "<demo-image-uri>",
     "OPSPILOT_REDACT_INVESTIGATION_IMAGE_URI": "<investigation-image-uri>",
     "OPSPILOT_REDACT_REMEDIATION_IMAGE_URI": "<remediation-image-uri>",
     "OPSPILOT_REDACT_REMEDIATION_APPROVER_GROUP": "<remediation-approver-group>",
+    "OPSPILOT_REDACT_WIF_PROVIDER": "<workload-identity-provider>",
+    "OPSPILOT_REDACT_TERRAFORM_PLAN_SERVICE_ACCOUNT": "<terraform-plan-service-account>",
 }
 
 
@@ -28,7 +31,30 @@ def redact_terraform_plan(text: str, values: Mapping[str, str]) -> str:
         if value:
             redacted = redacted.replace(value, placeholder)
     redacted = re.sub(r"billingAccounts/[A-Za-z0-9-]+", "billingAccounts/<redacted>", redacted)
-    redacted = re.sub(r"projects/[0-9]{6,}", "projects/<redacted-number>", redacted)
+    redacted = re.sub(r"projects/[A-Za-z0-9._:-]+", "projects/<redacted>", redacted)
+    redacted = re.sub(
+        r"[A-Za-z0-9._-]+@[A-Za-z0-9._-]+\.iam\.gserviceaccount\.com",
+        "<redacted-service-account>",
+        redacted,
+        flags=re.IGNORECASE,
+    )
+    redacted = re.sub(
+        r"[A-Za-z0-9.-]+-docker\.pkg\.dev/[^\s\"'<>]+",
+        "<redacted-artifact-registry-uri>",
+        redacted,
+        flags=re.IGNORECASE,
+    )
+    redacted = re.sub(
+        r"https://[A-Za-z0-9.-]+\.run\.app(?:/[^\s\"'<>]*)?",
+        "<redacted-cloud-run-url>",
+        redacted,
+        flags=re.IGNORECASE,
+    )
+    redacted = re.sub(
+        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+        "<redacted-email>",
+        redacted,
+    )
     return redacted
 
 

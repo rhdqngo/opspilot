@@ -136,6 +136,18 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "vars.TF_M7_RUNTIME_READY == 'true'" in live_plan
     assert "vars.TF_M8_REMEDIATION_READY == 'true'" in live_plan
     assert "vars.TF_PERSISTENT_INVESTIGATIONS_READY == 'true'" in live_plan
+    sensitive_settings = (
+        "GCP_PROJECT_ID",
+        "GCP_PROJECT_NUMBER",
+        "GCP_BILLING_ACCOUNT_ID",
+        "GCP_DEMO_IMAGE_URI",
+        "GCP_WIF_PROVIDER",
+        "GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT",
+        "TF_STATE_BUCKET",
+    )
+    for setting in sensitive_settings:
+        assert f"secrets.{setting}" in live_plan
+        assert f"vars.{setting}" not in live_plan
     assert 'TF_VAR_deploy_demo: "true"' in live_plan
     assert 'TF_VAR_deploy_knowledge: "true"' in live_plan
     assert 'TF_VAR_enable_live_evidence: "true"' in live_plan
@@ -156,6 +168,13 @@ def test_M1_workflows_pin_actions_and_keep_live_plan_manual() -> None:
     assert "OPSPILOT_REDACT_INVESTIGATION_IMAGE_URI" in live_plan
     assert "OPSPILOT_REDACT_REMEDIATION_IMAGE_URI" in live_plan
     assert "OPSPILOT_REDACT_REMEDIATION_APPROVER_GROUP" in live_plan
+    assert "OPSPILOT_REDACT_INVESTIGATOR_OPERATOR_EMAIL" in live_plan
+    assert "OPSPILOT_REDACT_WIF_PROVIDER" in live_plan
+    assert "OPSPILOT_REDACT_TERRAFORM_PLAN_SERVICE_ACCOUNT" in live_plan
+    assert 'raw_log="$RUNNER_TEMP/terraform-plan-raw.txt"' in live_plan
+    assert '>"$raw_log" 2>&1' in live_plan
+    assert 'python -m opspilot.plan_redaction < "$raw_log"' in live_plan
+    assert 'rm -f "$raw_log"' in live_plan
     assert live_plan.count("-lock=false") == 2
     assert "vars.TF_DEV_STATE_READY != 'true'" in live_plan
     assert "vars.TF_DEV_STATE_READY == 'true'" in live_plan

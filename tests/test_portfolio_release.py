@@ -282,6 +282,7 @@ def test_readme_points_to_current_formal_agent_evidence() -> None:
         "security/threat-model.ko.md": Path("docs/security/threat-model.ko.md"),
         "security/iam-matrix.ko.md": Path("docs/iam-matrix.ko.md"),
         "security/cost-model.ko.md": Path("docs/cost-model.ko.md"),
+        "security/security-policy.ko.md": Path("SECURITY.ko.md"),
         "status/current.ko.md": Path("docs/plans/current.ko.md"),
         "status/verification-index.ko.md": Path("docs/portfolio/results/README.ko.md"),
     }

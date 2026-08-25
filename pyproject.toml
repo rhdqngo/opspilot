@@ -1,7 +1,7 @@
 [project]
 name = "opspilot"
 version = "0.1.0"
-description = "Evidence-grounded local skeleton for the OpsPilot incident commander"
+description = "Evidence-grounded incident commander for synthetic Google Cloud operations"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -12,6 +12,10 @@ dependencies = [
     "pyyaml>=6.0.3",
     "uvicorn>=0.52.1",
 ]
+
+[project.urls]
+Repository = "https://github.com/rhdqngo/opspilot"
+Documentation = "https://github.com/rhdqngo/opspilot#documentation"
 
 [project.optional-dependencies]
 agent = [

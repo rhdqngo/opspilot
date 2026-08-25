@@ -35,6 +35,10 @@ __pycache__/
 venv/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
 *.egg-info/
 
 # Temporary test and capture output

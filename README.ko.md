@@ -134,7 +134,7 @@ GitHub workflow는 수동 실행 전용입니다. Hosted Runner에는 외부 bil
 | 정식 배포 | [Formal agent rollout](docs/operations/formal-agent-rollout.ko.md) |
 | 예약 장애 체험 | [합성 장애 시나리오](docs/operations/scenarios.ko.md) |
 | 복구 경계 | [Remediation runbook](docs/operations/remediation.ko.md) |
-| 보안 | [위협 모델](docs/security/threat-model.ko.md), [IAM 매트릭스](docs/iam-matrix.ko.md) |
+| 보안 | [취약점 제보 정책](SECURITY.ko.md), [위협 모델](docs/security/threat-model.ko.md), [IAM 매트릭스](docs/iam-matrix.ko.md) |
 | 비용 통제 | [비용 guardrail](docs/cost-model.ko.md) |
 | 현재 상태 | [프로젝트 상태](docs/plans/current.ko.md) |
 | 검증 이력 | [증빙 색인](docs/portfolio/results/README.ko.md) |
