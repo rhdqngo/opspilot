@@ -6,7 +6,7 @@ import pytest
 
 from opspilot.catalog import load_service_catalog
 from opspilot.domain import OutputLanguage
-from opspilot.parser import parse_investigation_request
+from opspilot.parser import MAX_QUERY_LENGTH, parse_investigation_request
 
 NOW = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
 
@@ -68,6 +68,15 @@ def test_parser_supports_catalog_services_and_relative_windows(
 def test_parser_rejects_ambiguous_or_out_of_scope_input(query: str) -> None:
     with pytest.raises(ValueError):
         parse_investigation_request(query, catalog=load_service_catalog(), now=NOW)
+
+
+def test_parser_rejects_queries_above_the_bounded_intake_limit() -> None:
+    with pytest.raises(ValueError, match="query exceeds"):
+        parse_investigation_request(
+            "x" * (MAX_QUERY_LENGTH + 1),
+            catalog=load_service_catalog(),
+            now=NOW,
+        )
 
 
 def test_parser_records_action_requests_without_executing_them() -> None:

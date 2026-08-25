@@ -16,6 +16,7 @@ from opspilot.domain import (
 )
 
 KST = ZoneInfo("Asia/Seoul")
+MAX_QUERY_LENGTH = 2_000
 SERVICE_TOKEN = re.compile(r"(?<![a-z0-9-])[a-z][a-z0-9-]*-service(?![a-z0-9-])", re.I)
 MINUTE_WINDOW = re.compile(
     r"(?:(?:last|past|previous|recent|최근|지난)\s*)?(\d{1,3})\s*(?:minutes?|mins?|min|분)\b",
@@ -176,6 +177,10 @@ def parse_investigation_request(
     now: datetime | None = None,
     focus_hypothesis_id: str | None = None,
 ) -> InvestigationRequest:
+    if len(query) > MAX_QUERY_LENGTH:
+        raise RequestValidationError(
+            "query_too_long", f"query exceeds the {MAX_QUERY_LENGTH}-character limit"
+        )
     end = now or datetime.now(UTC)
     lowered = query.casefold()
     normalized_query = " ".join(query.split())
