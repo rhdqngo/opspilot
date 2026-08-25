@@ -17,7 +17,6 @@ from opspilot.domain import (
 
 KST = ZoneInfo("Asia/Seoul")
 MAX_QUERY_LENGTH = 2_000
-SERVICE_TOKEN = re.compile(r"(?<![a-z0-9-])[a-z][a-z0-9-]*-service(?![a-z0-9-])", re.I)
 MINUTE_WINDOW = re.compile(
     r"(?:(?:last|past|previous|recent|최근|지난)\s*)?(\d{1,3})\s*(?:minutes?|mins?|min|분)\b",
     re.I,
@@ -88,6 +87,24 @@ def _requests_real_production(query: str) -> bool:
 
     without_simulation_aliases = normalized.replace("운영 모사", "").replace("운영모사", "")
     return "운영" in without_simulation_aliases
+
+
+def _service_tokens(query: str) -> list[str]:
+    tokens: list[str] = []
+    current: list[str] = []
+    for character in query.casefold():
+        if "a" <= character <= "z" or "0" <= character <= "9" or character == "-":
+            current.append(character)
+            continue
+        token = "".join(current)
+        if token.endswith("-service") and token[0:1].isalpha():
+            tokens.append(token)
+        current.clear()
+
+    token = "".join(current)
+    if token.endswith("-service") and token[0:1].isalpha():
+        tokens.append(token)
+    return tokens
 
 
 def _parse_iso(value: str, assumptions: list[str]) -> datetime:
@@ -203,7 +220,7 @@ def parse_investigation_request(
             "real production is not supported; use the explicit prod-sim environment",
         )
 
-    explicit_tokens = sorted(set(token.casefold() for token in SERVICE_TOKEN.findall(query)))
+    explicit_tokens = sorted(set(_service_tokens(query)))
     unknown = sorted(set(explicit_tokens) - set(catalog.services))
     if unknown:
         raise RequestValidationError(

@@ -33,6 +33,15 @@ def test_parser_recognizes_service_before_a_korean_particle() -> None:
     assert request.end_time - request.start_time == timedelta(minutes=15)
 
 
+def test_parser_does_not_extract_service_suffixes_from_longer_ascii_tokens() -> None:
+    with pytest.raises(ValueError, match="not allowlisted"):
+        parse_investigation_request(
+            "xpayment-service last 10 minutes errors",
+            catalog=load_service_catalog(),
+            now=NOW,
+        )
+
+
 @pytest.mark.parametrize(
     ("query", "services", "minutes"),
     [
